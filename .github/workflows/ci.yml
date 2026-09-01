@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build the engine
+        run: make -C engine
+      - name: it should start and answer
+        run: |
+          ./engine/build/campus_engine &
+          sleep 2
+          curl --fail --silent http://127.0.0.1:8081/healthz
+          echo
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install
+        run: pip install -r api/requirements-dev.txt
+      - name: tests
+        run: python -m pytest pipeline api -q

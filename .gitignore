@@ -45,8 +45,10 @@ engine/bin/
 *.dll
 *.so
 
-# raw overpass responses are cached locally and can be large
+# raw overpass responses and the intermediate dump. both are large and
+# both rebuild from scratch with pipeline.extract.
 pipeline/.cache/
+pipeline/raw/
 
 # os junk
 .DS_Store

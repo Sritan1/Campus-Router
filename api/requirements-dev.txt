@@ -1,0 +1,5 @@
+﻿# test and tooling deps. these never ship in the container.
+#     pip install -r api/requirements-dev.txt
+-r requirements.txt
+
+pytest>=8.0

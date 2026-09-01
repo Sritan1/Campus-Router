@@ -1,0 +1,296 @@
+"""Turns the raw Overpass dump into our own graph file.
+
+Ways become individual edges between consecutive nodes so that each
+edge can carry its own tags. Buildings get attached to the network
+through real entrances where they exist.
+"""
+
+import argparse
+import collections
+import json
+import pathlib
+
+from pipeline.geo import haversine_m
+
+RAW_PATH = pathlib.Path(__file__).resolve().parent / "raw" / "campus_raw.json"
+OUT_PATH = pathlib.Path(__file__).resolve().parents[1] / "api" / "data" / "graph.json"
+
+SCHEMA_VERSION = 1
+
+# highway values we treat as walkable. service covers campus driveways
+# and parking aisles, which people really do walk along.
+WALKABLE = {
+    "footway",
+    "path",
+    "steps",
+    "pedestrian",
+    "corridor",
+    "living_street",
+    "service",
+    "residential",
+}
+
+# how far from a building we are willing to look for a way to attach it
+BUILDING_LINK_M = 60.0
+
+# tags we keep on every edge, whether or not they are populated
+KEPT_TAGS = ["highway", "surface", "wheelchair", "incline", "lit", "covered", "tactile_paving"]
+
+
+def load_raw() -> dict:
+    if not RAW_PATH.exists():
+        raise SystemExit("no raw data, run python -m pipeline.extract first")
+    return json.loads(RAW_PATH.read_text(encoding="utf-8"))
+
+
+def normalise_surface(value):
+    """Folds the long tail of surface values into something usable."""
+    if not value:
+        return "unknown"
+    value = value.strip().lower()
+    # concrete:plates and similar subtypes collapse to their parent
+    return value.split(":")[0]
+
+
+def class_key(tags: dict) -> str:
+    """The bucket an edge belongs to for cost lookups.
+
+    Only tags with real coverage on campus are used here. wheelchair,
+    incline, lit and covered are all too sparse to key on.
+    """
+    highway = tags.get("highway") or "unknown"
+    surface = normalise_surface(tags.get("surface"))
+    tactile = "tactile" if tags.get("tactile_paving") in ("yes", "contrasted") else "none"
+    return f"{highway}|{surface}|{tactile}"
+
+
+def build_nodes(raw: dict) -> dict:
+    nodes = {}
+    for element in raw["ways"]["elements"]:
+        if element["type"] == "node":
+            nodes[element["id"]] = (element["lat"], element["lon"])
+    return nodes
+
+
+def build_edges(raw: dict, nodes: dict) -> list:
+    """Splits each way into one edge per pair of consecutive nodes."""
+    edges = []
+    seen = set()
+
+    for element in raw["ways"]["elements"]:
+        if element["type"] != "way":
+            continue
+        tags = element.get("tags", {})
+        if tags.get("highway") not in WALKABLE:
+            continue
+
+        refs = element.get("nodes", [])
+        # only keep tags that are actually set. most edges carry one or
+        # two of these and writing the empty ones out doubled the file.
+        kept = {t: tags[t] for t in KEPT_TAGS if tags.get(t)}
+        key = class_key(tags)
+
+        for u, v in zip(refs, refs[1:]):
+            if u == v or u not in nodes or v not in nodes:
+                continue
+
+            # a way pair can repeat across overlapping ways, keep one
+            pair = (u, v) if u < v else (v, u)
+            if pair in seen:
+                continue
+            seen.add(pair)
+
+            length = haversine_m(*nodes[u], *nodes[v])
+            if length <= 0:
+                continue
+
+            edges.append(
+                {
+                    "id": len(edges),
+                    "u": pair[0],
+                    "v": pair[1],
+                    "way_id": element["id"],
+                    "length_m": round(length, 3),
+                    "tags": kept,
+                    "class_key": key,
+                }
+            )
+
+    return edges
+
+
+def largest_component(edges: list) -> set:
+    """Finds the biggest connected chunk of the network.
+
+    Stray disconnected paths are real in openstreetmap and they would
+    only ever produce routes that fail.
+    """
+    adjacency = collections.defaultdict(list)
+    for edge in edges:
+        adjacency[edge["u"]].append(edge["v"])
+        adjacency[edge["v"]].append(edge["u"])
+
+    unvisited = set(adjacency)
+    best = set()
+
+    while unvisited:
+        start = next(iter(unvisited))
+        stack = [start]
+        seen = set()
+        while stack:
+            current = stack.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            for neighbour in adjacency[current]:
+                if neighbour not in seen:
+                    stack.append(neighbour)
+        unvisited -= seen
+        if len(seen) > len(best):
+            best = seen
+
+    return best
+
+
+def pick_refs(tags: dict):
+    """Building codes live in the ref tag on campus.
+
+    Some buildings list several, like SEL;SELE;SELW, so the first one
+    is the abbreviation and the rest become search aliases.
+    """
+    raw = tags.get("ref") or tags.get("short_name") or tags.get("abbr")
+    parts = []
+    if raw:
+        parts = [p.strip() for p in raw.split(";") if p.strip()]
+
+    aliases = parts[1:]
+    for key in ("alt_name", "old_name", "loc_name"):
+        if tags.get(key):
+            aliases.extend(p.strip() for p in tags[key].split(";") if p.strip())
+
+    return (parts[0] if parts else None), aliases
+
+
+def build_buildings(raw: dict, nodes: dict, network: set, entrance_ids: set) -> list:
+    """Attaches each named building to the walking network.
+
+    Real entrances win. If a building has none nearby we fall back to
+    the closest network nodes, which is the usual way this is done.
+    """
+    buildings = []
+
+    # only nodes that are actually part of the routable network
+    candidates = [(nid, nodes[nid]) for nid in network if nid in nodes]
+
+    for element in raw["buildings"]["elements"]:
+        tags = element.get("tags", {})
+        name = tags.get("name")
+        if not name:
+            continue
+
+        centre = element.get("center")
+        if not centre:
+            continue
+        clat, clon = centre["lat"], centre["lon"]
+
+        near = []
+        for nid, (nlat, nlon) in candidates:
+            distance = haversine_m(clat, clon, nlat, nlon)
+            if distance <= BUILDING_LINK_M:
+                near.append((distance, nid))
+        near.sort()
+
+        # prefer entrances, they are the honest way into a building
+        entrances_near = [(d, n) for d, n in near if n in entrance_ids]
+        chosen = entrances_near[:4] if entrances_near else near[:3]
+
+        fallback_used = False
+        if not chosen:
+            # nothing within the threshold, take the single closest node
+            everything = sorted(
+                (haversine_m(clat, clon, nlat, nlon), nid) for nid, (nlat, nlon) in candidates
+            )
+            chosen = everything[:1]
+            fallback_used = True
+
+        abbr, aliases = pick_refs(tags)
+        buildings.append(
+            {
+                "id": str(element["id"]),
+                "osm_type": element["type"],
+                "name": name,
+                "abbr": abbr,
+                "aliases": aliases,
+                "wheelchair": tags.get("wheelchair"),
+                "centroid": {"lat": clat, "lon": clon},
+                "links": [
+                    {"node_id": nid, "distance_m": round(d, 3)} for d, nid in chosen
+                ],
+                "linked_via_entrance": bool(entrances_near),
+                "link_fallback": fallback_used,
+            }
+        )
+
+    return buildings
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="build the campus graph")
+    parser.add_argument("--keep-all", action="store_true",
+                        help="keep disconnected pieces instead of the largest component")
+    args = parser.parse_args()
+
+    raw = load_raw()
+    nodes = build_nodes(raw)
+    edges = build_edges(raw, nodes)
+    print(f"nodes from overpass : {len(nodes)}")
+    print(f"edges built         : {len(edges)}")
+
+    component = largest_component(edges)
+    if not args.keep_all:
+        before = len(edges)
+        edges = [e for e in edges if e["u"] in component and e["v"] in component]
+        print(f"largest component   : {len(component)} nodes, dropped {before - len(edges)} edges")
+
+    used = {e["u"] for e in edges} | {e["v"] for e in edges}
+    entrance_ids = {e["id"] for e in raw["entrances"]["elements"]}
+    buildings = build_buildings(raw, nodes, used, entrance_ids)
+    print(f"buildings named     : {len(buildings)}")
+
+    classes = collections.Counter(e["class_key"] for e in edges)
+
+    graph = {
+        "schema_version": SCHEMA_VERSION,
+        "meta": {
+            "campus_relation": raw["campus_relation"],
+            "campus_bounds": raw["campus_bounds"],
+            "query_box": raw["query_box"],
+            "counts": {
+                "nodes": len(used),
+                "edges": len(edges),
+                "buildings": len(buildings),
+                "classes": len(classes),
+            },
+        },
+        "nodes": [
+            {"id": nid, "lat": nodes[nid][0], "lon": nodes[nid][1]} for nid in sorted(used)
+        ],
+        "edges": edges,
+        "buildings": sorted(buildings, key=lambda b: b["name"]),
+        "classes": [
+            {"class_key": k, "edge_count": v} for k, v in sorted(classes.items())
+        ],
+    }
+
+    # compact on purpose. this is a build artifact that gets loaded,
+    # not something anyone reads by hand.
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    OUT_PATH.write_text(json.dumps(graph, separators=(",", ":")), encoding="utf-8")
+    size_mb = OUT_PATH.stat().st_size / 1024 / 1024
+    print(f"classes             : {len(classes)}")
+    print(f"wrote {OUT_PATH} ({size_mb:.2f} MB)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
