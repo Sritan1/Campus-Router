@@ -8,12 +8,18 @@ Set-Location $root
 $binary = "engine\build\campus_engine.exe"
 
 # make is not installed on windows here, so call the compiler directly.
-# the flags match engine/Makefile on purpose.
+# the flags match engine/Makefile on purpose, include path included.
 Write-Host "building engine..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path "engine\build" | Out-Null
-& g++ -std=c++20 -O2 -Wall -Wextra -Wpedantic engine\src\*.cpp -o $binary -lws2_32
+
+$sources = Get-ChildItem "engine\src\*.cpp" | ForEach-Object { $_.FullName }
+& g++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Iengine\include $sources -o $binary -lws2_32
 if ($LASTEXITCODE -ne 0) { throw "engine build failed" }
 Write-Host "engine built" -ForegroundColor Green
+
+if (-not (Test-Path "api\data\graph.campus")) {
+    throw "no graph at api\data\graph.campus, run python -m pipeline.transform"
+}
 
 $python = ".\.venv\Scripts\python.exe"
 if (-not (Test-Path $python)) {
