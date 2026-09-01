@@ -16,14 +16,24 @@ Early stage. The engine currently answers a health check and nothing else.
 
 ## Running it locally
 
-One command. It builds the engine, sets up the virtual environment the first time, and
+Two terminals.
+
+**Backend.** Builds the engine, sets up the virtual environment the first time, and
 starts the gateway with hot reload.
 
 ```
 powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 ```
 
-Then open http://127.0.0.1:8000/api/health
+**Frontend.**
+
+```
+cd web
+npm install
+npm run dev
+```
+
+Then open http://localhost:3000
 
 You do not start the engine yourself. The gateway launches it as a child process, waits
 for it to answer, and restarts it if it dies.
