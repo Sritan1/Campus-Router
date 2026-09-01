@@ -1,0 +1,7 @@
+# keep line endings as lf everywhere. the makefile and the dockerfile
+# run inside a linux container and crlf breaks them.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.pdf binary
