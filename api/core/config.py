@@ -1,4 +1,4 @@
-"""Settings for the gateway. Everything comes from the environment."""
+﻿"""Settings for the gateway. Everything comes from the environment."""
 
 import os
 from pathlib import Path
@@ -37,9 +37,23 @@ class Settings:
         self.engine_startup_timeout_s = float(_env("ENGINE_STARTUP_TIMEOUT_S", "20"))
         self.engine_restart_backoff_s = float(_env("ENGINE_RESTART_BACKOFF_S", "10"))
 
+        self.openweather_api_key = _env("OPENWEATHER_API_KEY", "")
+        self.weather_ttl_s = float(_env("WEATHER_TTL_S", "600"))
+        self.weather_timeout_s = float(_env("WEATHER_TIMEOUT_S", "6"))
+
+        self.rate_limit = _env("RATE_LIMIT", "60/minute")
+
+        # comma separated, or a star while developing
+        self.allowed_origins = [
+            origin.strip()
+            for origin in _env("ALLOWED_ORIGINS", "*").split(",")
+            if origin.strip()
+        ]
+
     @property
     def engine_base_url(self) -> str:
         return f"http://{self.engine_bind_host}:{self.engine_port}"
 
 
 settings = Settings()
+

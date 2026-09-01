@@ -7,10 +7,17 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 from api.core.config import settings
+from api.routes.routing import router as routing_router
 from api.services.engine_process import engine
+from api.services.graph_data import graph_data
 
 logging.basicConfig(
     level=settings.log_level,
@@ -21,6 +28,8 @@ log = logging.getLogger("gateway")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # load the graph before the engine so a bad data file fails fast
+    graph_data.load()
     engine.start()
     try:
         yield
@@ -28,7 +37,23 @@ async def lifespan(app: FastAPI):
         engine.stop()
 
 
-app = FastAPI(title="Campus Router API", version="0.0.1", lifespan=lifespan)
+app = FastAPI(title="Campus Router API", version="0.1.0", lifespan=lifespan)
+
+# the api is public and read only, so there is nothing to log in to.
+# a per address limit is all the protection it needs.
+limiter = Limiter(key_func=get_remote_address, default_limits=[settings.rate_limit])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+app.include_router(routing_router)
 
 
 @app.get("/api/health")
