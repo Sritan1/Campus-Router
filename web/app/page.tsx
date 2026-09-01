@@ -8,6 +8,7 @@ import BuildingSearch from "@/components/BuildingSearch";
 import ComparisonTable from "@/components/ComparisonTable";
 import Sidebar from "@/components/Sidebar";
 import {
+  API_BASE,
   ApiError,
   fetchBuildings,
   fetchGraphMeta,
@@ -18,6 +19,7 @@ import {
 import { ALGORITHM_LABELS, temperature, wind } from "@/lib/format";
 import { PLAYBACK_MS, clamp, prefersReducedMotion } from "@/lib/playback";
 import { INITIAL, algorithmsFor, canRun, reduce } from "@/lib/state";
+import { findBuilding, readUrl, writeUrl } from "@/lib/url";
 
 // leaflet reaches for window as soon as it loads, so it cannot render
 // on the server
@@ -70,7 +72,7 @@ export default function Home() {
     refetchInterval: 10 * 60 * 1000,
   });
 
-  const list = buildings.data ?? [];
+  const list = useMemo(() => buildings.data ?? [], [buildings.data]);
   const start = useMemo(
     () => list.find((b) => b.id === state.startId) ?? null,
     [list, state.startId],
@@ -79,6 +81,57 @@ export default function Home() {
     () => list.find((b) => b.id === state.targetId) ?? null,
     [list, state.targetId],
   );
+
+  // put a shared link back together, once, after the buildings arrive
+  const restoredRef = useRef(false);
+  const [linkNotice, setLinkNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (restoredRef.current || list.length === 0) {
+      return;
+    }
+    restoredRef.current = true;
+
+    const wanted = readUrl(window.location.search);
+    const from = findBuilding(list, wanted.from);
+    const to = findBuilding(list, wanted.to);
+
+    const missing = [
+      wanted.from && !from ? wanted.from : null,
+      wanted.to && !to ? wanted.to : null,
+    ].filter(Boolean);
+    if (missing.length > 0) {
+      setLinkNotice(`Could not find ${missing.join(" or ")} on campus`);
+    }
+
+    dispatch({
+      type: "restore",
+      patch: {
+        startId: from?.id ?? null,
+        targetId: to?.id ?? null,
+        ...(wanted.mode ? { mode: wanted.mode } : {}),
+        ...(wanted.race === null ? {} : { race: wanted.race }),
+        ...(wanted.algorithm
+          ? { algorithm: wanted.algorithm, selected: wanted.algorithm }
+          : {}),
+      },
+    });
+  }, [list]);
+
+  // keep the address bar current without adding history entries
+  useEffect(() => {
+    if (!restoredRef.current) {
+      return;
+    }
+    const query = writeUrl({
+      from: start,
+      to: target,
+      mode: state.mode,
+      race: state.race,
+      algorithm: state.algorithm,
+    });
+    window.history.replaceState(null, "", `${window.location.pathname}${query}`);
+  }, [start, target, state.mode, state.race, state.algorithm]);
 
   const stopClock = useCallback(() => {
     if (timerRef.current !== null) {
@@ -178,15 +231,66 @@ export default function Home() {
     return `drawn: ${drawn}${shared}${others}`;
   })();
 
+  const weatherReady = Boolean(weather.data && weather.data.available !== false);
+
   const weatherChip = (() => {
     if (weather.isLoading) {
       return "weather…";
     }
-    if (!weather.data || weather.data.available === false) {
+    if (!weatherReady) {
       return "weather unavailable";
     }
-    return `${temperature(weather.data.tempC)} · wind ${wind(weather.data.windMps)}`;
+    const value = weather.data as { tempC: number | null; windMps: number | null };
+    return `${temperature(value.tempC)} · wind ${wind(value.windMps)}`;
   })();
+
+  // says the same thing as a sighted user gets from the panel changing
+  const liveMessage = (() => {
+    if (state.error) {
+      return `Routing failed. ${state.error}`;
+    }
+    if (state.phase === "running") {
+      return state.reply ? "Showing how each algorithm searched" : "Finding routes";
+    }
+    if (state.phase === "results" && state.reply) {
+      const ok = state.reply.results.filter((r) => r.status === "ok").length;
+      return ok === 0
+        ? "No route found with these settings"
+        : `Found ${ok} route${ok === 1 ? "" : "s"}`;
+    }
+    return "";
+  })();
+
+  const sameBuilding = Boolean(
+    state.startId && state.targetId && state.startId === state.targetId,
+  );
+
+  // without the building list there is nothing to search and nothing to
+  // route between, so say so plainly rather than showing an empty box
+  if (buildings.isError) {
+    return (
+      <main className="shell">
+        <div className="fatal">
+          <h1 className="fatal-title">Cannot reach the routing service</h1>
+          <p className="fatal-body">
+            The map and search need the backend, and it is not answering at{" "}
+            <code>{API_BASE}</code>.
+          </p>
+          <p className="fatal-body">
+            If you are running this locally, start it with{" "}
+            <code>scripts/dev.ps1</code> and reload.
+          </p>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => buildings.refetch()}
+          >
+            Try again
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="shell">
@@ -232,17 +336,28 @@ export default function Home() {
         </div>
 
         <div className="segmented" role="group" aria-label="routing mode">
-          {MODES.map((mode) => (
-            <button
-              type="button"
-              key={mode.id}
-              className={state.mode === mode.id ? "is-active" : ""}
-              aria-pressed={state.mode === mode.id}
-              onClick={() => dispatch({ type: "setMode", mode: mode.id })}
-            >
-              {mode.label}
-            </button>
-          ))}
+          {MODES.map((mode) => {
+            // weather mode still works without a reading, it just cannot
+            // do anything useful, so say that rather than hiding it
+            const degraded = mode.id === "weather" && !weatherReady;
+            return (
+              <button
+                type="button"
+                key={mode.id}
+                className={`${state.mode === mode.id ? "is-active" : ""}${degraded ? " is-degraded" : ""}`}
+                aria-pressed={state.mode === mode.id}
+                title={
+                  degraded
+                    ? "No weather reading, this will route as shortest distance"
+                    : undefined
+                }
+                onClick={() => dispatch({ type: "setMode", mode: mode.id })}
+              >
+                {mode.label}
+                {degraded ? <span aria-hidden="true"> ·</span> : null}
+              </button>
+            );
+          })}
         </div>
 
         <button
@@ -255,8 +370,29 @@ export default function Home() {
         </button>
       </header>
 
+      {linkNotice || sameBuilding ? (
+        <div className="notice" role="status">
+          {sameBuilding
+            ? "Start and destination are the same building."
+            : linkNotice}
+          {linkNotice && !sameBuilding ? (
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setLinkNotice(null)}
+            >
+              dismiss
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      <p className="sr-only" role="status" aria-live="polite">
+        {liveMessage}
+      </p>
+
       <div className="body">
-        <div className="map-wrap">
+        <div className="map-wrap" role="region" aria-label="campus map">
           <MapPane
             reply={state.reply}
             selected={state.selected}

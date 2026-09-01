@@ -51,6 +51,7 @@ export type Action =
   | { type: "finished" }
   | { type: "replay" }
   | { type: "failed"; message: string }
+  | { type: "restore"; patch: Partial<AppState> }
   | { type: "reset" };
 
 /// Anything that changes what a route would be has to invalidate the one
@@ -150,6 +151,10 @@ export function reduce(state: AppState, action: Action): AppState {
 
     case "failed":
       return { ...state, phase: "idle", error: action.message, reply: null };
+
+    case "restore":
+      // used once on load to put a shared link back together
+      return { ...state, ...action.patch };
 
     case "reset":
       return { ...INITIAL, mode: state.mode, race: state.race, algorithm: state.algorithm };
