@@ -14,6 +14,11 @@ from pipeline.geo import haversine_m
 
 RAW_PATH = pathlib.Path(__file__).resolve().parent / "raw" / "campus_raw.json"
 OUT_PATH = pathlib.Path(__file__).resolve().parents[1] / "api" / "data" / "graph.json"
+ENGINE_PATH = pathlib.Path(__file__).resolve().parents[1] / "api" / "data" / "graph.campus"
+
+# buildings become real nodes so routing is just node to node. osm way ids
+# and node ids can collide, so building nodes go negative.
+LINK_CLASS = "link|building|none"
 
 SCHEMA_VERSION = 1
 
@@ -234,6 +239,51 @@ def build_buildings(raw: dict, nodes: dict, network: set, entrance_ids: set) -> 
     return buildings
 
 
+def write_engine_graph(nodes: dict, used: set, edges: list, buildings: list) -> None:
+    """Writes the compact format the C++ engine loads.
+
+    Plain text on purpose. It parses in a few lines with no json
+    library, and it is about a quarter the size of the json.
+    """
+    class_ids = {}
+    for edge in edges:
+        if edge["class_key"] not in class_ids:
+            class_ids[edge["class_key"]] = len(class_ids)
+    class_ids.setdefault(LINK_CLASS, len(class_ids))
+
+    lines = ["campus-graph 1"]
+
+    lines.append(f"classes {len(class_ids)}")
+    for key, index in sorted(class_ids.items(), key=lambda kv: kv[1]):
+        lines.append(f"{index} {key}")
+
+    # building nodes ride along with the real ones
+    lines.append(f"nodes {len(used) + len(buildings)}")
+    for nid in sorted(used):
+        lat, lon = nodes[nid]
+        lines.append(f"{nid} {lat:.7f} {lon:.7f}")
+    for building in buildings:
+        centre = building["centroid"]
+        lines.append(f"-{building['id']} {centre['lat']:.7f} {centre['lon']:.7f}")
+
+    link_count = sum(len(b["links"]) for b in buildings)
+    lines.append(f"edges {len(edges) + link_count}")
+    for edge in edges:
+        lines.append(
+            f"{edge['u']} {edge['v']} {edge['length_m']:.3f} {class_ids[edge['class_key']]}"
+        )
+    for building in buildings:
+        for link in building["links"]:
+            lines.append(
+                f"-{building['id']} {link['node_id']} {link['distance_m']:.3f}"
+                f" {class_ids[LINK_CLASS]}"
+            )
+
+    ENGINE_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    size_mb = ENGINE_PATH.stat().st_size / 1024 / 1024
+    print(f"wrote {ENGINE_PATH} ({size_mb:.2f} MB)")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="build the campus graph")
     parser.add_argument("--keep-all", action="store_true",
@@ -289,6 +339,8 @@ def main() -> int:
     size_mb = OUT_PATH.stat().st_size / 1024 / 1024
     print(f"classes             : {len(classes)}")
     print(f"wrote {OUT_PATH} ({size_mb:.2f} MB)")
+
+    write_engine_graph(nodes, used, edges, graph["buildings"])
     return 0
 
 

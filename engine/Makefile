@@ -1,31 +1,50 @@
 # plain makefile on purpose. cmake is not installed on this machine.
 
 CXX      ?= g++
-CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Wpedantic
+CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Wpedantic -Iinclude
 BUILD    := build
-BIN      := $(BUILD)/campus_engine
-SRC      := $(wildcard src/*.cpp)
 
-# windows needs winsock and a .exe suffix
+# graph, algorithms and loading are shared by all three binaries
+CORE := src/graph.cpp src/algorithms.cpp src/loader.cpp
+
+SERVER_SRC := src/main.cpp $(CORE)
+CLI_SRC    := cli/route_cli.cpp $(CORE)
+TEST_SRC   := $(wildcard tests/*.cpp) $(CORE)
+
+SUFFIX :=
+LIBS   :=
 ifeq ($(OS),Windows_NT)
-	BIN  := $(BUILD)/campus_engine.exe
-	LIBS := -lws2_32
-else
-	LIBS :=
+	SUFFIX := .exe
+	LIBS   := -lws2_32
 endif
 
-.PHONY: all clean run
+SERVER := $(BUILD)/campus_engine$(SUFFIX)
+CLI    := $(BUILD)/route_cli$(SUFFIX)
+TESTS  := $(BUILD)/campus_tests$(SUFFIX)
 
-all: $(BIN)
+.PHONY: all cli test run clean
 
-$(BIN): $(SRC) | $(BUILD)
-	$(CXX) $(CXXFLAGS) $(SRC) -o $@ $(LIBS)
+all: $(SERVER)
+
+cli: $(CLI)
+
+$(SERVER): $(SERVER_SRC) | $(BUILD)
+	$(CXX) $(CXXFLAGS) $(SERVER_SRC) -o $@ $(LIBS)
+
+$(CLI): $(CLI_SRC) | $(BUILD)
+	$(CXX) $(CXXFLAGS) $(CLI_SRC) -o $@
+
+$(TESTS): $(TEST_SRC) | $(BUILD)
+	$(CXX) $(CXXFLAGS) -Itests $(TEST_SRC) -o $@
+
+test: $(TESTS)
+	./$(TESTS)
 
 $(BUILD):
 	mkdir $(BUILD)
 
-run: $(BIN)
-	./$(BIN)
+run: $(SERVER)
+	./$(SERVER)
 
 clean:
 	rm -rf $(BUILD)

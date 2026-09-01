@@ -12,6 +12,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: build the engine
         run: make -C engine
+      - name: engine tests
+        run: make -C engine test
+      - name: route a real pair on the real graph
+        run: |
+          make -C engine cli
+          ./engine/build/route_cli api/data/graph.campus -151960667 -151672202
       - name: it should start and answer
         run: |
           ./engine/build/campus_engine &
