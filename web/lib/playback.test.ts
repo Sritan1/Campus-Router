@@ -16,6 +16,7 @@ function result(
     runtimeUs: 0,
     trace: {
       points: Array.from({ length: tracePoints }, () => [0, 0] as [number, number]),
+      parents: Array.from({ length: tracePoints }, (_, i) => i - 1),
       sampled: false,
       total: tracePoints,
     },

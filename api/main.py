@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -52,6 +53,10 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+# a race with traces is a few hundred kilobytes of coordinates, which
+# is mostly repeated digits and squashes down a long way
+app.add_middleware(GZipMiddleware, minimum_size=2000)
 
 app.include_router(routing_router)
 

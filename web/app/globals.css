@@ -524,6 +524,29 @@ button {
   }
 }
 
+/* the map dims while the search plays, so the trace has something to
+   stand out against. it sits under the canvas and over the tiles. */
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 440;
+  pointer-events: none;
+  background: #0b1020;
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
+.scrim.is-on {
+  opacity: 0.62;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scrim {
+    transition: none;
+  }
+}
+
 /* race lanes while the exploration plays */
 
 .race-lane {

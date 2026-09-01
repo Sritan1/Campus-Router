@@ -299,7 +299,9 @@ void writeNumber(double value, std::string &into) {
     into += "null";
     return;
   } else {
-    std::snprintf(buffer, sizeof(buffer), "%.6g", value);
+    // ten digits, because six rounds a latitude to about eleven metres
+    // and the paths here are only seven metres apart
+    std::snprintf(buffer, sizeof(buffer), "%.10g", value);
   }
   into += buffer;
 }

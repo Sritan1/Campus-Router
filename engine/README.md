@@ -54,9 +54,20 @@ Two things worth knowing about the reply:
   bidirectional usually agree, so the client can draw two lines instead of four on top
   of each other.
 
-Traces are thinned before they are sent. A BFS run can settle thousands of nodes, and
-the animation only needs the shape of the search, so `maxTraceSamples` entries are taken
-evenly across the whole run.
+### Traces
+
+A trace is the search itself, not just a list of places it went. Each settled node comes
+with `parents`, the position in the same list of the node it was reached from, so the
+client can draw the edge that got there instead of a loose dot. A `-1` means a starting
+node, which has no edge behind it. Bidirectional has two of those, one per direction.
+
+Parents always point backwards, so a client drawing in order never needs a point it has
+not seen yet.
+
+Traces can be thinned if they get huge, evenly across the whole run so the shape survives.
+The cap defaults to 8000, which this graph never reaches, so in practice nothing is
+dropped. If it ever does thin, a segment whose parent was dropped comes back with `-1`
+rather than a wrong line.
 
 ### JSON
 

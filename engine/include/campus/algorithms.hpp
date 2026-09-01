@@ -33,6 +33,10 @@ struct RouteResult {
 
   // the order nodes were settled in, for the exploration animation
   std::vector<int> visitOrder;
+
+  // the node each one was reached from, so the animation can draw the
+  // edge that got there instead of a loose dot. -1 for a starting node.
+  std::vector<int> visitParents;
 };
 
 /// @brief Run one algorithm over the graph.

@@ -39,10 +39,11 @@ class Service {
 /// @brief Build an error body in the same shape as every other reply.
 std::string errorBody(const std::string &message);
 
-/// @brief Take at most `limit` entries, spread evenly across the input.
+/// @brief Which entries to keep when a trace is too long to send whole.
 ///
-/// The exploration animation only needs the shape of the search, so a
-/// six thousand node trace gets thinned rather than sent whole.
-std::vector<int> thin(const std::vector<int> &source, size_t limit);
+/// Returns positions into the original, spread evenly, so a thinned
+/// trace still covers the entire search rather than just the start.
+/// Returns everything when the trace already fits.
+std::vector<size_t> thinIndices(size_t total, size_t limit);
 
 }  // namespace campus

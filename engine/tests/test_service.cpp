@@ -267,18 +267,58 @@ TEST(negativeTraceLimitIsRejected) {
 }
 
 TEST(thinningKeepsTheEndsAndTheCount) {
-  std::vector<int> source;
-  for (int i = 0; i < 1000; i++) {
-    source.push_back(i);
-  }
-
-  std::vector<int> few = campus::thin(source, 10);
+  std::vector<size_t> few = campus::thinIndices(1000, 10);
   CHECK(few.size() == 10);
   CHECK(few.front() == 0);
   // evenly spread, so it still covers the whole search
   CHECK(few[5] == 500);
 
   // a limit above the input leaves it alone
-  CHECK(campus::thin(source, 5000).size() == 1000);
-  CHECK(campus::thin(source, 0).size() == 1000);
+  CHECK(campus::thinIndices(1000, 5000).size() == 1000);
+  CHECK(campus::thinIndices(1000, 0).size() == 1000);
+  CHECK(campus::thinIndices(0, 10).empty());
+}
+
+TEST(traceCarriesTheEdgeThatReachedEachNode) {
+  Graph graph = testGraph();
+  Service service(graph);
+
+  Json body = replyJson(service.handle(
+      "POST", "/route",
+      R"({"start":10,"target":13,"algorithms":["dijkstra"],"trace":true})"));
+
+  const Json &trace = body.at("results").items()[0].at("trace");
+  const size_t points = trace.at("points").items().size();
+
+  CHECK(points > 0);
+  // one parent per point, so every step can be drawn as a segment
+  CHECK(trace.at("parents").items().size() == points);
+
+  // the first settled node is the start, which came from nowhere
+  CHECK(trace.at("parents").items()[0].asInteger() == -1);
+
+  // every other parent points at something already in the trace
+  for (size_t i = 1; i < points; i++) {
+    const long long parent = trace.at("parents").items()[i].asInteger();
+    CHECK(parent >= -1);
+    CHECK(parent < static_cast<long long>(points));
+  }
+}
+
+TEST(everyParentComesBeforeItsChild) {
+  Graph graph = testGraph();
+  Service service(graph);
+
+  Json body = replyJson(service.handle(
+      "POST", "/route", R"({"start":10,"target":13,"trace":true})"));
+
+  // the animation draws in order, so a parent arriving later would
+  // mean drawing a segment from a point that is not on screen yet
+  for (const Json &entry : body.at("results").items()) {
+    const Json &parents = entry.at("trace").at("parents");
+    for (size_t i = 0; i < parents.items().size(); i++) {
+      const long long parent = parents.items()[i].asInteger();
+      CHECK(parent < static_cast<long long>(i));
+    }
+  }
 }

@@ -265,6 +265,12 @@ export default function Home() {
             startedAt={startedAt}
             reducedMotion={reducedMotion}
           />
+          {/* darkens the tiles while exploring so the trace reads,
+              then fades back out */}
+          <div
+            className={`scrim${state.phase === "running" && state.reply ? " is-on" : ""}`}
+            aria-hidden="true"
+          />
           <div className="chip chip-mode">{MODE_NOTES[state.mode]}</div>
           <div className="chip chip-weather">{weatherChip}</div>
           {legend ? <div className="chip chip-legend">{legend}</div> : null}

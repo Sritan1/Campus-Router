@@ -84,6 +84,16 @@ TEST(writesWholeNumbersWithoutADecimalPoint) {
   CHECK(Json::of(0).dump() == "0");
 }
 
+TEST(coordinatesKeepEnoughDigitsToBeUseful) {
+  // six significant digits rounds a latitude to about eleven metres,
+  // and the paths on this graph are seven metres apart
+  CHECK(Json::of(41.8708305).dump() == "41.8708305");
+  CHECK(Json::of(-87.6504556).dump() == "-87.6504556");
+
+  // two nearby nodes must not collapse onto the same value
+  CHECK(Json::of(41.8708305).dump() != Json::of(41.8708405).dump());
+}
+
 TEST(writesTheOtherTypes) {
   CHECK(Json::of(true).dump() == "true");
   CHECK(Json().dump() == "null");

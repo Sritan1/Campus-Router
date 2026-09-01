@@ -59,13 +59,31 @@ genuinely different path is drawn dashed and grey behind it.
 
 Four algorithms on the same pair, then a playback of how each one searched.
 
-The explored nodes are drawn on a **canvas** sitting over the map, not as Leaflet
-markers. A BFS run settles four and a half thousand nodes and four of those as markers
-would be tens of thousands of dom elements. On a real campus pair the four traces come to
-about 4400 points, which canvas handles without noticing.
+The search is drawn as **edges, not dots**. Every settled node knows the node it was
+reached from, so each step of the animation is a line down a real footpath. Because the
+pipeline splits ways into one edge per pair of nodes, and those are only about seven
+metres apart, the drawing follows the actual path network.
 
-While the playback runs the finished route is hidden, because drawing the answer next to
-the search gives the game away. The lines appear when it finishes.
+That is what makes the four algorithms look different rather than just differently sized.
+BFS spreads outward in every direction like a flood, A star reaches toward the target in
+a narrow band, and bidirectional grows two fronts that meet in the middle.
+
+It all goes on a **canvas** over the map, not Leaflet markers. A real campus pair comes
+to about 9900 segments across the four searches, which as dom elements would be hopeless.
+
+While the playback runs the map dims and the finished route is hidden, because drawing
+the answer next to the search gives the game away. Both come back when it finishes.
+
+### Painting incrementally
+
+The canvas is never cleared during playback. Each frame strokes only the segments
+revealed since the last one, batched into a single path per algorithm. Total work across
+the whole animation is therefore proportional to the number of segments, not segments
+times frames, which is the difference between about ten thousand strokes and about six
+hundred thousand.
+
+A full wipe and repaint only happens when the map pans or zooms, since that invalidates
+every pixel already painted.
 
 ### Two clocks
 

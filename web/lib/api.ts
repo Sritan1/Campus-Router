@@ -33,6 +33,8 @@ export type AlgorithmResult = {
   points?: [number, number][];
   trace?: {
     points: [number, number][];
+    // index into points of where each one was reached from, -1 for a start
+    parents: number[];
     sampled: boolean;
     total: number;
   };

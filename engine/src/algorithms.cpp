@@ -87,6 +87,7 @@ RouteResult searchWeighted(const Graph &graph, const CostModel &cost, int start,
     result.nodesVisited++;
     if (trace) {
       result.visitOrder.push_back(current.node);
+      result.visitParents.push_back(came[current.node]);
     }
 
     if (current.node == target) {
@@ -140,6 +141,7 @@ RouteResult searchBfs(const Graph &graph, const CostModel &cost, int start,
     result.nodesVisited++;
     if (trace) {
       result.visitOrder.push_back(current);
+      result.visitParents.push_back(came[current]);
     }
 
     if (current == target) {
@@ -227,6 +229,8 @@ RouteResult searchBidirectional(const Graph &graph, const CostModel &cost,
     result.nodesVisited++;
     if (trace) {
       result.visitOrder.push_back(current.node);
+      // came here is whichever direction we are currently expanding
+      result.visitParents.push_back(came[current.node]);
     }
 
     for (const Adjacency &edge : graph.neighbors(current.node)) {

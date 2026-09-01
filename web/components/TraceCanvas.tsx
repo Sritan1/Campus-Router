@@ -13,14 +13,19 @@ type Props = {
   reducedMotion: boolean;
 };
 
-/// Draws the explored nodes on a canvas sitting over the map.
+/// Draws the search spreading along the real footpaths.
 ///
-/// This has to be canvas. A bfs run settles thousands of nodes and four
-/// of those as leaflet markers would be tens of thousands of dom nodes.
+/// Each settled node knows the node it was reached from, so a step is a
+/// line down an actual path rather than a loose dot. That is what makes
+/// bfs look like a flood and a star look like an arrow.
 export default function TraceCanvas({ results, startedAt, reducedMotion }: Props) {
   const map = useMap();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef<number | null>(null);
+
+  // how far each algorithm has already been painted, so a frame only
+  // strokes what is new instead of the whole search again
+  const drawnRef = useRef<number[]>([]);
 
   useEffect(() => {
     const container = map.getContainer();
@@ -40,16 +45,14 @@ export default function TraceCanvas({ results, startedAt, reducedMotion }: Props
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) {
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) {
       return;
     }
 
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
+    drawnRef.current = results.map(() => 0);
 
-    function resize() {
+    function sizeToMap() {
       const size = map.getSize();
       const ratio = window.devicePixelRatio || 1;
       canvas!.width = size.x * ratio;
@@ -57,60 +60,96 @@ export default function TraceCanvas({ results, startedAt, reducedMotion }: Props
       canvas!.style.width = `${size.x}px`;
       canvas!.style.height = `${size.y}px`;
       context!.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context!.lineCap = "round";
     }
 
-    function draw() {
+    function wipe() {
       const size = map.getSize();
       context!.clearRect(0, 0, size.x, size.y);
+      drawnRef.current = results.map(() => 0);
+    }
 
-      if (startedAt === null) {
+    /// Strokes one algorithm's segments between two positions in its trace.
+    function strokeRange(result: AlgorithmResult, from: number, to: number) {
+      const trace = result.trace;
+      if (!trace?.points.length || to <= from) {
         return;
       }
 
-      const elapsed = performance.now() - startedAt;
-      const progress = reducedMotion ? 1 : clamp(elapsed / PLAYBACK_MS);
-
-      for (const result of results) {
-        const points = result.trace?.points;
-        if (!points?.length) {
+      context!.beginPath();
+      for (let i = from; i < to; i++) {
+        const parent = trace.parents[i];
+        if (parent === undefined || parent < 0) {
           continue;
         }
-
-        context!.fillStyle = ALGORITHM_COLORS[result.algorithm] ?? "#2a78d6";
-        context!.globalAlpha = 0.35;
-
-        const upTo = pointsShown(result, progress);
-        for (let i = 0; i < upTo; i++) {
-          const at = map.latLngToContainerPoint(points[i]);
-          // skip anything scrolled off screen rather than drawing it
-          if (at.x < -20 || at.y < -20 || at.x > size.x + 20 || at.y > size.y + 20) {
-            continue;
-          }
-          context!.fillRect(at.x - 1.5, at.y - 1.5, 3, 3);
-        }
+        const a = map.latLngToContainerPoint(trace.points[parent]);
+        const b = map.latLngToContainerPoint(trace.points[i]);
+        context!.moveTo(a.x, a.y);
+        context!.lineTo(b.x, b.y);
       }
+
+      context!.strokeStyle = ALGORITHM_COLORS[result.algorithm] ?? "#2a78d6";
+      context!.globalAlpha = 0.55;
+      context!.lineWidth = 1.6;
+      context!.stroke();
       context!.globalAlpha = 1;
     }
 
+    function progressNow() {
+      if (startedAt === null) {
+        return 0;
+      }
+      if (reducedMotion) {
+        return 1;
+      }
+      return clamp((performance.now() - startedAt) / PLAYBACK_MS);
+    }
+
+    /// Paints whatever has been revealed since the last frame.
+    function paintNew() {
+      const progress = progressNow();
+      results.forEach((result, index) => {
+        const upTo = pointsShown(result, progress);
+        const already = drawnRef.current[index] ?? 0;
+        if (upTo > already) {
+          strokeRange(result, already, upTo);
+          drawnRef.current[index] = upTo;
+        }
+      });
+    }
+
+    /// Repaints everything, for when the map has moved under us.
+    function repaintAll() {
+      wipe();
+      paintNew();
+    }
+
     function loop() {
-      draw();
+      paintNew();
       frameRef.current = requestAnimationFrame(loop);
     }
 
-    resize();
-    // the map moving under a static canvas would smear the points
-    map.on("move zoom resize", draw);
-    map.on("resize", resize);
+    sizeToMap();
+    wipe();
 
-    if (startedAt === null || reducedMotion) {
-      draw();
+    // panning or zooming invalidates every pixel already painted
+    map.on("move zoom", repaintAll);
+    map.on("resize", () => {
+      sizeToMap();
+      repaintAll();
+    });
+
+    if (startedAt === null) {
+      // nothing playing, leave the canvas clear
+    } else if (reducedMotion) {
+      paintNew();
     } else {
       frameRef.current = requestAnimationFrame(loop);
     }
 
     return () => {
-      map.off("move zoom resize", draw);
-      map.off("resize", resize);
+      map.off("move zoom", repaintAll);
+      map.off("resize");
       if (frameRef.current !== null) {
         cancelAnimationFrame(frameRef.current);
         frameRef.current = null;

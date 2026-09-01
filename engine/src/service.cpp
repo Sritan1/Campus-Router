@@ -2,6 +2,7 @@
 
 #include <map>
 #include <set>
+#include <unordered_map>
 
 #include "campus/algorithms.hpp"
 #include "campus/json.hpp"
@@ -10,8 +11,11 @@ namespace campus {
 
 namespace {
 
-constexpr size_t DEFAULT_TRACE_LIMIT = 1500;
-constexpr size_t MAX_TRACE_LIMIT = 20000;
+// the whole campus graph settles at most a few thousand nodes, so this
+// is high enough that nothing gets thinned in practice. it is a guard
+// against a pathological graph, not a normal part of the flow.
+constexpr size_t DEFAULT_TRACE_LIMIT = 8000;
+constexpr size_t MAX_TRACE_LIMIT = 50000;
 
 const Algorithm DEFAULT_ORDER[] = {
     Algorithm::Dijkstra,
@@ -101,17 +105,20 @@ std::string errorBody(const std::string &message) {
   return body.dump();
 }
 
-std::vector<int> thin(const std::vector<int> &source, size_t limit) {
-  if (limit == 0 || source.size() <= limit) {
-    return source;
+std::vector<size_t> thinIndices(size_t total, size_t limit) {
+  std::vector<size_t> out;
+  if (limit == 0 || total <= limit) {
+    out.reserve(total);
+    for (size_t i = 0; i < total; i++) {
+      out.push_back(i);
+    }
+    return out;
   }
 
-  std::vector<int> out;
-  out.reserve(limit);
   // step through evenly so the thinned trace still covers the whole search
+  out.reserve(limit);
   for (size_t i = 0; i < limit; i++) {
-    const size_t pick = (i * source.size()) / limit;
-    out.push_back(source[pick]);
+    out.push_back((i * total) / limit);
   }
   return out;
 }
@@ -217,19 +224,43 @@ Reply Service::route(const std::string &body) const {
     }
 
     if (trace) {
-      const std::vector<int> thinned = thin(result.visitOrder, traceLimit);
+      const std::vector<size_t> keep =
+          thinIndices(result.visitOrder.size(), traceLimit);
+
+      // where each settled node ended up in what we are sending, so a
+      // parent can be named by its position rather than repeating coords
+      std::unordered_map<int, int> placeOf;
+      placeOf.reserve(keep.size() * 2);
+      for (size_t out = 0; out < keep.size(); out++) {
+        placeOf[result.visitOrder[keep[out]]] = static_cast<int>(out);
+      }
+
       Json order = Json::array();
-      for (int index : thinned) {
-        const Coordinates at = this->graph.coordinatesAt(index);
+      Json parents = Json::array();
+      for (size_t out = 0; out < keep.size(); out++) {
+        const size_t at = keep[out];
+
+        const Coordinates where = this->graph.coordinatesAt(result.visitOrder[at]);
         Json pair = Json::array();
-        pair.push(Json::of(at.lat));
-        pair.push(Json::of(at.lon));
+        pair.push(Json::of(where.lat));
+        pair.push(Json::of(where.lon));
         order.push(std::move(pair));
+
+        // a start node has no parent, and a thinned trace can lose one
+        int parent = -1;
+        if (at < result.visitParents.size() && result.visitParents[at] >= 0) {
+          auto found = placeOf.find(result.visitParents[at]);
+          if (found != placeOf.end()) {
+            parent = found->second;
+          }
+        }
+        parents.push(Json::of(parent));
       }
 
       Json traceOut = Json::object();
       traceOut.set("points", std::move(order));
-      traceOut.set("sampled", Json::of(thinned.size() < result.visitOrder.size()));
+      traceOut.set("parents", std::move(parents));
+      traceOut.set("sampled", Json::of(keep.size() < result.visitOrder.size()));
       traceOut.set("total", Json::of(static_cast<long long>(result.visitOrder.size())));
       entry.set("trace", std::move(traceOut));
     }
