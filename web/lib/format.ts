@@ -78,3 +78,14 @@ export const ALGORITHM_COLORS: Record<string, string> = {
   bfs: "#7a9bc4",
   bidirectional: "#59a14f",
 };
+
+// line weights, kept together so they are easy to tune
+export const LINE = {
+  // the search spreading across the map
+  trace: 2.8,
+  traceAlpha: 0.7,
+  // the route it settled on
+  route: 8,
+  // a different path another algorithm took
+  alternate: 4.5,
+};

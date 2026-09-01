@@ -12,7 +12,7 @@ import "leaflet/dist/leaflet.css";
 
 import TraceCanvas from "@/components/TraceCanvas";
 import type { AlgorithmResult, GraphMeta, RouteReply } from "@/lib/api";
-import { ALGORITHM_COLORS } from "@/lib/format";
+import { ALGORITHM_COLORS, LINE } from "@/lib/format";
 
 const CAMPUS_CENTER: [number, number] = [41.8708, -87.6505];
 
@@ -109,9 +109,9 @@ export default function MapPane({
                 positions={result.points ?? []}
                 pathOptions={{
                   color: "#9aa0a6",
-                  weight: 3,
-                  opacity: 0.7,
-                  dashArray: "8 6",
+                  weight: LINE.alternate,
+                  opacity: 0.75,
+                  dashArray: "10 8",
                 }}
               />
             ))
@@ -122,8 +122,10 @@ export default function MapPane({
             positions={chosen.points}
             pathOptions={{
               color: ALGORITHM_COLORS[chosen.algorithm] ?? "#2a78d6",
-              weight: 6,
+              weight: LINE.route,
               opacity: 0.95,
+              lineCap: "round",
+              lineJoin: "round",
             }}
           />
         ) : null}

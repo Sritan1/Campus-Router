@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 
 import type { AlgorithmResult } from "@/lib/api";
-import { ALGORITHM_COLORS } from "@/lib/format";
+import { ALGORITHM_COLORS, LINE } from "@/lib/format";
 import { PLAYBACK_MS, clamp, pointsShown } from "@/lib/playback";
 
 type Props = {
@@ -89,8 +89,8 @@ export default function TraceCanvas({ results, startedAt, reducedMotion }: Props
       }
 
       context!.strokeStyle = ALGORITHM_COLORS[result.algorithm] ?? "#2a78d6";
-      context!.globalAlpha = 0.55;
-      context!.lineWidth = 1.6;
+      context!.globalAlpha = LINE.traceAlpha;
+      context!.lineWidth = LINE.trace;
       context!.stroke();
       context!.globalAlpha = 1;
     }
