@@ -16,35 +16,46 @@ Early stage. The engine currently answers a health check and nothing else.
 
 ## Running it locally
 
-Build the engine:
+One command. It builds the engine, sets up the virtual environment the first time, and
+starts the gateway with hot reload.
+
+```
+powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
+```
+
+Then open http://127.0.0.1:8000/api/health
+
+You do not start the engine yourself. The gateway launches it as a child process, waits
+for it to answer, and restarts it if it dies.
+
+### Doing it by hand
 
 ```
 cd engine
 make
-```
-
-Then start the gateway, which launches the engine itself:
-
-```
+cd ..
 python -m venv .venv
 .venv/Scripts/python -m pip install -r api/requirements.txt
-.venv/Scripts/python -m uvicorn api.main:app --port 8000
-```
-
-Check it:
-
-```
-curl http://127.0.0.1:8000/api/health
+.venv/Scripts/python -m uvicorn api.main:app --port 8000 --reload
 ```
 
 On macOS or Linux use `.venv/bin/python` instead.
 
+## How the two backend pieces fit together
+
+The gateway owns the engine process. It starts it on loopback, blocks until it answers
+its health check, forwards its output into the gateway log, and restarts it with backoff
+if it exits. `/api/health` reports engine state as well as its own, so a half dead
+service cannot report itself as fine.
+
+The engine binds to `127.0.0.1` only, so it is never reachable from outside.
+
 ## Deployment
 
-One container holds the gateway and the engine. The gateway starts the engine as a
-child process on loopback, waits for it to answer before serving traffic, and restarts
-it if it dies. `/api/health` reports the engine state too, so a container with a dead
-engine fails its health check instead of looking fine.
+Not set up yet, and deliberately left until the end. A `Dockerfile` and `railway.json`
+exist and describe the intended shape, one container holding both backend pieces, but
+neither has been built or deployed yet. Everything runs locally for now.
+
 
 ## Relationship to prior coursework
 
