@@ -10,6 +10,9 @@
 
 
 
+# reference papers and any other pdfs. never ours to redistribute.
+*.pdf
+
 # secrets
 .env
 .env.local
