@@ -27,6 +27,12 @@ class Settings:
         self.engine_binary = _env("ENGINE_BINARY", _engine_binary_default())
         self.engine_timeout_s = float(_env("ENGINE_TIMEOUT_S", "5"))
 
+        # the compact graph the engine reads, not the json one
+        self.graph_path = _env("GRAPH_PATH", str(REPO_ROOT / "api" / "data" / "graph.campus"))
+        self.graph_json_path = _env(
+            "GRAPH_JSON_PATH", str(REPO_ROOT / "api" / "data" / "graph.json")
+        )
+
         # how long we wait for a freshly spawned engine to answer healthz
         self.engine_startup_timeout_s = float(_env("ENGINE_STARTUP_TIMEOUT_S", "20"))
         self.engine_restart_backoff_s = float(_env("ENGINE_RESTART_BACKOFF_S", "10"))

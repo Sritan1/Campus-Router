@@ -14,6 +14,56 @@ make test       # build and run the tests
 
 No cmake, no package manager, no vendored libraries. Plain g++ and a Makefile.
 
+## The service
+
+Binds `127.0.0.1` by default and is never reachable from outside the container. The
+python gateway starts it, waits for `/healthz`, and restarts it if it dies.
+
+`GET /healthz` and `GET /graph/meta` describe what is loaded.
+
+`POST /route` does the work:
+
+```json
+{
+  "start": -151960667,
+  "target": -151672202,
+  "algorithms": ["dijkstra", "astar", "bfs", "bidirectional"],
+  "trace": true,
+  "maxTraceSamples": 1500,
+  "cost": {
+    "default": 1.0,
+    "multipliers": { "footway|concrete|none": 1.07 },
+    "blocked": ["steps|unknown|none"]
+  }
+}
+```
+
+`algorithms` defaults to all four. Cost classes arrive by name because the gateway
+thinks in names, and the engine maps them to its own integer ids.
+
+The reply carries one entry per algorithm with `status`, `cost`, `distanceM`, `hops`,
+`nodesVisited`, `edgesRelaxed`, `runtimeUs`, the `path` as node ids, and `points` as
+coordinates ready to draw.
+
+Two things worth knowing about the reply:
+
+- **A route that does not exist is not an error.** The request succeeds and the
+  algorithm entry says `"status": "no_path"`. Blocking steps really does strand parts of
+  campus, so this is a normal answer, not a failure.
+- **`pathGroups` says which algorithms landed on the same path.** Dijkstra, A star and
+  bidirectional usually agree, so the client can draw two lines instead of four on top
+  of each other.
+
+Traces are thinned before they are sent. A BFS run can settle thousands of nodes, and
+the animation only needs the shape of the search, so `maxTraceSamples` entries are taken
+evenly across the whole run.
+
+### JSON
+
+There is no json library here. The engine has its own small parser and writer in
+`json.cpp`, about two hundred lines, because the request and reply shapes are fixed and
+the only client is our own gateway on loopback. It is covered by its own tests.
+
 ## Trying a route by hand
 
 ```

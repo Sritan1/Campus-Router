@@ -4,8 +4,8 @@ CXX      ?= g++
 CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Wpedantic -Iinclude
 BUILD    := build
 
-# graph, algorithms and loading are shared by all three binaries
-CORE := src/graph.cpp src/algorithms.cpp src/loader.cpp
+# everything the three binaries share
+CORE := src/graph.cpp src/algorithms.cpp src/loader.cpp src/json.cpp src/service.cpp
 
 SERVER_SRC := src/main.cpp $(CORE)
 CLI_SRC    := cli/route_cli.cpp $(CORE)

@@ -67,6 +67,7 @@ class EngineProcess:
         child = os.environ.copy()
         child["ENGINE_BIND_HOST"] = settings.engine_bind_host
         child["ENGINE_PORT"] = str(settings.engine_port)
+        child["GRAPH_PATH"] = settings.graph_path
         return child
 
     def _pump_output(self) -> None:
