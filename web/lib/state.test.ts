@@ -110,15 +110,58 @@ describe("selecting lanes", () => {
 
   it("a finished race selects the first algorithm that found something", () => {
     const running = withEnds({ phase: "running" });
-    const next = reduce(running, { type: "succeeded", reply: fakeReply() });
+    const next = reduce(running, { type: "arrived", reply: fakeReply() });
     // dijkstra came back no_path, so astar is the one to draw
     expect(next.selected).toBe("astar");
   });
 
   it("a single algorithm run selects that algorithm", () => {
     const running = withEnds({ phase: "running", race: false, algorithm: "bfs" });
-    const next = reduce(running, { type: "succeeded", reply: fakeReply() });
+    const next = reduce(running, { type: "arrived", reply: fakeReply() });
     expect(next.selected).toBe("bfs");
+  });
+});
+
+describe("playback", () => {
+  it("the reply arriving does not end the running phase", () => {
+    // the exploration still has to play out after the data lands
+    const running = withEnds({ phase: "running" });
+    const next = reduce(running, { type: "arrived", reply: fakeReply() });
+    expect(next.phase).toBe("running");
+    expect(next.reply).not.toBeNull();
+  });
+
+  it("finishing moves to results", () => {
+    const animating = withEnds({ phase: "running", reply: fakeReply() });
+    expect(reduce(animating, { type: "finished" }).phase).toBe("results");
+  });
+
+  it("finishing with nothing to show is ignored", () => {
+    const waiting = withEnds({ phase: "running" });
+    expect(reduce(waiting, { type: "finished" })).toBe(waiting);
+  });
+
+  it("replay reuses the result instead of refetching", () => {
+    const settled = withEnds({ phase: "results", reply: fakeReply(), showTable: true });
+    const next = reduce(settled, { type: "replay" });
+    expect(next.phase).toBe("running");
+    expect(next.reply).not.toBeNull();
+    // the table would cover the map during playback
+    expect(next.showTable).toBe(false);
+  });
+
+  it("replay does nothing when there is no result yet", () => {
+    expect(reduce(INITIAL, { type: "replay" })).toBe(INITIAL);
+  });
+});
+
+describe("comparison table", () => {
+  it("toggles without touching the result", () => {
+    const settled = withEnds({ phase: "results", reply: fakeReply() });
+    const opened = reduce(settled, { type: "toggleTable" });
+    expect(opened.showTable).toBe(true);
+    expect(opened.reply).not.toBeNull();
+    expect(reduce(opened, { type: "toggleTable" }).showTable).toBe(false);
   });
 });
 

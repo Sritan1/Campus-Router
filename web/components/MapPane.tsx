@@ -10,6 +10,7 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
+import TraceCanvas from "@/components/TraceCanvas";
 import type { AlgorithmResult, GraphMeta, RouteReply } from "@/lib/api";
 import { ALGORITHM_COLORS } from "@/lib/format";
 
@@ -19,6 +20,9 @@ type Props = {
   reply: RouteReply | null;
   selected: string;
   meta: GraphMeta | null;
+  playing: boolean;
+  startedAt: number | null;
+  reducedMotion: boolean;
 };
 
 /// Keeps the whole route on screen when a new one arrives.
@@ -42,9 +46,20 @@ function drawableResults(reply: RouteReply | null): AlgorithmResult[] {
   return reply.results.filter((r) => r.status === "ok" && r.points?.length);
 }
 
-export default function MapPane({ reply, selected, meta }: Props) {
+export default function MapPane({
+  reply,
+  selected,
+  meta,
+  playing,
+  startedAt,
+  reducedMotion,
+}: Props) {
   const results = drawableResults(reply);
   const chosen = results.find((r) => r.algorithm === selected) ?? results[0];
+
+  // while the exploration plays, the finished route would give the
+  // answer away, so the lines wait until it is done
+  const showRoute = !playing;
 
   // anything that took a different path is drawn faintly behind, so the
   // race shows without four lines stacking on the same pixels
@@ -81,20 +96,28 @@ export default function MapPane({ reply, selected, meta }: Props) {
           maxZoom={19}
         />
 
-        {others.map((result) => (
-          <Polyline
-            key={`alt-${result.algorithm}`}
-            positions={result.points ?? []}
-            pathOptions={{
-              color: "#9aa0a6",
-              weight: 3,
-              opacity: 0.7,
-              dashArray: "8 6",
-            }}
-          />
-        ))}
+        <TraceCanvas
+          results={reply?.results ?? []}
+          startedAt={playing ? startedAt : null}
+          reducedMotion={reducedMotion}
+        />
 
-        {chosen?.points ? (
+        {showRoute
+          ? others.map((result) => (
+              <Polyline
+                key={`alt-${result.algorithm}`}
+                positions={result.points ?? []}
+                pathOptions={{
+                  color: "#9aa0a6",
+                  weight: 3,
+                  opacity: 0.7,
+                  dashArray: "8 6",
+                }}
+              />
+            ))
+          : null}
+
+        {showRoute && chosen?.points ? (
           <Polyline
             positions={chosen.points}
             pathOptions={{
@@ -105,7 +128,7 @@ export default function MapPane({ reply, selected, meta }: Props) {
           />
         ) : null}
 
-        {chosen?.points?.length ? (
+        {showRoute && chosen?.points?.length ? (
           <>
             <CircleMarker
               center={chosen.points[0]}

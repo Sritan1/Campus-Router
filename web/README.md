@@ -55,7 +55,34 @@ When several algorithms return the same path the map draws one line, not four st
 the same pixels. The selected algorithm is drawn solid in its own colour and any
 genuinely different path is drawn dashed and grey behind it.
 
-## What is not here yet
+## Race mode
 
-The running phase currently shows a plain loading panel. The exploration animation, the
-race lanes with their bars, and the comparison table are Round 6.
+Four algorithms on the same pair, then a playback of how each one searched.
+
+The explored nodes are drawn on a **canvas** sitting over the map, not as Leaflet
+markers. A BFS run settles four and a half thousand nodes and four of those as markers
+would be tens of thousands of dom elements. On a real campus pair the four traces come to
+about 4400 points, which canvas handles without noticing.
+
+While the playback runs the finished route is hidden, because drawing the answer next to
+the search gives the game away. The lines appear when it finishes.
+
+### Two clocks
+
+The canvas runs its own `requestAnimationFrame` loop off a shared start timestamp, so it
+stays smooth at sixty frames without React re-rendering the map. React only ticks twenty
+times a second, and only to move the sidebar bars, which is plenty for a bar.
+
+All four lanes share one clock, so the bars are comparable. Bar length is nodes explored
+against whoever explored the most, which means the shortest bar is the algorithm that did
+the least work. That is the whole point of the panel.
+
+### Playback length is presentation
+
+Playback lasts about 1.8 seconds. The engine answers in under a millisecond, so a real
+time animation would be one frame. Everything shown is real, the points and their order
+and the counts, but the pacing is chosen so it can be watched. The runtime column reports
+the engine's own measured time separately. This is said out loud in the root README and
+under the comparison table.
+
+`prefers-reduced-motion` skips straight to the finished state.

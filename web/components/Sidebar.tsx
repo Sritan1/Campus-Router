@@ -10,18 +10,23 @@ import {
   duration,
   runtime,
 } from "@/lib/format";
+import { barFraction } from "@/lib/playback";
 import type { AppState } from "@/lib/state";
 
 const ALL: AlgorithmName[] = ["dijkstra", "astar", "bfs", "bidirectional"];
 
 type Props = {
   state: AppState;
+  progress: number;
   onPickAlgorithm: (algorithm: AlgorithmName) => void;
   onToggleRace: () => void;
   onSelectLane: (algorithm: AlgorithmName) => void;
   onRun: () => void;
   onReset: () => void;
   onShowShortest: () => void;
+  onSkip: () => void;
+  onReplay: () => void;
+  onToggleTable: () => void;
   canRun: boolean;
 };
 
@@ -82,19 +87,55 @@ function IdlePanel({
   );
 }
 
-function RunningPanel() {
+function RunningPanel({ state, progress, onSkip }: Props) {
+  const reply = state.reply;
+
+  // before the reply lands there is nothing to measure, so show the
+  // plain waiting state rather than empty bars pretending to move
+  if (!reply) {
+    return (
+      <div className="panel">
+        <h2 className="panel-title">Running…</h2>
+        <p className="panel-hint">asking the engine</p>
+        <div className="skeletons">
+          {ALL.map((name) => (
+            <div className="skeleton-lane" key={name}>
+              <span className="skeleton-name">{ALGORITHM_LABELS[name]}</span>
+              <span className="skeleton-bar" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="panel">
-      <h2 className="panel-title">Running…</h2>
-      <p className="panel-hint">asking the engine</p>
+      <h2 className="panel-title">Exploring…</h2>
       <div className="skeletons">
-        {ALL.map((name) => (
-          <div className="skeleton-lane" key={name}>
-            <span className="skeleton-name">{ALGORITHM_LABELS[name]}</span>
-            <span className="skeleton-bar" />
+        {reply.results.map((result) => (
+          <div className="race-lane" key={result.algorithm}>
+            <span className="race-name">{ALGORITHM_LABELS[result.algorithm]}</span>
+            <span className="race-track">
+              <span
+                className="race-fill"
+                style={{
+                  width: `${barFraction(result, reply.results, progress) * 100}%`,
+                  background: ALGORITHM_COLORS[result.algorithm],
+                }}
+              />
+            </span>
+            <span className="race-count">
+              {count(Math.round(result.nodesVisited * progress))}
+            </span>
           </div>
         ))}
       </div>
+      <p className="panel-hint">bar length is nodes explored</p>
+
+      <button type="button" className="secondary run-button" onClick={onSkip}>
+        Skip to results ▸
+      </button>
     </div>
   );
 }
@@ -118,12 +159,8 @@ function NoPathPanel({ onShowShortest }: { onShowShortest: () => void }) {
   );
 }
 
-function ResultsPanel({
-  state,
-  onSelectLane,
-  onReset,
-  onShowShortest,
-}: Props) {
+function ResultsPanel(props: Props) {
+  const { state, onSelectLane, onReset, onShowShortest } = props;
   const reply = state.reply as RouteReply;
   const anyRoute = reply.results.some((result) => result.status === "ok");
 
@@ -182,14 +219,33 @@ function ResultsPanel({
       </div>
 
       <div className="results-foot">
-        <p className="foot-note">
-          cost model: {reply.cost.source}
-        </p>
+        <p className="foot-note">cost model: {reply.cost.source}</p>
         {reply.cost.notes.map((note) => (
           <p className="foot-note" key={note}>
             {note}
           </p>
         ))}
+
+        {/* the race toggle lives here too, otherwise there is no way back
+            to racing without starting over */}
+        <button
+          type="button"
+          className="foot-race"
+          onClick={props.onToggleRace}
+          aria-pressed={state.race}
+        >
+          <span className={`checkbox${state.race ? " is-on" : ""}`} />
+          Race all four
+        </button>
+
+        <div className="foot-buttons">
+          <button type="button" className="secondary" onClick={props.onToggleTable}>
+            {state.showTable ? "Hide table ▾" : "Compare table ▸"}
+          </button>
+          <button type="button" className="primary" onClick={props.onReplay}>
+            ▶ Replay
+          </button>
+        </div>
         <button type="button" className="secondary" onClick={onReset}>
           New route
         </button>
@@ -212,7 +268,7 @@ export default function Sidebar(props: Props) {
   }
 
   if (props.state.phase === "running") {
-    return <RunningPanel />;
+    return <RunningPanel {...props} />;
   }
   if (props.state.phase === "results" && props.state.reply) {
     return <ResultsPanel {...props} />;

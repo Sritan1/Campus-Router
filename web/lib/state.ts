@@ -47,7 +47,9 @@ export type Action =
   | { type: "selectLane"; algorithm: AlgorithmName }
   | { type: "toggleTable" }
   | { type: "run" }
-  | { type: "succeeded"; reply: RouteReply }
+  | { type: "arrived"; reply: RouteReply }
+  | { type: "finished" }
+  | { type: "replay" }
   | { type: "failed"; message: string }
   | { type: "reset" };
 
@@ -119,11 +121,12 @@ export function reduce(state: AppState, action: Action): AppState {
       }
       return { ...state, phase: "running", error: null, reply: null };
 
-    case "succeeded": {
+    case "arrived": {
+      // the data is here but the exploration still has to play out, so
+      // we stay in running with a result attached
       const first = action.reply.results.find((r) => r.status === "ok");
       return {
         ...state,
-        phase: "results",
         reply: action.reply,
         error: null,
         selected: state.race
@@ -131,6 +134,19 @@ export function reduce(state: AppState, action: Action): AppState {
           : state.algorithm,
       };
     }
+
+    case "finished":
+      if (!state.reply) {
+        return state;
+      }
+      return { ...state, phase: "results" };
+
+    case "replay":
+      if (!state.reply) {
+        return state;
+      }
+      // nothing to fetch, we already have the traces
+      return { ...state, phase: "running", showTable: false };
 
     case "failed":
       return { ...state, phase: "idle", error: action.message, reply: null };

@@ -524,6 +524,162 @@ button {
   }
 }
 
+/* race lanes while the exploration plays */
+
+.race-lane {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.race-name {
+  width: 132px;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.race-track {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--ground);
+  overflow: hidden;
+}
+
+.race-fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  transition: width 60ms linear;
+}
+
+.race-count {
+  width: 52px;
+  text-align: right;
+  flex-shrink: 0;
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .race-fill {
+    transition: none;
+  }
+}
+
+/* results footer extras */
+
+.foot-race {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  font-size: 13px;
+}
+
+.foot-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.foot-buttons > * {
+  flex: 1;
+}
+
+.link-button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 0;
+}
+
+.link-button:hover {
+  color: var(--ink);
+}
+
+/* comparison table */
+
+.chip-legend {
+  top: 46px;
+  left: 12px;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.table-wrap {
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  padding: 14px 16px 16px;
+  flex-shrink: 0;
+}
+
+.table-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.table-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 560px;
+}
+
+.compare th {
+  text-align: left;
+  padding: 8px 12px;
+  background: var(--ground);
+  font: 600 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.compare td {
+  padding: 9px 12px;
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.compare tbody tr.is-active {
+  background: var(--accent-soft);
+}
+
+.compare td:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 550;
+}
+
+.table-empty {
+  color: var(--muted);
+}
+
+.table-foot {
+  margin: 8px 0 0;
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+
 /* narrow screens. the sidebar drops under the map rather than beside it */
 
 @media (max-width: 900px) {

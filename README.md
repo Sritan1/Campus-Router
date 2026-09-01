@@ -51,6 +51,18 @@ python -m venv .venv
 
 On macOS or Linux use `.venv/bin/python` instead.
 
+## About the exploration animation
+
+Race mode plays back how each algorithm searched the graph. That playback runs for about
+1.8 seconds, and **that duration is presentation, not compute**. The engine answers in
+well under a millisecond, so an honest real time animation would be a single flash of
+colour and you would learn nothing from it.
+
+Everything the animation shows is real. The points are the nodes each algorithm actually
+settled, in the order it settled them, thinned evenly so the payload stays small. All
+four play on one shared clock, so a shorter bar really does mean less work. The runtime
+column reports the engine's own measured microseconds, separately from the playback.
+
 ## How the two backend pieces fit together
 
 The gateway owns the engine process. It starts it on loopback, blocks until it answers
