@@ -51,6 +51,10 @@ engine/bin/
 pipeline/.cache/
 pipeline/raw/
 
+# screenshots the browser check writes. they get rebuilt every run and
+# the readme ones will be picked by hand later.
+web/scripts/shots/
+
 # os junk
 .DS_Store
 Thumbs.db

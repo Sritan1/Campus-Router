@@ -1,0 +1,113 @@
+// Drives a real browser against a running app.
+//
+// This covers the things unit tests cannot see, mainly layout at
+// different widths and the states that only appear on screen.
+//
+//   node scripts/browser-check.mjs [url]
+
+import { chromium } from "playwright";
+import { mkdirSync } from "node:fs";
+
+const base = process.argv[2] ?? "http://localhost:3000";
+const shots = "scripts/shots";
+mkdirSync(shots, { recursive: true });
+
+let failures = 0;
+let checks = 0;
+
+function check(name, ok, detail = "") {
+  checks++;
+  if (ok) {
+    console.log(`  ok   ${name}`);
+  } else {
+    failures++;
+    console.log(`  FAIL ${name}  ${detail}`);
+  }
+}
+
+async function boxes(page) {
+  return page.evaluate(() => {
+    const pick = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+    };
+    return { map: pick(".map-wrap"), sidebar: pick(".sidebar"), body: pick(".body") };
+  });
+}
+
+const browser = await chromium.launch();
+const page = await browser.newPage();
+page.on("pageerror", (e) => {
+  failures++;
+  console.log(`  FAIL uncaught page error  ${e.message}`);
+});
+
+try {
+  console.log("\nwide screen");
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(base, { waitUntil: "networkidle" });
+  await page.waitForSelector(".sidebar");
+
+  let b = await boxes(page);
+  check("sidebar sits beside the map", b.sidebar.x > b.map.x + b.map.w - 5,
+        `map ends ${b.map.x + b.map.w}, sidebar starts ${b.sidebar.x}`);
+  check("sidebar is the planned width", Math.abs(b.sidebar.w - 400) < 3, `${b.sidebar.w}px`);
+  await page.screenshot({ path: `${shots}/wide.png` });
+
+  console.log("\nnarrow screen, under the 900px breakpoint");
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.waitForTimeout(400);
+  b = await boxes(page);
+  check("sidebar drops under the map", b.sidebar.y > b.map.y + b.map.h - 5,
+        `map ends ${b.map.y + b.map.h}, sidebar starts ${b.sidebar.y}`);
+  check("sidebar goes full width", b.sidebar.w > 690, `${b.sidebar.w}px`);
+  check("nothing scrolls sideways",
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+        await page.evaluate(() => `${document.documentElement.scrollWidth} > ${window.innerWidth}`));
+  await page.screenshot({ path: `${shots}/narrow.png`, fullPage: true });
+
+  console.log("\nsearching and routing");
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(`${base}/?from=SEO&to=LCC`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(600);
+  check("a shared link fills both ends",
+        (await page.locator(".search-value").first().innerText()).includes("Science"),
+        await page.locator(".search-value").first().innerText());
+
+  await page.getByRole("button", { name: "Find route" }).first().click();
+  await page.waitForSelector(".headline-distance", { timeout: 15000 });
+  const distance = await page.locator(".headline-distance").innerText();
+  check("navigate shows a distance", /mi|m/.test(distance), distance);
+  check("the invite into the lab appears", await page.locator(".invite").count() > 0);
+  const invite = await page.locator(".invite-headline").innerText();
+  console.log(`       invite reads: "${invite}"`);
+  await page.screenshot({ path: `${shots}/navigate.png` });
+
+  console.log("\nthe lab");
+  await page.locator(".invite").click();
+  await page.waitForURL("**/lab**");
+  check("the lab keeps both ends", page.url().includes("from=SEO") && page.url().includes("to=LCC"), page.url());
+  await page.getByRole("button", { name: "Race", exact: true }).first().click();
+  await page.waitForSelector(".panel-map", { timeout: 15000 });
+  check("four panels, one per algorithm", await page.locator(".panel-map").count() === 4,
+        `${await page.locator(".panel-map").count()} panels`);
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: `${shots}/race.png` });
+  await page.waitForTimeout(3000);
+  await page.screenshot({ path: `${shots}/race-done.png` });
+
+  console.log("\nbackend down");
+  await page.route("**/api/**", (r) => r.abort());
+  await page.goto(base, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".fatal-title", { timeout: 15000 });
+  check("says it cannot reach the service", await page.locator(".fatal-title").count() > 0);
+  await page.screenshot({ path: `${shots}/backend-down.png` });
+} finally {
+  await browser.close();
+}
+
+console.log("");
+console.log(failures === 0 ? `all ${checks} checks passed` : `${failures} of ${checks} failed`);
+process.exit(failures === 0 ? 0 : 1);

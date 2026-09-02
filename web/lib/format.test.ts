@@ -3,9 +3,16 @@ import { describe, expect, it } from "vitest";
 import { count, distance, duration, runtime, temperature, wind } from "./format";
 
 describe("distance", () => {
-  it("uses metres for short walks and miles for longer ones", () => {
+  it("uses metres up to a kilometre and miles past that", () => {
     expect(distance(80)).toBe("80 m");
-    expect(distance(815.9)).toBe("0.51 mi");
+    expect(distance(815.9)).toBe("816 m");
+    expect(distance(1609.344)).toBe("1.00 mi");
+  });
+
+  it("can tell two campus routes apart", () => {
+    // dijkstra and bfs on the same pair. in miles to two places these
+    // were both "0.23 mi", which hid the entire point of racing them.
+    expect(distance(367.6)).not.toBe(distance(373.8));
   });
 
   it("shows a dash when there is nothing to show", () => {

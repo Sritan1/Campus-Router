@@ -2,15 +2,20 @@
 
 const METRES_PER_MILE = 1609.344;
 
+/// Metres up to a kilometre, miles past that.
+///
+/// Campus walks are a few hundred metres, and two decimal places of a
+/// mile is too coarse to tell them apart. Dijkstra at 367 m and bfs at
+/// 373 m both came out as "0.23 mi", which hid the whole point of the
+/// race.
 export function distance(metres: number | undefined): string {
   if (metres === undefined) {
     return "—";
   }
-  const miles = metres / METRES_PER_MILE;
-  if (miles < 0.1) {
+  if (metres < 1000) {
     return `${Math.round(metres)} m`;
   }
-  return `${miles.toFixed(2)} mi`;
+  return `${(metres / METRES_PER_MILE).toFixed(2)} mi`;
 }
 
 export function duration(seconds: number | undefined): string {
