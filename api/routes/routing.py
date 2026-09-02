@@ -61,6 +61,72 @@ def weather():
     return {"available": True, **value}
 
 
+class IsochroneRequest(BaseModel):
+    start: str = Field(description="building id, code or node id")
+    mode: str = "shortest"
+    minutes: float = Field(default=10.0, gt=0, le=60)
+
+
+@router.post("/isochrone")
+def isochrone(request: IsochroneRequest):
+    """Everywhere you can walk to from here inside a time budget."""
+    graph_data.load()
+
+    if request.mode not in MODES:
+        raise HTTPException(400, f"mode must be one of {', '.join(MODES)}")
+
+    start = graph_data.resolve(request.start)
+    if start is None:
+        raise HTTPException(404, f"no building matching {request.start}")
+
+    current = weather_cache.get_or_none() if request.mode == "weather" else None
+    cost = cost_model.build(request.mode, graph_data.classes, current)
+
+    # the engine works in weighted metres, so a time budget becomes a
+    # distance one through the walking speed the cost model already uses
+    speed = cost["walkingSpeedMps"]
+    limit_m = request.minutes * 60.0 * speed
+
+    try:
+        reply = engine_client.isochrone(start.node_id, limit_m, cost)
+    except engine_client.EngineOutOfDate as exc:
+        # a build problem, so the detail belongs in the log and not in
+        # front of whoever is using the site
+        log.error("%s. rebuild the engine and restart the gateway", exc)
+        raise HTTPException(503, "that is not available right now") from exc
+    except engine_client.EngineRejected as exc:
+        raise HTTPException(exc.status, exc.message) from exc
+    except engine_client.EngineUnavailable as exc:
+        log.error("engine unavailable: %s", exc)
+        raise HTTPException(503, "the routing engine is not responding") from exc
+
+    # buildings are nodes too, so anything the search reached that has a
+    # negative id is somewhere you could actually walk to
+    costs = reply.get("costs", [])
+    reached_buildings = []
+    for node_id, cost_m in zip(reply.get("ids", []), costs):
+        building = graph_data.by_node.get(node_id)
+        if building is not None:
+            reached_buildings.append(
+                {**building.as_dict(), "seconds": round(cost_m / speed)}
+            )
+    reached_buildings.sort(key=lambda b: b["seconds"])
+
+    return {
+        "start": start.as_dict(),
+        "mode": request.mode,
+        "minutes": request.minutes,
+        "walkingSpeedMps": speed,
+        "points": reply.get("points", []),
+        "edges": reply.get("edges", []),
+        # seconds rather than weighted metres, which is what the ui shows
+        "edgeSeconds": [c / speed for c in reply.get("edgeCosts", [])],
+        "buildings": reached_buildings,
+        "reached": len(reply.get("points", [])),
+        "runtimeUs": reply.get("runtimeUs", 0),
+    }
+
+
 @router.post("/route")
 def route(request: RouteRequest):
     graph_data.load()
@@ -97,6 +163,11 @@ def route(request: RouteRequest):
             trace=request.trace,
             max_trace_samples=request.maxTraceSamples,
         )
+    except engine_client.EngineOutOfDate as exc:
+        # a build problem, so the detail belongs in the log and not in
+        # front of whoever is using the site
+        log.error("%s. rebuild the engine and restart the gateway", exc)
+        raise HTTPException(503, "that is not available right now") from exc
     except engine_client.EngineRejected as exc:
         raise HTTPException(exc.status, exc.message) from exc
     except engine_client.EngineUnavailable as exc:

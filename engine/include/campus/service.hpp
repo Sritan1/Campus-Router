@@ -34,6 +34,7 @@ class Service {
   Reply health() const;
   Reply meta() const;
   Reply route(const std::string &body) const;
+  Reply isochrone(const std::string &body) const;
 };
 
 /// @brief Build an error body in the same shape as every other reply.

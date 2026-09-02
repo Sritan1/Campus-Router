@@ -5,11 +5,14 @@ import { useCallback, useState } from "react";
 
 import Header, { MODE_NOTES } from "@/components/Header";
 import NavigatePanel from "@/components/NavigatePanel";
+import ReachPanel from "@/components/ReachPanel";
 import {
   API_BASE,
   ApiError,
+  requestIsochrone,
   requestRoute,
   type Building,
+  type Isochrone,
   type RouteMode,
   type RouteReply,
 } from "@/lib/api";
@@ -34,6 +37,11 @@ export default function Navigate() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // the second thing navigate can do. no destination needed.
+  const [view, setView] = useState<"route" | "reach">("route");
+  const [minutes, setMinutes] = useState(5);
+  const [reach, setReach] = useState<Isochrone | null>(null);
+
   const { notice, setNotice, restored } = useRestoreFromUrl(list, (found) => {
     setStart(found.start);
     setTarget(found.target);
@@ -53,8 +61,30 @@ export default function Navigate() {
   // anything that changes the answer throws the old one away
   const clear = useCallback(() => {
     setReply(null);
+    setReach(null);
     setError(null);
   }, []);
+
+  const showReach = useCallback(async () => {
+    if (!start) {
+      setSearchFor("start");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      setReach(await requestIsochrone({ start: start.id, mode, minutes }));
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "could not reach the routing service",
+      );
+      setReach(null);
+    } finally {
+      setBusy(false);
+    }
+  }, [start, mode, minutes]);
 
   const run = useCallback(
     async (withMode: RouteMode = mode) => {
@@ -180,28 +210,63 @@ export default function Navigate() {
       <div className="body">
         <div className="map-wrap" role="region" aria-label="campus map">
           <MapPane
-            reply={reply}
+            reply={view === "route" ? reply : null}
             selected={reply?.results.find((r) => r.status === "ok")?.algorithm ?? "astar"}
             meta={null}
             playing={false}
             startedAt={null}
             reducedMotion={false}
+            isochrone={view === "reach" ? reach : null}
           />
           <div className="chip chip-mode">{MODE_NOTES[mode]}</div>
           <div className="chip chip-weather">{weatherChip}</div>
         </div>
 
         <aside className="sidebar">
-          <NavigatePanel
-            reply={reply}
-            mode={mode}
-            busy={busy}
-            error={error}
-            ready={Boolean(start && target && !sameBuilding)}
-            labHref={labHref}
-            onRun={() => void run()}
-            onShowShortest={showShortest}
-          />
+          <div className="view-switch" role="group" aria-label="what to show">
+            <button
+              type="button"
+              className={view === "route" ? "is-active" : ""}
+              aria-pressed={view === "route"}
+              onClick={() => setView("route")}
+            >
+              Route
+            </button>
+            <button
+              type="button"
+              className={view === "reach" ? "is-active" : ""}
+              aria-pressed={view === "reach"}
+              onClick={() => setView("reach")}
+            >
+              How far can I get
+            </button>
+          </div>
+
+          {view === "route" ? (
+            <NavigatePanel
+              reply={reply}
+              mode={mode}
+              busy={busy}
+              error={error}
+              ready={Boolean(start && target && !sameBuilding)}
+              labHref={labHref}
+              onRun={() => void run()}
+              onShowShortest={showShortest}
+            />
+          ) : (
+            <ReachPanel
+              data={reach}
+              minutes={minutes}
+              busy={busy}
+              error={error}
+              ready={Boolean(start)}
+              onMinutes={(next) => {
+                setMinutes(next);
+                setReach(null);
+              }}
+              onRun={() => void showReach()}
+            />
+          )}
         </aside>
       </div>
     </main>

@@ -353,6 +353,67 @@ double pathDistance(const Graph &graph, const std::vector<int> &path) {
   return total;
 }
 
+ReachResult reachable(const Graph &graph, const CostModel &cost, int start,
+                      double limit) {
+  const auto began = std::chrono::steady_clock::now();
+
+  ReachResult result;
+  const size_t count = graph.numNodes();
+  if (start < 0 || start >= static_cast<int>(count) || limit <= 0.0) {
+    return result;
+  }
+
+  std::vector<double> best(count, INF);
+  std::vector<char> settled(count, 0);
+
+  best[start] = 0.0;
+  Frontier frontier;
+  frontier.push({start, 0.0});
+
+  while (!frontier.empty()) {
+    const Candidate current = frontier.top();
+    frontier.pop();
+    if (settled[current.node]) {
+      continue;
+    }
+
+    // the queue hands them back cheapest first, so once one is past the
+    // limit everything behind it is too
+    if (best[current.node] > limit) {
+      break;
+    }
+
+    settled[current.node] = 1;
+    result.nodes.push_back(current.node);
+    result.costs.push_back(best[current.node]);
+
+    for (const Adjacency &edge : graph.neighbors(current.node)) {
+      if (cost.isBlocked(edge.classId)) {
+        continue;
+      }
+
+      // a path is walkable once both of its ends are, and it costs
+      // whichever end was dearer to arrive at
+      if (settled[edge.to]) {
+        result.edges.push_back({edge.to, current.node});
+        result.edgeCosts.push_back(std::max(best[edge.to], best[current.node]));
+        continue;
+      }
+
+      const double relaxed = best[current.node] + cost.weightOf(edge);
+      if (relaxed < best[edge.to] && relaxed <= limit) {
+        best[edge.to] = relaxed;
+        frontier.push({edge.to, relaxed});
+      }
+    }
+  }
+
+  const auto ended = std::chrono::steady_clock::now();
+  result.runtimeUs =
+      std::chrono::duration_cast<std::chrono::microseconds>(ended - began).count();
+  return result;
+}
+
 RouteResult runAlgorithm(Algorithm algorithm, const Graph &graph,
                          const CostModel &cost, int start, int target,
                          bool trace) {

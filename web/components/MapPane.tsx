@@ -5,13 +5,16 @@ import {
   CircleMarker,
   MapContainer,
   Polyline,
+  Popup,
   TileLayer,
+  Tooltip,
   useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
+import IsochroneCanvas from "@/components/IsochroneCanvas";
 import TraceCanvas from "@/components/TraceCanvas";
-import type { AlgorithmResult, GraphMeta, RouteReply } from "@/lib/api";
+import type { AlgorithmResult, GraphMeta, Isochrone, RouteReply } from "@/lib/api";
 import { ALGORITHM_COLORS, LINE } from "@/lib/format";
 
 const CAMPUS_CENTER: [number, number] = [41.8708, -87.6505];
@@ -23,6 +26,7 @@ type Props = {
   playing: boolean;
   startedAt: number | null;
   reducedMotion: boolean;
+  isochrone?: Isochrone | null;
 };
 
 /// Keeps the whole route on screen when a new one arrives.
@@ -57,6 +61,7 @@ export default function MapPane({
   playing,
   startedAt,
   reducedMotion,
+  isochrone = null,
 }: Props) {
   const results = drawableResults(reply);
   const chosen = results.find((r) => r.algorithm === selected) ?? results[0];
@@ -88,7 +93,10 @@ export default function MapPane({
     return unique;
   }, [results, chosen]);
 
-  const fitPoints = chosen?.points ?? [];
+  // an isochrone has no route to frame on, so fit the reachable area
+  const fitPoints = isochrone?.points.length
+    ? isochrone.points
+    : (chosen?.points ?? []);
 
   return (
     <div className="map-pane">
@@ -110,6 +118,40 @@ export default function MapPane({
           reducedMotion={reducedMotion}
           mode={playing ? "playing" : results.length ? "complete" : "off"}
         />
+
+        <IsochroneCanvas data={isochrone} />
+
+        {/* the buildings you could actually get to, which is the answer
+            people are really after. these sit over a shaded area, so they
+            need a white ring to stay legible against it. */}
+        {isochrone?.buildings.map((building) => (
+          <CircleMarker
+            key={building.id}
+            center={[building.lat, building.lon]}
+            radius={8}
+            pathOptions={{
+              color: "#ffffff",
+              weight: 3,
+              fillColor: "#16181d",
+              fillOpacity: 1,
+            }}
+          >
+            {/* only ever the code on the map. full names across fifty
+                buildings would cover the thing they are drawn on.
+                a marker binds one tooltip, so the name goes in a popup
+                rather than a second one that would replace this. */}
+            {building.abbr ? (
+              <Tooltip permanent direction="right" offset={[9, 0]} className="reach-tag">
+                {building.abbr}
+              </Tooltip>
+            ) : null}
+            <Popup>
+              <strong>{building.name}</strong>
+              <br />
+              {Math.max(1, Math.round(building.seconds / 60))} min walk
+            </Popup>
+          </CircleMarker>
+        ))}
 
         {showRoute
           ? others.map((result) => (

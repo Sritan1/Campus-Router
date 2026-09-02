@@ -65,4 +65,23 @@ RouteResult runAlgorithm(Algorithm algorithm, const Graph &graph,
 /// @brief Add up the real world length of a path, ignoring multipliers.
 double pathDistance(const Graph &graph, const std::vector<int> &path);
 
+/// @brief Everywhere you can get to, and what it cost to get there.
+struct ReachResult {
+  std::vector<int> nodes;
+  std::vector<double> costs;
+  std::vector<TraceEdge> edges;
+
+  // the cost at which each edge became reachable, which is the higher
+  // of its two ends
+  std::vector<double> edgeCosts;
+  long long runtimeUs = 0;
+};
+
+/// @brief Dijkstra with a ceiling instead of a target.
+///
+/// Same search, asked a different question. Stops once everything left
+/// costs more than the limit.
+ReachResult reachable(const Graph &graph, const CostModel &cost, int start,
+                      double limit);
+
 }  // namespace campus

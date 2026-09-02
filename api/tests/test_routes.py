@@ -124,6 +124,66 @@ def test_route_passes_the_cost_model_to_the_engine(client, monkeypatch):
     assert seen["start"] == -664275388
 
 
+def test_route_does_not_cap_the_trace_by_default(client, monkeypatch):
+    """The gateway must not quietly shrink the search.
+
+    Thinning drops points, and a path needs both of its ends, so a cap
+    here loses roughly the square of what it looks like. A default of
+    1500 here once cut dijkstra down to 17% of its own search.
+    """
+    seen = {}
+
+    def capture(start, target, algorithms, cost, trace=False, max_trace_samples=None):
+        seen["limit"] = max_trace_samples
+        return fake_engine_reply()
+
+    monkeypatch.setattr(engine_client, "route", capture)
+    client.post("/api/route", json={"start": "ARC", "target": "SES", "trace": True})
+
+    assert seen["limit"] is None
+
+
+def test_route_still_passes_a_cap_when_one_is_asked_for(client, monkeypatch):
+    seen = {}
+
+    def capture(start, target, algorithms, cost, trace=False, max_trace_samples=None):
+        seen["limit"] = max_trace_samples
+        return fake_engine_reply()
+
+    monkeypatch.setattr(engine_client, "route", capture)
+    client.post(
+        "/api/route",
+        json={"start": "ARC", "target": "SES", "trace": True, "maxTraceSamples": 50},
+    )
+
+    assert seen["limit"] == 50
+
+
+def test_engine_client_omits_the_cap_rather_than_sending_a_null(monkeypatch):
+    """The engine reads a missing key as its own default.
+
+    Sending null instead would not parse as a number and the cap would
+    be silently ignored, which is a different bug with the same look.
+    """
+    sent = {}
+
+    class Reply:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"ok": True, "results": [], "pathGroups": []}
+
+    def fake_post(url, json=None, timeout=None):
+        sent.update(json)
+        return Reply()
+
+    monkeypatch.setattr(engine_client.httpx, "post", fake_post)
+    engine_client.route(-1, -2, ["astar"], {"multipliers": {}, "blocked": []}, trace=True)
+
+    assert "maxTraceSamples" not in sent
+
+
 def test_route_adds_a_time_estimate_from_the_published_speed(client, monkeypatch):
     monkeypatch.setattr(
         engine_client, "route", lambda *a, **k: fake_engine_reply()

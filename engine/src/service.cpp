@@ -301,6 +301,86 @@ Reply Service::route(const std::string &body) const {
   return {200, reply.dump()};
 }
 
+Reply Service::isochrone(const std::string &body) const {
+  Json request;
+  std::string error;
+  if (!Json::parse(body, request, error)) {
+    return {400, errorBody("request is not valid json, " + error)};
+  }
+  if (!request.at("start").isNumber()) {
+    return {400, errorBody("start must be a node id")};
+  }
+
+  const long long startId = request.at("start").asInteger();
+  const int start = this->graph.indexOf(startId);
+  if (start < 0) {
+    return {404, errorBody("start node is not in the graph")};
+  }
+
+  const double limit = request.at("limit").asNumber(0.0);
+  if (limit <= 0.0) {
+    return {400, errorBody("limit must be above zero")};
+  }
+
+  const CostModel cost = readCostModel(this->graph, request.at("cost"));
+  const ReachResult reach = reachable(this->graph, cost, start, limit);
+
+  Json points = Json::array();
+  Json ids = Json::array();
+  for (int index : reach.nodes) {
+    const Coordinates where = this->graph.coordinatesAt(index);
+    Json pair = Json::array();
+    pair.push(Json::of(where.lat));
+    pair.push(Json::of(where.lon));
+    points.push(std::move(pair));
+
+    // the gateway needs these to tell which buildings got covered,
+    // since buildings are nodes too
+    ids.push(Json::of(this->graph.idAt(index)));
+  }
+
+  std::unordered_map<int, int> placeOf;
+  placeOf.reserve(reach.nodes.size() * 2);
+  for (size_t i = 0; i < reach.nodes.size(); i++) {
+    placeOf[reach.nodes[i]] = static_cast<int>(i);
+  }
+
+  Json costs = Json::array();
+  for (double value : reach.costs) {
+    costs.push(Json::of(value));
+  }
+
+  // the walkable paths, each with the cost of reaching it. drawing the
+  // network itself is the honest picture. a filled shape would claim
+  // you can cut through buildings.
+  Json edges = Json::array();
+  Json edgeCosts = Json::array();
+  for (size_t i = 0; i < reach.edges.size(); i++) {
+    auto from = placeOf.find(reach.edges[i].from);
+    auto to = placeOf.find(reach.edges[i].to);
+    if (from == placeOf.end() || to == placeOf.end()) {
+      continue;
+    }
+    Json pair = Json::array();
+    pair.push(Json::of(from->second));
+    pair.push(Json::of(to->second));
+    edges.push(std::move(pair));
+    edgeCosts.push(Json::of(reach.edgeCosts[i]));
+  }
+
+  Json reply = Json::object();
+  reply.set("ok", Json::of(true));
+  reply.set("start", Json::of(startId));
+  reply.set("limit", Json::of(limit));
+  reply.set("points", std::move(points));
+  reply.set("ids", std::move(ids));
+  reply.set("costs", std::move(costs));
+  reply.set("edges", std::move(edges));
+  reply.set("edgeCosts", std::move(edgeCosts));
+  reply.set("runtimeUs", Json::of(reach.runtimeUs));
+  return {200, reply.dump()};
+}
+
 Reply Service::handle(const std::string &method, const std::string &path,
                       const std::string &body) const {
   if (method == "GET" && path == "/healthz") {
@@ -312,7 +392,11 @@ Reply Service::handle(const std::string &method, const std::string &path,
   if (method == "POST" && path == "/route") {
     return this->route(body);
   }
-  if (path == "/route" || path == "/healthz" || path == "/graph/meta") {
+  if (method == "POST" && path == "/isochrone") {
+    return this->isochrone(body);
+  }
+  if (path == "/route" || path == "/healthz" || path == "/graph/meta" ||
+      path == "/isochrone") {
     return {405, errorBody("wrong method for " + path)};
   }
   return {404, errorBody("no such endpoint " + path)};

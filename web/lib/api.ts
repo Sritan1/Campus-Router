@@ -78,6 +78,21 @@ export type GraphMeta = {
   classes: number;
 };
 
+export type Isochrone = {
+  start: Building;
+  mode: RouteMode;
+  minutes: number;
+  points: [number, number][];
+  edges: [number, number][];
+  /// how long it takes to reach each path, in seconds
+  edgeSeconds: number[];
+  /// buildings inside the area, nearest first, with how long they take
+  buildings: (Building & { seconds: number })[];
+  reached: number;
+  runtimeUs: number;
+  walkingSpeedMps?: number;
+};
+
 export class ApiError extends Error {
   status: number;
 
@@ -118,6 +133,22 @@ export async function fetchWeather(): Promise<
   ({ available: true } & Weather) | { available: false; reason: string }
 > {
   return get("/api/weather");
+}
+
+export async function requestIsochrone(input: {
+  start: string;
+  mode: RouteMode;
+  minutes: number;
+}): Promise<Isochrone> {
+  const reply = await fetch(`${API_BASE}/api/isochrone`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!reply.ok) {
+    throw new ApiError(reply.status, await readError(reply));
+  }
+  return reply.json();
 }
 
 export async function requestRoute(input: {
