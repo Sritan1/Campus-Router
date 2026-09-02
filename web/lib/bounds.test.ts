@@ -19,6 +19,7 @@ function building(lat: number, lon: number): Building {
 function result(
   algorithm: AlgorithmResult["algorithm"],
   trace: [number, number][],
+  route: [number, number][] = [],
 ): AlgorithmResult {
   return {
     algorithm,
@@ -26,7 +27,7 @@ function result(
     nodesVisited: trace.length,
     edgesRelaxed: 0,
     runtimeUs: 0,
-    points: [trace[0], trace[trace.length - 1]],
+    points: route,
     trace: {
       points: trace,
       edges: trace.slice(1).map((_, i) => [i, i + 1] as [number, number]),
@@ -54,49 +55,59 @@ function reply(results: AlgorithmResult[]): RouteReply {
   };
 }
 
+function spread(box: [[number, number], [number, number]]): number {
+  return box[1][0] - box[0][0];
+}
+
 describe("the shared race frame", () => {
-  it("covers the widest search, not just the route", () => {
-    // bfs spreads well past the direct line, and clipping it would hide
-    // exactly the thing the comparison is meant to show
-    const narrow = result("astar", [
-      [41.871, -87.651],
-      [41.872, -87.651],
-    ]);
-    const wide = result("bfs", [
-      [41.86, -87.66],
-      [41.885, -87.64],
-    ]);
-
-    const box = raceBounds(reply([narrow, wide]));
-    expect(box).not.toBeNull();
-    const [[minLat, minLon], [maxLat, maxLon]] = box!;
-
-    expect(minLat).toBeLessThan(41.86);
-    expect(maxLat).toBeGreaterThan(41.885);
-    expect(minLon).toBeLessThan(-87.66);
-    expect(maxLon).toBeGreaterThan(-87.64);
+  it("always includes both ends", () => {
+    const box = raceBounds(reply([]))!;
+    expect(box[0][0]).toBeLessThan(41.87);
+    expect(box[1][0]).toBeGreaterThan(41.875);
+    expect(box[0][1]).toBeLessThan(-87.652);
+    expect(box[1][1]).toBeGreaterThan(-87.65);
   });
 
-  it("always includes both ends", () => {
-    // even when nothing found a route there is still a start and a target
-    const box = raceBounds(reply([]));
-    expect(box).not.toBeNull();
-    const [[minLat, minLon], [maxLat, maxLon]] = box!;
+  it("always includes the whole route", () => {
+    const route: [number, number][] = [
+      [41.87, -87.65],
+      [41.9, -87.62],
+    ];
+    const box = raceBounds(reply([result("astar", [], route)]))!;
+    // a route point is never trimmed, however far out it sits
+    expect(box[1][0]).toBeGreaterThan(41.9);
+    expect(box[1][1]).toBeGreaterThan(-87.62);
+  });
 
-    expect(minLat).toBeLessThan(41.87);
-    expect(maxLat).toBeGreaterThan(41.875);
-    expect(minLon).toBeLessThan(-87.652);
-    expect(maxLon).toBeGreaterThan(-87.65);
+  it("covers the bulk of a wide search", () => {
+    const wide: [number, number][] = [];
+    for (let i = 0; i < 200; i++) {
+      wide.push([41.87 + i * 0.00005, -87.65]);
+    }
+    const box = raceBounds(reply([result("bfs", wide)]))!;
+    // most of it is on screen even though the tail is trimmed
+    expect(box[1][0]).toBeGreaterThan(41.878);
+  });
+
+  it("does not let a few far strays set the frame", () => {
+    const near: [number, number][] = [];
+    for (let i = 0; i < 200; i++) {
+      near.push([41.871 + (i % 10) * 0.0001, -87.651]);
+    }
+    const withStrays: [number, number][] = [...near, [42.1, -87.65], [41.6, -87.65]];
+
+    const tight = spread(raceBounds(reply([result("bfs", near)]))!);
+    const loose = spread(raceBounds(reply([result("bfs", withStrays)]))!);
+
+    // two wanderers out of two hundred would otherwise blow the frame
+    // out and leave every panel showing a speck
+    expect(loose).toBeLessThan(tight * 3);
   });
 
   it("leaves a margin so nothing sits on the edge", () => {
-    const one = result("astar", [
-      [41.87, -87.65],
-      [41.871, -87.651],
-    ]);
-    const [[minLat], [maxLat]] = raceBounds(reply([one]))!;
-    expect(minLat).toBeLessThan(41.87);
-    expect(maxLat).toBeGreaterThan(41.875);
+    const box = raceBounds(reply([result("astar", [[41.871, -87.651]])]))!;
+    expect(box[0][0]).toBeLessThan(41.87);
+    expect(box[1][0]).toBeGreaterThan(41.875);
   });
 
   it("still gives a usable box for two identical points", () => {
@@ -105,10 +116,9 @@ describe("the shared race frame", () => {
       start: building(41.87, -87.65),
       target: building(41.87, -87.65),
     })!;
-    const [[minLat, minLon], [maxLat, maxLon]] = box;
     // a zero sized box would break the map, so the padding has a floor
-    expect(maxLat).toBeGreaterThan(minLat);
-    expect(maxLon).toBeGreaterThan(minLon);
+    expect(box[1][0]).toBeGreaterThan(box[0][0]);
+    expect(box[1][1]).toBeGreaterThan(box[0][1]);
   });
 
   it("gives nothing when there is no reply", () => {

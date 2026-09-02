@@ -55,6 +55,12 @@ function Panel({
         // be moved. a panel framed on its own would make a small search
         // look like a closer zoom.
         bounds={bounds}
+        boundsOptions={{ padding: [6, 6] }}
+        // leaflet normally only sits on whole zoom levels, so a frame a
+        // hair too big for one drops to the next and shows everything at
+        // half the size. quarter steps let it actually fit the frame.
+        zoomSnap={0.25}
+        zoomDelta={0.25}
         className="panel-canvas"
         dragging={false}
         scrollWheelZoom={false}
