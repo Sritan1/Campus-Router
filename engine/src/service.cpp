@@ -236,32 +236,43 @@ Reply Service::route(const std::string &body) const {
       }
 
       Json order = Json::array();
-      Json parents = Json::array();
       for (size_t out = 0; out < keep.size(); out++) {
-        const size_t at = keep[out];
-
-        const Coordinates where = this->graph.coordinatesAt(result.visitOrder[at]);
+        const Coordinates where =
+            this->graph.coordinatesAt(result.visitOrder[keep[out]]);
         Json pair = Json::array();
         pair.push(Json::of(where.lat));
         pair.push(Json::of(where.lon));
         order.push(std::move(pair));
+      }
 
-        // a start node has no parent, and a thinned trace can lose one
-        int parent = -1;
-        if (at < result.visitParents.size() && result.visitParents[at] >= 0) {
-          auto found = placeOf.find(result.visitParents[at]);
-          if (found != placeOf.end()) {
-            parent = found->second;
-          }
+      // paths between two points we are sending, by position.
+      //
+      // when a trace is thinned this loses more than it looks like it
+      // should. a path needs both of its ends to survive, so keeping
+      // half the points keeps only about a quarter of the paths and the
+      // search arrives in pieces. the count is reported below so a
+      // caller can tell that happened.
+      Json edges = Json::array();
+      long long dropped = 0;
+      for (const TraceEdge &edge : result.visitEdges) {
+        auto from = placeOf.find(edge.from);
+        auto to = placeOf.find(edge.to);
+        if (from == placeOf.end() || to == placeOf.end()) {
+          dropped++;
+          continue;
         }
-        parents.push(Json::of(parent));
+        Json pair = Json::array();
+        pair.push(Json::of(from->second));
+        pair.push(Json::of(to->second));
+        edges.push(std::move(pair));
       }
 
       Json traceOut = Json::object();
       traceOut.set("points", std::move(order));
-      traceOut.set("parents", std::move(parents));
+      traceOut.set("edges", std::move(edges));
       traceOut.set("sampled", Json::of(keep.size() < result.visitOrder.size()));
       traceOut.set("total", Json::of(static_cast<long long>(result.visitOrder.size())));
+      traceOut.set("droppedEdges", Json::of(dropped));
       entry.set("trace", std::move(traceOut));
     }
 

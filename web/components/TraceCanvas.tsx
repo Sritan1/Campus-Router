@@ -5,12 +5,14 @@ import { useMap } from "react-leaflet";
 
 import type { AlgorithmResult } from "@/lib/api";
 import { ALGORITHM_COLORS, LINE } from "@/lib/format";
-import { PLAYBACK_MS, clamp, pointsShown } from "@/lib/playback";
+import { PLAYBACK_MS, clamp, edgesShown } from "@/lib/playback";
 
 type Props = {
   results: AlgorithmResult[];
   startedAt: number | null;
   reducedMotion: boolean;
+  /// off draws nothing, playing animates, complete shows the whole search
+  mode?: "off" | "playing" | "complete";
 };
 
 /// Draws the search spreading along the real footpaths.
@@ -18,7 +20,12 @@ type Props = {
 /// Each settled node knows the node it was reached from, so a step is a
 /// line down an actual path rather than a loose dot. That is what makes
 /// bfs look like a flood and a star look like an arrow.
-export default function TraceCanvas({ results, startedAt, reducedMotion }: Props) {
+export default function TraceCanvas({
+  results,
+  startedAt,
+  reducedMotion,
+  mode = "playing",
+}: Props) {
   const map = useMap();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef<number | null>(null);
@@ -26,6 +33,10 @@ export default function TraceCanvas({ results, startedAt, reducedMotion }: Props
   // how far each algorithm has already been painted, so a frame only
   // strokes what is new instead of the whole search again
   const drawnRef = useRef<number[]>([]);
+
+  // what the map looked like when we last painted. anything already on
+  // the canvas was placed for that view and is wrong for any other.
+  const viewRef = useRef<string>("");
 
   useEffect(() => {
     const container = map.getContainer();
@@ -67,36 +78,42 @@ export default function TraceCanvas({ results, startedAt, reducedMotion }: Props
       const size = map.getSize();
       context!.clearRect(0, 0, size.x, size.y);
       drawnRef.current = results.map(() => 0);
+      viewRef.current = "";
     }
 
-    /// Strokes one algorithm's segments between two positions in its trace.
+    /// Strokes one algorithm's paths between two positions in its trace.
     function strokeRange(result: AlgorithmResult, from: number, to: number) {
       const trace = result.trace;
-      if (!trace?.points.length || to <= from) {
+      if (!trace?.edges.length || to <= from) {
         return;
       }
 
       context!.beginPath();
       for (let i = from; i < to; i++) {
-        const parent = trace.parents[i];
-        if (parent === undefined || parent < 0) {
+        const edge = trace.edges[i];
+        if (!edge) {
           continue;
         }
-        const a = map.latLngToContainerPoint(trace.points[parent]);
-        const b = map.latLngToContainerPoint(trace.points[i]);
+        const a = map.latLngToContainerPoint(trace.points[edge[0]]);
+        const b = map.latLngToContainerPoint(trace.points[edge[1]]);
         context!.moveTo(a.x, a.y);
         context!.lineTo(b.x, b.y);
       }
 
       context!.strokeStyle = ALGORITHM_COLORS[result.algorithm] ?? "#2a78d6";
-      context!.globalAlpha = LINE.traceAlpha;
-      context!.lineWidth = LINE.trace;
+      // once it has played out the map comes back to full brightness, so
+      // the search sits behind the route rather than competing with it
+      context!.globalAlpha = mode === "complete" ? 0.45 : LINE.traceAlpha;
+      context!.lineWidth = mode === "complete" ? LINE.trace * 0.8 : LINE.trace;
       context!.stroke();
       context!.globalAlpha = 1;
     }
 
     function progressNow() {
-      if (startedAt === null) {
+      if (mode === "complete") {
+        return 1;
+      }
+      if (mode === "off" || startedAt === null) {
         return 0;
       }
       if (reducedMotion) {
@@ -105,11 +122,29 @@ export default function TraceCanvas({ results, startedAt, reducedMotion }: Props
       return clamp((performance.now() - startedAt) / PLAYBACK_MS);
     }
 
+    /// A short description of where the map is looking right now.
+    function viewKey() {
+      const at = map.getCenter();
+      return `${map.getZoom()}:${at.lat.toFixed(6)}:${at.lng.toFixed(6)}`;
+    }
+
     /// Paints whatever has been revealed since the last frame.
     function paintNew() {
+      // if the map has shifted at all, everything already painted was
+      // placed against a view that no longer exists. leaflet reports the
+      // old zoom part way through its own animations, so this is checked
+      // every frame rather than trusted to fire as an event.
+      const now = viewKey();
+      if (now !== viewRef.current) {
+        viewRef.current = now;
+        const size = map.getSize();
+        context!.clearRect(0, 0, size.x, size.y);
+        drawnRef.current = results.map(() => 0);
+      }
+
       const progress = progressNow();
       results.forEach((result, index) => {
-        const upTo = pointsShown(result, progress);
+        const upTo = edgesShown(result, progress);
         const already = drawnRef.current[index] ?? 0;
         if (upTo > already) {
           strokeRange(result, already, upTo);
@@ -129,27 +164,34 @@ export default function TraceCanvas({ results, startedAt, reducedMotion }: Props
       frameRef.current = requestAnimationFrame(loop);
     }
 
+    function onResize() {
+      sizeToMap();
+      repaintAll();
+    }
+
     sizeToMap();
     wipe();
 
-    // panning or zooming invalidates every pixel already painted
-    map.on("move zoom", repaintAll);
-    map.on("resize", () => {
-      sizeToMap();
-      repaintAll();
-    });
+    // panning or zooming invalidates every pixel already painted.
+    // the end events matter as much as the live ones, because leaflet
+    // only reports its real zoom once the animation has finished, and
+    // whatever was painted before that is in the wrong place.
+    map.on("move zoom moveend zoomend", repaintAll);
+    map.on("resize", onResize);
 
-    if (startedAt === null) {
-      // nothing playing, leave the canvas clear
-    } else if (reducedMotion) {
+    if (mode === "off") {
+      // nothing to show, leave the canvas clear
+    } else if (mode === "complete" || reducedMotion) {
       paintNew();
-    } else {
+    } else if (startedAt !== null) {
       frameRef.current = requestAnimationFrame(loop);
     }
 
     return () => {
-      map.off("move zoom", repaintAll);
-      map.off("resize");
+      map.off("move zoom moveend zoomend", repaintAll);
+      // naming the handler matters, otherwise this takes leaflet's own
+      // resize listener down with it
+      map.off("resize", onResize);
       if (frameRef.current !== null) {
         cancelAnimationFrame(frameRef.current);
         frameRef.current = null;
@@ -157,7 +199,7 @@ export default function TraceCanvas({ results, startedAt, reducedMotion }: Props
       const size = map.getSize();
       context.clearRect(0, 0, size.x, size.y);
     };
-  }, [map, results, startedAt, reducedMotion]);
+  }, [map, results, startedAt, reducedMotion, mode]);
 
   return null;
 }

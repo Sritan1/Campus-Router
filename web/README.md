@@ -12,6 +12,28 @@ npm test
 Point it somewhere else with `NEXT_PUBLIC_API_BASE_URL`. It defaults to
 `http://127.0.0.1:8000`, which is where `scripts/dev.ps1` puts the gateway.
 
+## Two modes
+
+| Route | Mode | What it is |
+|---|---|---|
+| `/` | Navigate | The routing tool. Search, map, one route, distance and time, copy link |
+| `/lab` | Lab | The algorithm work. Four algorithms, race, exploration animation, comparison table |
+
+One screen was serving two different people badly. Someone who just wanted directions
+was met with four algorithm cards before picking a destination, and someone judging the
+engineering had the interesting part buried under a form.
+
+Both are real routes rather than a toggle, so either can be linked directly, and the
+start, destination and mode carry across when you move between them.
+
+**Navigate still runs all four algorithms**, it just does not ask for traces. That costs
+about a millisecond and it lets the link across to the lab say something true. On most
+campus pairs it reads "3 of 4 agree, BFS found a different route", because BFS optimises
+hops rather than distance. A generic invitation would have been easier and worth less.
+
+That link is the only thing telling a visitor the algorithm work exists, so it matters
+more than its size suggests.
+
 ## Layout
 
 The screen follows the prototype. A header with the two ends, the mode switch and the
@@ -97,7 +119,7 @@ the least work. That is the whole point of the panel.
 
 ### Playback length is presentation
 
-Playback lasts about 1.8 seconds. The engine answers in under a millisecond, so a real
+Playback lasts about four seconds. The engine answers in under a millisecond, so a real
 time animation would be one frame. Everything shown is real, the points and their order
 and the counts, but the pacing is chosen so it can be watched. The runtime column reports
 the engine's own measured time separately. This is said out loud in the root README and

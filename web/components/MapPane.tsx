@@ -33,7 +33,11 @@ function FitToRoute({ points }: { points: [number, number][] }) {
     if (points.length < 2) {
       return;
     }
-    map.fitBounds(points, { padding: [60, 60], maxZoom: 18 });
+    // no animation on purpose. while leaflet animates a zoom it still
+    // reports the old one, so anything the trace canvas draws during
+    // those few hundred milliseconds lands in the wrong place and stays
+    // there.
+    map.fitBounds(points, { padding: [60, 60], maxZoom: 18, animate: false });
   }, [map, points]);
 
   return null;
@@ -60,6 +64,10 @@ export default function MapPane({
   // while the exploration plays, the finished route would give the
   // answer away, so the lines wait until it is done
   const showRoute = !playing;
+
+  // the canvas keeps what it has painted, so handing it a fresh array
+  // every render would make it start over
+  const traces = useMemo(() => reply?.results ?? [], [reply]);
 
   // anything that took a different path is drawn faintly behind, so the
   // race shows without four lines stacking on the same pixels
@@ -97,9 +105,10 @@ export default function MapPane({
         />
 
         <TraceCanvas
-          results={reply?.results ?? []}
-          startedAt={playing ? startedAt : null}
+          results={traces}
+          startedAt={startedAt}
           reducedMotion={reducedMotion}
+          mode={playing ? "playing" : results.length ? "complete" : "off"}
         />
 
         {showRoute

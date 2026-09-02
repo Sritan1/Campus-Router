@@ -87,7 +87,13 @@ RouteResult searchWeighted(const Graph &graph, const CostModel &cost, int start,
     result.nodesVisited++;
     if (trace) {
       result.visitOrder.push_back(current.node);
-      result.visitParents.push_back(came[current.node]);
+      // every path from here to somewhere we have already been. each one
+      // gets recorded once, when its second end is reached.
+      for (const Adjacency &edge : graph.neighbors(current.node)) {
+        if (!cost.isBlocked(edge.classId) && settled[edge.to]) {
+          result.visitEdges.push_back({edge.to, current.node});
+        }
+      }
     }
 
     if (current.node == target) {
@@ -130,6 +136,10 @@ RouteResult searchBfs(const Graph &graph, const CostModel &cost, int start,
   std::vector<int> came(count, -1);
   std::vector<char> seen(count, 0);
 
+  // seen means queued, done means actually reached. an edge is only
+  // real to draw once both of its ends have been reached.
+  std::vector<char> done(count, 0);
+
   std::deque<int> queue;
   queue.push_back(start);
   seen[start] = 1;
@@ -137,11 +147,16 @@ RouteResult searchBfs(const Graph &graph, const CostModel &cost, int start,
   while (!queue.empty()) {
     const int current = queue.front();
     queue.pop_front();
+    done[current] = 1;
 
     result.nodesVisited++;
     if (trace) {
       result.visitOrder.push_back(current);
-      result.visitParents.push_back(came[current]);
+      for (const Adjacency &edge : graph.neighbors(current)) {
+        if (!cost.isBlocked(edge.classId) && done[edge.to]) {
+          result.visitEdges.push_back({edge.to, current});
+        }
+      }
     }
 
     if (current == target) {
@@ -195,6 +210,10 @@ RouteResult searchBidirectional(const Graph &graph, const CostModel &cost,
   std::vector<char> settledForward(count, 0);
   std::vector<char> settledBackward(count, 0);
 
+  // a node can be reached by both searches, and for drawing we only
+  // care that it was reached at all
+  std::vector<char> reached(count, 0);
+
   bestForward[start] = 0.0;
   bestBackward[target] = 0.0;
 
@@ -227,11 +246,15 @@ RouteResult searchBidirectional(const Graph &graph, const CostModel &cost,
     }
     settled[current.node] = 1;
     result.nodesVisited++;
-    if (trace) {
+    if (trace && !reached[current.node]) {
       result.visitOrder.push_back(current.node);
-      // came here is whichever direction we are currently expanding
-      result.visitParents.push_back(came[current.node]);
+      for (const Adjacency &edge : graph.neighbors(current.node)) {
+        if (!cost.isBlocked(edge.classId) && reached[edge.to]) {
+          result.visitEdges.push_back({edge.to, current.node});
+        }
+      }
     }
+    reached[current.node] = 1;
 
     for (const Adjacency &edge : graph.neighbors(current.node)) {
       if (cost.isBlocked(edge.classId)) {

@@ -33,8 +33,8 @@ export type AlgorithmResult = {
   points?: [number, number][];
   trace?: {
     points: [number, number][];
-    // index into points of where each one was reached from, -1 for a start
-    parents: number[];
+    // the paths the search walked, as pairs of indices into points
+    edges: [number, number][];
     sampled: boolean;
     total: number;
   };
@@ -127,10 +127,13 @@ export async function requestRoute(input: {
   algorithms: AlgorithmName[];
   trace: boolean;
 }): Promise<RouteReply> {
+  // no sample limit on purpose. thinning drops points, and a path only
+  // survives if both of its ends do, so asking for half the points threw
+  // away three quarters of the paths and the search came out in pieces.
   const reply = await fetch(`${API_BASE}/api/route`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...input, maxTraceSamples: 1200 }),
+    body: JSON.stringify(input),
   });
   if (!reply.ok) {
     throw new ApiError(reply.status, await readError(reply));

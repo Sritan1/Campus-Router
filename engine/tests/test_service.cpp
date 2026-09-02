@@ -258,6 +258,48 @@ TEST(traceOnlyComesBackWhenAskedFor) {
   CHECK(!with.at("results").items()[0].at("trace").at("points").items().empty());
 }
 
+TEST(thinningAPointsTraceShredsThePathsBetweenThem) {
+  Graph graph = testGraph();
+  Service service(graph);
+
+  // asking for very few points is not a mild loss. a path needs both of
+  // its ends kept, so this is roughly a squared loss, and it is what
+  // made dijkstra arrive on screen in pieces.
+  Json thin = replyJson(service.handle(
+      "POST", "/route",
+      R"({"start":10,"target":13,"algorithms":["dijkstra"],
+          "trace":true,"maxTraceSamples":2})"));
+  const Json &small = thin.at("results").items()[0].at("trace");
+
+  Json whole = replyJson(service.handle(
+      "POST", "/route",
+      R"({"start":10,"target":13,"algorithms":["dijkstra"],"trace":true})"));
+  const Json &full = whole.at("results").items()[0].at("trace");
+
+  CHECK(small.at("sampled").asBool());
+  CHECK(!full.at("sampled").asBool());
+  CHECK(small.at("edges").items().size() < full.at("edges").items().size());
+
+  // and it has to own up to it rather than looking complete
+  CHECK(small.at("droppedEdges").asInteger() > 0);
+  CHECK(full.at("droppedEdges").asInteger() == 0);
+}
+
+TEST(theDefaultLimitLeavesARealSearchAlone) {
+  Graph graph = testGraph();
+  Service service(graph);
+
+  // the whole campus settles a few thousand nodes, so nothing should be
+  // thinned unless a caller asks for it
+  Json body = replyJson(service.handle(
+      "POST", "/route", R"({"start":10,"target":13,"trace":true})"));
+
+  for (const Json &entry : body.at("results").items()) {
+    CHECK(!entry.at("trace").at("sampled").asBool());
+    CHECK(entry.at("trace").at("droppedEdges").asInteger() == 0);
+  }
+}
+
 TEST(negativeTraceLimitIsRejected) {
   Graph graph = testGraph();
   Service service(graph);
@@ -279,7 +321,7 @@ TEST(thinningKeepsTheEndsAndTheCount) {
   CHECK(campus::thinIndices(0, 10).empty());
 }
 
-TEST(traceCarriesTheEdgeThatReachedEachNode) {
+TEST(traceCarriesThePathsTheSearchWalked) {
   Graph graph = testGraph();
   Service service(graph);
 
@@ -289,36 +331,56 @@ TEST(traceCarriesTheEdgeThatReachedEachNode) {
 
   const Json &trace = body.at("results").items()[0].at("trace");
   const size_t points = trace.at("points").items().size();
+  const size_t edges = trace.at("edges").items().size();
 
   CHECK(points > 0);
-  // one parent per point, so every step can be drawn as a segment
-  CHECK(trace.at("parents").items().size() == points);
+  CHECK(edges > 0);
 
-  // the first settled node is the start, which came from nowhere
-  CHECK(trace.at("parents").items()[0].asInteger() == -1);
-
-  // every other parent points at something already in the trace
-  for (size_t i = 1; i < points; i++) {
-    const long long parent = trace.at("parents").items()[i].asInteger();
-    CHECK(parent >= -1);
-    CHECK(parent < static_cast<long long>(points));
+  // both ends of every edge have to be points we actually sent
+  for (const Json &edge : trace.at("edges").items()) {
+    CHECK(edge.items().size() == 2);
+    for (const Json &end : edge.items()) {
+      CHECK(end.asInteger() >= 0);
+      CHECK(end.asInteger() < static_cast<long long>(points));
+    }
   }
 }
 
-TEST(everyParentComesBeforeItsChild) {
+TEST(theExploredNetworkHasMoreThanJustTheBestRoutes) {
+  Graph graph = testGraph();
+  Service service(graph);
+
+  Json body = replyJson(service.handle(
+      "POST", "/route",
+      R"({"start":10,"target":13,"algorithms":["dijkstra"],"trace":true})"));
+
+  const Json &trace = body.at("results").items()[0].at("trace");
+  const size_t points = trace.at("points").items().size();
+  const size_t edges = trace.at("edges").items().size();
+
+  // a tree of best routes would give exactly one edge less than points.
+  // this graph has a loop in it, so the search really walked more paths
+  // than that, and drawing only the tree left gaps.
+  CHECK(edges >= points - 1);
+  CHECK(edges > 0);
+}
+
+TEST(everyEdgeJoinsTwoPlacesAlreadyOnScreen) {
   Graph graph = testGraph();
   Service service(graph);
 
   Json body = replyJson(service.handle(
       "POST", "/route", R"({"start":10,"target":13,"trace":true})"));
 
-  // the animation draws in order, so a parent arriving later would
-  // mean drawing a segment from a point that is not on screen yet
+  // the animation reveals points in order and draws edges as it goes,
+  // so an edge reaching a point that has not appeared yet would draw
+  // from nowhere
   for (const Json &entry : body.at("results").items()) {
-    const Json &parents = entry.at("trace").at("parents");
-    for (size_t i = 0; i < parents.items().size(); i++) {
-      const long long parent = parents.items()[i].asInteger();
-      CHECK(parent < static_cast<long long>(i));
+    const Json &edges = entry.at("trace").at("edges");
+    for (size_t i = 0; i < edges.items().size(); i++) {
+      const long long a = edges.items()[i].items()[0].asInteger();
+      const long long b = edges.items()[i].items()[1].asInteger();
+      CHECK(a != b);
     }
   }
 }

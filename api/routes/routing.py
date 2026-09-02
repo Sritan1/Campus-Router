@@ -1,6 +1,7 @@
 """The public api the frontend talks to."""
 
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -22,7 +23,11 @@ class RouteRequest(BaseModel):
     mode: str = "shortest"
     algorithms: list[str] = Field(default_factory=lambda: list(ALGORITHMS))
     trace: bool = False
-    maxTraceSamples: int = 1500
+
+    # left unset on purpose. thinning drops points, and a path needs both
+    # of its ends, so a limit here quietly shreds the search into pieces.
+    # the engine has a sane cap of its own for absurd cases.
+    maxTraceSamples: Optional[int] = None
 
 
 @router.get("/buildings")

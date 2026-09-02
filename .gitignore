@@ -31,6 +31,7 @@ venv/
 # node
 node_modules/
 .next/
+.next-verify/
 out/
 .vercel/
 *.tsbuildinfo

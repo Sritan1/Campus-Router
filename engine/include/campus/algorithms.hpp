@@ -21,6 +21,12 @@ std::string nameOf(Algorithm algorithm);
 /// @brief Parse a name back. Returns false when it is not one of ours.
 bool algorithmFromName(const std::string &name, Algorithm &out);
 
+/// @brief One path the search walked down, by node index.
+struct TraceEdge {
+  int from = 0;
+  int to = 0;
+};
+
 /// @brief What one run of one algorithm produced.
 struct RouteResult {
   bool found = false;
@@ -34,9 +40,14 @@ struct RouteResult {
   // the order nodes were settled in, for the exploration animation
   std::vector<int> visitOrder;
 
-  // the node each one was reached from, so the animation can draw the
-  // edge that got there instead of a loose dot. -1 for a starting node.
-  std::vector<int> visitParents;
+  // every path between two settled nodes, in the order the second end
+  // of each was reached.
+  //
+  // this is the explored network, not the tree of best routes. drawing
+  // only the tree left visible gaps wherever two branches ran down
+  // neighbouring paths, because the path joining them is one the search
+  // really did look at but is not part of anyone's best route.
+  std::vector<TraceEdge> visitEdges;
 };
 
 /// @brief Run one algorithm over the graph.

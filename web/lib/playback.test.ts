@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AlgorithmResult } from "./api";
-import { barFraction, clamp, pointsShown } from "./playback";
+import { barFraction, clamp, edgesShown } from "./playback";
 
 function result(
   algorithm: string,
@@ -16,7 +16,7 @@ function result(
     runtimeUs: 0,
     trace: {
       points: Array.from({ length: tracePoints }, () => [0, 0] as [number, number]),
-      parents: Array.from({ length: tracePoints }, (_, i) => i - 1),
+      edges: Array.from({ length: Math.max(0, tracePoints - 1) }, (_, i) => [i, i + 1] as [number, number]),
       sampled: false,
       total: tracePoints,
     },
@@ -31,22 +31,28 @@ describe("clamp", () => {
   });
 });
 
-describe("points shown", () => {
-  it("shows nothing at the start and everything at the end", () => {
+describe("how much of the search is drawn", () => {
+  it("draws nothing at the start and all of it at the end", () => {
+    // 200 points joined in a chain makes 199 paths between them
     const one = result("astar", 100, 200);
-    expect(pointsShown(one, 0)).toBe(1);
-    expect(pointsShown(one, 1)).toBe(200);
+    expect(edgesShown(one, 0)).toBe(0);
+    expect(edgesShown(one, 1)).toBe(199);
   });
 
-  it("moves through the trace as it plays", () => {
+  it("moves through the search as it plays", () => {
     const one = result("astar", 100, 200);
-    expect(pointsShown(one, 0.5)).toBe(100);
+    expect(edgesShown(one, 0.5)).toBe(100);
   });
 
   it("handles an algorithm with no trace", () => {
     const bare = { ...result("bfs", 10, 0) };
     delete bare.trace;
-    expect(pointsShown(bare, 0.5)).toBe(0);
+    expect(edgesShown(bare, 0.5)).toBe(0);
+  });
+
+  it("never runs past the end", () => {
+    const one = result("astar", 100, 200);
+    expect(edgesShown(one, 3)).toBe(199);
   });
 });
 
