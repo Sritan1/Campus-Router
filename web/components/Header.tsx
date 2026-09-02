@@ -20,6 +20,9 @@ type Props = {
   actionLabel: string;
   busy: boolean;
   weatherReady: boolean;
+  /// the lab moves this into its sidebar, where it reads as the cost
+  /// model rather than as how you would like to get there
+  showModes?: boolean;
   /// where the little link at the top right goes
   otherMode: { href: string; label: string };
   onOpenSearch: (which: "start" | "target") => void;
@@ -74,6 +77,7 @@ export default function Header(props: Props) {
         />
       </div>
 
+      {props.showModes === false ? null : (
       <div className="segmented" role="group" aria-label="routing mode">
         {MODES.map((mode) => {
           // weather mode still works without a reading, it just cannot do
@@ -97,6 +101,7 @@ export default function Header(props: Props) {
           );
         })}
       </div>
+      )}
 
       <button
         type="button"

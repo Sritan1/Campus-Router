@@ -319,6 +319,7 @@ export default function Lab() {
         actionLabel={state.race ? "Race" : "Find route"}
         busy={state.phase === "running"}
         weatherReady={weatherReady}
+        showModes={false}
         otherMode={{ href: navigateHref, label: "Back to routing" }}
         onOpenSearch={(which) => dispatch({ type: "openSearch", which })}
         onCloseSearch={() => dispatch({ type: "closeSearch" })}
@@ -406,6 +407,7 @@ export default function Lab() {
             onSkip={skip}
             onReplay={replay}
             onToggleTable={() => dispatch({ type: "toggleTable" })}
+            onMode={(mode) => dispatch({ type: "setMode", mode })}
           />
         </aside>
       </div>

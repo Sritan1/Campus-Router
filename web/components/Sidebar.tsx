@@ -1,6 +1,6 @@
 "use client";
 
-import type { AlgorithmName, RouteReply } from "@/lib/api";
+import type { AlgorithmName, RouteMode, RouteReply } from "@/lib/api";
 import {
   ALGORITHM_COLORS,
   ALGORITHM_LABELS,
@@ -15,6 +15,44 @@ import type { AppState } from "@/lib/state";
 
 const ALL: AlgorithmName[] = ["dijkstra", "astar", "bfs", "bidirectional"];
 
+// the same three modes navigate offers, named for what they mean here.
+// in the lab this is not how you would like to get somewhere, it is
+// which number the four algorithms are minimising.
+const COST_MODELS: { id: RouteMode; label: string; note: string }[] = [
+  { id: "shortest", label: "Distance", note: "plain length, nothing weighted" },
+  { id: "accessible", label: "Step free", note: "steps blocked, rough surfaces cost more" },
+  { id: "weather", label: "Winter surface", note: "snow and ice penalties, the only mode above 1x" },
+];
+
+function CostModelPicker({
+  mode,
+  onMode,
+}: {
+  mode: RouteMode;
+  onMode: (mode: RouteMode) => void;
+}) {
+  const active = COST_MODELS.find((m) => m.id === mode) ?? COST_MODELS[0];
+  return (
+    <div className="cost-model">
+      <div className="cost-model-head">Cost model</div>
+      <div className="segmented" role="group" aria-label="cost model">
+        {COST_MODELS.map((m) => (
+          <button
+            type="button"
+            key={m.id}
+            className={mode === m.id ? "is-active" : ""}
+            aria-pressed={mode === m.id}
+            onClick={() => onMode(m.id)}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <p className="panel-hint">{active.note}</p>
+    </div>
+  );
+}
+
 type Props = {
   state: AppState;
   progress: number;
@@ -27,16 +65,12 @@ type Props = {
   onSkip: () => void;
   onReplay: () => void;
   onToggleTable: () => void;
+  onMode: (mode: RouteMode) => void;
   canRun: boolean;
 };
 
-function IdlePanel({
-  state,
-  onPickAlgorithm,
-  onToggleRace,
-  onRun,
-  canRun,
-}: Props) {
+function IdlePanel(props: Props) {
+  const { state, onPickAlgorithm, onToggleRace, onRun, canRun } = props;
   return (
     <div className="panel">
       <h2 className="panel-title">Pick an algorithm</h2>
@@ -71,6 +105,8 @@ function IdlePanel({
         </span>
         <span className={`checkbox${state.race ? " is-on" : ""}`} />
       </button>
+
+      <CostModelPicker mode={state.mode} onMode={props.onMode} />
 
       <button
         type="button"
