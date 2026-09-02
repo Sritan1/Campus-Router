@@ -524,6 +524,176 @@ button {
   }
 }
 
+/* four locked panels, one per algorithm, sharing a single frame */
+
+.race-grid {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+  padding: 10px;
+  background: #e7e9ed;
+}
+
+/* each panel is its own card. a hairline between them read as one
+   split map rather than four separate searches. */
+.panel-map {
+  position: relative;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 0;
+  margin: 0;
+  background: var(--ground);
+  overflow: hidden;
+  text-align: left;
+  min-height: 0;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(16, 18, 22, 0.14);
+}
+
+.panel-map:hover {
+  border-color: var(--accent);
+}
+
+.panel-map.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 1px 3px rgba(16, 18, 22, 0.14);
+  z-index: 2;
+}
+
+.panel-canvas {
+  height: 100%;
+  width: 100%;
+  /* the panels are locked, so nothing here should invite a drag */
+  cursor: pointer;
+}
+
+/* the name sits along the top of its own panel, so there is no doubt
+   which search belongs to which map */
+.panel-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 500;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.93);
+  border-bottom: 1px solid var(--line);
+  pointer-events: none;
+}
+
+.panel-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.panel-stat {
+  font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+
+.grid-credit {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  z-index: 600;
+  margin: 0;
+  font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.grid-credit a {
+  color: inherit;
+}
+
+@media (max-width: 900px) {
+  .race-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, minmax(180px, 1fr));
+  }
+}
+
+/* the quiet link between the two modes */
+
+.mode-link {
+  display: block;
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 400;
+  color: var(--accent);
+  text-decoration: none;
+  margin-top: 2px;
+}
+
+.mode-link:hover {
+  text-decoration: underline;
+}
+
+/* navigate mode result */
+
+.headline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.headline-distance {
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.headline-time {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.spacer {
+  flex: 1;
+  min-height: 8px;
+}
+
+/* the invite across to the lab. this is the only thing telling a
+   visitor the algorithm work exists, so it has to earn the click. */
+
+.invite {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.invite:hover {
+  background: #dfeafb;
+}
+
+.invite-headline {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.invite-action {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 /* things that only screen readers need */
 
 .sr-only {
