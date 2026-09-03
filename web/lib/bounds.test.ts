@@ -43,6 +43,7 @@ function reply(results: AlgorithmResult[]): RouteReply {
     target: building(41.875, -87.652),
     mode: "shortest",
     results,
+    directions: null,
     pathGroups: [],
     cost: {
       source: "test",

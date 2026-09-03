@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from api.services import cost_model, engine_client
+from api.services import cost_model, directions, engine_client
 from api.services.graph_data import graph_data
 from api.services.weather import weather_cache
 
@@ -182,11 +182,27 @@ def route(request: RouteRequest):
             item["estSeconds"] = round(entry["distanceM"] / speed)
         results.append(item)
 
+    # walking directions describe one route, so they follow whichever
+    # exact algorithm answered. the three of them agree on cost anyway.
+    guide = None
+    for item in results:
+        if item.get("status") == "ok" and item.get("algorithm") != "bfs":
+            guide = directions.build(
+                item.get("path") or [],
+                item.get("points") or [],
+                graph_data,
+                start,
+                target,
+            )
+            if guide:
+                break
+
     return {
         "start": start.as_dict(),
         "target": target.as_dict(),
         "mode": request.mode,
         "results": results,
+        "directions": guide,
         "pathGroups": engine_reply.get("pathGroups", []),
         "cost": {
             "source": cost["source"],

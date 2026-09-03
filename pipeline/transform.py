@@ -39,7 +39,17 @@ WALKABLE = {
 BUILDING_LINK_M = 60.0
 
 # tags we keep on every edge, whether or not they are populated
-KEPT_TAGS = ["highway", "surface", "wheelchair", "incline", "lit", "covered", "tactile_paving"]
+KEPT_TAGS = [
+    "highway", "surface", "wheelchair", "incline", "lit", "covered",
+    "tactile_paving", "footway", "name",
+]
+
+# roads worth naming in directions. a crossing borrows the name of the
+# road it meets, since crossings almost never carry one themselves.
+NAMED_ROADS = {
+    "residential", "living_street", "service", "unclassified",
+    "tertiary", "secondary", "primary",
+}
 
 
 def load_raw() -> dict:
@@ -77,10 +87,37 @@ def build_nodes(raw: dict) -> dict:
     return nodes
 
 
+def road_names_by_node(raw: dict) -> dict:
+    """Which named road touches each node.
+
+    Used to work out what a crossing is crossing. Only nodes touched by
+    exactly one name are useful, since two names means an intersection.
+    """
+    found = {}
+    for element in raw["ways"]["elements"]:
+        if element["type"] != "way":
+            continue
+        tags = element.get("tags", {})
+        name = tags.get("name")
+        if not name or tags.get("highway") not in NAMED_ROADS:
+            continue
+        for node_id in element.get("nodes", []):
+            found.setdefault(node_id, set()).add(name)
+
+    return {node: next(iter(names)) for node, names in found.items() if len(names) == 1}
+
+
+def crossing_name(element: dict, road_names: dict):
+    """The street a crossing way meets, if we can tell without guessing."""
+    hits = {road_names[n] for n in element.get("nodes", []) if n in road_names}
+    return hits.pop() if len(hits) == 1 else None
+
+
 def build_edges(raw: dict, nodes: dict) -> list:
     """Splits each way into one edge per pair of consecutive nodes."""
     edges = []
     seen = set()
+    road_names = road_names_by_node(raw)
 
     for element in raw["ways"]["elements"]:
         if element["type"] != "way":
@@ -94,6 +131,13 @@ def build_edges(raw: dict, nodes: dict) -> list:
         # two of these and writing the empty ones out doubled the file.
         kept = {t: tags[t] for t in KEPT_TAGS if tags.get(t)}
         key = class_key(tags)
+
+        # directions need to say which street you are stepping into, and
+        # the crossing itself almost never carries the name
+        if tags.get("footway") == "crossing":
+            crosses = crossing_name(element, road_names)
+            if crosses:
+                kept["crosses"] = crosses
 
         for u, v in zip(refs, refs[1:]):
             if u == v or u not in nodes or v not in nodes:

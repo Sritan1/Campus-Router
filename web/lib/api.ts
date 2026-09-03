@@ -51,11 +51,26 @@ export type Weather = {
   stale?: boolean;
 };
 
+export type DirectionStep = {
+  text: string;
+  metres: number;
+  kind: "start" | "walk" | "crossing" | "steps" | "end";
+};
+
+export type Directions = {
+  turns: number;
+  crossings: number;
+  /// share of the walk on a real footpath rather than a road
+  onFootpath: number;
+  steps: DirectionStep[];
+};
+
 export type RouteReply = {
   start: Building;
   target: Building;
   mode: RouteMode;
   results: AlgorithmResult[];
+  directions: Directions | null;
   pathGroups: PathGroup[];
   cost: {
     source: string;

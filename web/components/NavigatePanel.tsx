@@ -3,9 +3,17 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import type { RouteMode, RouteReply } from "@/lib/api";
+import type { Directions, RouteMode, RouteReply } from "@/lib/api";
 import { agreementFor } from "@/lib/agreement";
-import { distance, duration } from "@/lib/format";
+import { ALGORITHM_COLORS, distance, duration } from "@/lib/format";
+
+// the four lanes, in the order the lab races them
+const LANE_COLOURS = [
+  ALGORITHM_COLORS.dijkstra,
+  ALGORITHM_COLORS.astar,
+  ALGORITHM_COLORS.bidirectional,
+  ALGORITHM_COLORS.bfs,
+];
 
 type Props = {
   reply: RouteReply | null;
@@ -23,6 +31,55 @@ const MODE_SUMMARY: Record<RouteMode, string> = {
   accessible: "Step free route. Rough surfaces avoided where the data says so.",
   weather: "Adjusted for what the ground is likely to be underfoot.",
 };
+
+const ALGORITHM_WORD: Record<string, string> = {
+  dijkstra: "Dijkstra",
+  astar: "A*",
+  bidirectional: "bidirectional Dijkstra",
+  bfs: "breadth first search",
+};
+
+const COST_WORD: Record<RouteMode, string> = {
+  shortest: "distance",
+  accessible: "step free",
+  weather: "winter surface",
+};
+
+function Stats({ guide }: { guide: Directions }) {
+  return (
+    <div className="stat-row">
+      <div className="stat">
+        <span className="stat-value">{guide.turns}</span>
+        <span className="stat-label">turns</span>
+      </div>
+      <div className="stat">
+        <span className="stat-value">{guide.crossings}</span>
+        <span className="stat-label">crossings</span>
+      </div>
+      <div className="stat">
+        <span className="stat-value">{guide.onFootpath}%</span>
+        <span className="stat-label">on footpath</span>
+      </div>
+    </div>
+  );
+}
+
+function Steps({ guide }: { guide: Directions }) {
+  return (
+    <>
+      <p className="section-label">Along the way</p>
+      <ol className="steps">
+        {guide.steps.map((step, i) => (
+          <li className={`step is-${step.kind}`} key={`${step.text}-${i}`}>
+            <span className="step-dot" aria-hidden="true" />
+            <span className="step-text">{step.text}</span>
+            <span className="step-metres">{step.metres} m</span>
+          </li>
+        ))}
+      </ol>
+    </>
+  );
+}
 
 function CopyLink() {
   const [copied, setCopied] = useState(false);
@@ -121,31 +178,46 @@ export default function NavigatePanel(props: Props) {
   }
 
   const agreement = agreementFor(reply);
+  const guide = reply.directions;
+  const via = ALGORITHM_WORD[best.algorithm] ?? best.algorithm;
 
   return (
-    <div className="panel">
-      <div className="headline">
-        <span className="headline-distance">{distance(best.distanceM)}</span>
-        <span className="headline-time">{duration(best.estSeconds)} walk</span>
+    <div className="panel panel-navigate">
+      <div className="navigate-scroll">
+        <div className="headline">
+          <span className="headline-distance">{distance(best.distanceM)}</span>
+          <span className="headline-time">{duration(best.estSeconds)} walk</span>
+        </div>
+
+        <p className="lede">
+          {MODE_SUMMARY[mode]} Found with {via} on the {COST_WORD[mode]} cost
+          model.
+        </p>
+        {reply.cost.notes.map((note) => (
+          <p className="foot-note" key={note}>
+            {note}
+          </p>
+        ))}
+
+        {guide ? <Stats guide={guide} /> : null}
+        {guide && guide.steps.length > 2 ? <Steps guide={guide} /> : null}
+
+        {agreement ? (
+          <Link className="invite" href={labHref}>
+            <span className="invite-dots" aria-hidden="true">
+              {LANE_COLOURS.map((colour) => (
+                <span key={colour} style={{ background: colour }} />
+              ))}
+            </span>
+            <span className="invite-headline">{agreement.headline}</span>
+            <span className="invite-action">{agreement.invite} →</span>
+          </Link>
+        ) : null}
       </div>
 
-      <p className="empty-body">{MODE_SUMMARY[mode]}</p>
-      {reply.cost.notes.map((note) => (
-        <p className="foot-note" key={note}>
-          {note}
-        </p>
-      ))}
-
-      <div className="spacer" />
-
-      {agreement ? (
-        <Link className="invite" href={labHref}>
-          <span className="invite-headline">{agreement.headline}</span>
-          <span className="invite-action">{agreement.invite} →</span>
-        </Link>
-      ) : null}
-
-      <CopyLink />
+      <div className="navigate-foot">
+        <CopyLink />
+      </div>
     </div>
   );
 }

@@ -68,6 +68,10 @@ class GraphData:
         self.by_node: dict[int, Building] = {}
         self.meta: dict = {}
         self.classes: list[str] = []
+        # directions walk the route edge by edge, so both of these are
+        # keyed by the pair of node ids in either order
+        self.edges: dict[tuple, dict] = {}
+        self.nodes: dict[int, tuple] = {}
 
     def load(self) -> None:
         with self._lock:
@@ -83,13 +87,25 @@ class GraphData:
             self.by_node = {b.node_id: b for b in self.buildings}
             self.classes = [c["class_key"] for c in raw["classes"]]
             self.meta = raw["meta"]
+
+            self.nodes = {n["id"]: (n["lat"], n["lon"]) for n in raw["nodes"]}
+            self.edges = {}
+            for edge in raw["edges"]:
+                pair = (edge["u"], edge["v"]) if edge["u"] < edge["v"] else (edge["v"], edge["u"])
+                self.edges[pair] = edge
+
             self._loaded = True
 
             log.info(
-                "graph ready, %d buildings and %d classes",
+                "graph ready, %d buildings and %d classes and %d edges",
                 len(self.buildings),
                 len(self.classes),
+                len(self.edges),
             )
+
+    def edge_between(self, a: int, b: int) -> Optional[dict]:
+        """The edge joining two nodes, whichever way round they came."""
+        return self.edges.get((a, b) if a < b else (b, a))
 
     def search(self, query: str, limit: int = 10) -> list[Building]:
         """Finds buildings by name, code or alias.

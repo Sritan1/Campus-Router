@@ -16,6 +16,7 @@ function fakeReply(): RouteReply {
       { algorithm: "dijkstra", status: "no_path", nodesVisited: 1, edgesRelaxed: 1, runtimeUs: 1 },
       { algorithm: "astar", status: "ok", nodesVisited: 2, edgesRelaxed: 2, runtimeUs: 2 },
     ],
+    directions: null,
     pathGroups: [],
     cost: {
       source: "test",

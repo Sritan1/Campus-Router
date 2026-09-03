@@ -24,6 +24,7 @@ function reply(
     target: {} as never,
     mode: "shortest",
     results,
+    directions: null,
     pathGroups: groups.map((algorithms) => ({ algorithms })),
     cost: {
       source: "test",
