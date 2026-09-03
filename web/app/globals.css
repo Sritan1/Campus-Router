@@ -460,6 +460,22 @@ button {
   color: var(--muted);
 }
 
+/* the same bar the running phase shows, kept in the results so the
+   difference in how much each one explored stays visible */
+.lane-track {
+  height: 3px;
+  margin-top: 3px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.lane-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+}
+
 .results-foot {
   border-top: 1px solid var(--line);
   padding: 12px 16px;
@@ -526,40 +542,61 @@ button {
 
 /* four locked panels, one per algorithm, sharing a single frame */
 
+/* the grid and its credit line stack, so the credit gets its own room
+   instead of floating over the bottom two maps */
+.map-wrap.is-grid {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .race-grid {
-  height: 100%;
+  flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 10px;
-  padding: 10px;
-  background: #e7e9ed;
+  gap: 14px;
+  padding: 14px;
+  background: var(--ground);
+  min-height: 0;
 }
 
-/* each panel is its own card. a hairline between them read as one
-   split map rather than four separate searches. */
+/* each panel is a card holding a label and a map, rather than a map
+   with a label sitting on top of it */
 .panel-map {
   position: relative;
-  border: 2px solid var(--ink);
-  border-radius: 8px;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px;
   margin: 0;
-  background: var(--ground);
-  overflow: hidden;
+  background: var(--surface);
   text-align: left;
   min-height: 0;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(16, 18, 22, 0.14);
+  box-shadow: 0 1px 2px rgba(16, 18, 22, 0.05);
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
 .panel-map:hover {
-  border-color: var(--accent);
+  border-color: #b9bec6;
 }
 
 .panel-map.is-active {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft), 0 1px 3px rgba(16, 18, 22, 0.14);
+  box-shadow: 0 0 0 2px var(--accent-soft);
   z-index: 2;
+}
+
+/* the map sits inside the card with its own edge, so the card padding
+   reads as a mount rather than a gap */
+.panel-frame {
+  flex: 1;
+  min-height: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
 }
 
 .panel-canvas {
@@ -569,29 +606,21 @@ button {
   cursor: pointer;
 }
 
-/* the name sits along the top of its own panel, so there is no doubt
-   which search belongs to which map */
+/* the name sits above its own map, so there is no doubt which search
+   belongs to which panel */
 .panel-label {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 500;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.93);
-  border-bottom: 1px solid var(--line);
-  pointer-events: none;
+  padding: 1px 3px 7px;
 }
 
 .panel-name {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 7px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -601,16 +630,12 @@ button {
 }
 
 .grid-credit {
-  position: absolute;
-  right: 6px;
-  bottom: 4px;
-  z-index: 600;
   margin: 0;
+  padding: 0 18px 14px;
+  line-height: 1.5;
   font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.85);
-  padding: 2px 6px;
-  border-radius: 4px;
+  background: var(--ground);
 }
 
 .grid-credit a {
@@ -662,6 +687,152 @@ button {
 .spacer {
   flex: 1;
   min-height: 8px;
+}
+
+/* navigate scrolls its own content so copy link stays pinned at the
+   bottom however long the directions get */
+.panel-navigate {
+  padding: 0;
+  gap: 0;
+}
+
+.navigate-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* once the steps overflow, flex is allowed to squash everything else to
+   nothing. the stat box lost its whole height that way. */
+.navigate-scroll > * {
+  flex-shrink: 0;
+}
+
+.navigate-foot {
+  border-top: 1px solid var(--line);
+  padding: 12px 16px;
+}
+
+.navigate-foot .secondary {
+  width: 100%;
+}
+
+.lede {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* the three numbers about the walk, in one bordered strip */
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-left: 1px solid var(--line);
+}
+
+.stat:first-child {
+  border-left: 0;
+}
+
+.stat-value {
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.stat-label {
+  font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+
+.section-label {
+  margin: 6px 0 0;
+  font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* the walk itself, one line per thing you do */
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13.5px;
+}
+
+.step:first-child {
+  border-top: 0;
+}
+
+.step-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  justify-self: center;
+}
+
+/* both ends of the walk are filled in, so the list reads as a journey
+   rather than a pile of instructions */
+.step.is-start .step-dot {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.step.is-end .step-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.step.is-crossing .step-dot,
+.step.is-steps .step-dot {
+  border-color: var(--muted);
+}
+
+.step-metres {
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+
+.invite-dots {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.invite-dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
 }
 
 /* the invite across to the lab. this is the only thing telling a

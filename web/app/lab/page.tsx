@@ -352,7 +352,11 @@ export default function Lab() {
 
       <div className="body">
         {showGrid ? (
-          <div className="map-wrap" role="region" aria-label="algorithm comparison">
+          <div
+            className="map-wrap is-grid"
+            role="region"
+            aria-label="algorithm comparison"
+          >
             <RaceGrid
               reply={state.reply as RouteReply}
               bounds={gridBounds as Bounds}

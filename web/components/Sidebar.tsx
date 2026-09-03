@@ -216,6 +216,13 @@ function ResultsPanel(props: Props) {
     );
   }
 
+  // bars are scaled against the busiest search, so the widest one fills
+  // the track and the rest are read against it
+  const busiest = Math.max(
+    1,
+    ...reply.results.map((r) => (r.status === "ok" ? r.nodesVisited : 0)),
+  );
+
   return (
     <div className="panel panel-results">
       <div className="results-head">
@@ -249,13 +256,26 @@ function ResultsPanel(props: Props) {
                   ? `${distance(result.distanceM)} · ${duration(result.estSeconds)} · ${count(result.nodesVisited)} nodes`
                   : "no route with these settings"}
               </span>
+              {result.status === "ok" ? (
+                <span className="lane-track">
+                  <span
+                    className="lane-fill"
+                    style={{
+                      width: `${(result.nodesVisited / busiest) * 100}%`,
+                      background: ALGORITHM_COLORS[result.algorithm],
+                    }}
+                  />
+                </span>
+              ) : null}
             </button>
           );
         })}
       </div>
 
       <div className="results-foot">
-        <p className="foot-note">cost model: {reply.cost.source}</p>
+        <p className="foot-note">
+          cost model: {reply.cost.source} · bar length is nodes explored
+        </p>
         {reply.cost.notes.map((note) => (
           <p className="foot-note" key={note}>
             {note}

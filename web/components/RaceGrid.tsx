@@ -50,6 +50,19 @@ function Panel({
       onClick={() => onSelect(result.algorithm)}
       aria-label={`${ALGORITHM_LABELS[result.algorithm]} search`}
     >
+      <span className="panel-label">
+        <span className="panel-name">
+          <span className="lane-swatch" style={{ background: colour }} />
+          {ALGORITHM_LABELS[result.algorithm]}
+        </span>
+        <span className="panel-stat">
+          {result.status === "ok"
+            ? `${count(result.nodesVisited)} explored · ${distance(result.distanceM)}`
+            : "no route"}
+        </span>
+      </span>
+
+      <span className="panel-frame">
       <MapContainer
         // every panel is pinned to the same frame, and none of them can
         // be moved. a panel framed on its own would make a small search
@@ -116,17 +129,6 @@ function Panel({
           </>
         ) : null}
       </MapContainer>
-
-      <span className="panel-label">
-        <span className="panel-name">
-          <span className="lane-swatch" style={{ background: colour }} />
-          {ALGORITHM_LABELS[result.algorithm]}
-        </span>
-        <span className="panel-stat">
-          {result.status === "ok"
-            ? `${count(result.nodesVisited)} explored · ${distance(result.distanceM)}`
-            : "no route"}
-        </span>
       </span>
     </button>
   );
