@@ -256,6 +256,8 @@ export default function Navigate() {
           ) : (
             <ReachPanel
               data={reach}
+              start={start}
+              mode={mode}
               minutes={minutes}
               busy={busy}
               error={error}
@@ -265,6 +267,7 @@ export default function Navigate() {
                 setReach(null);
               }}
               onRun={() => void showReach()}
+              onClear={() => setReach(null)}
             />
           )}
         </aside>

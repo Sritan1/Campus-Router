@@ -1,6 +1,15 @@
 // Turning numbers into the strings the panels show.
 
+import type { RouteMode } from "./api";
+
 const METRES_PER_MILE = 1609.344;
+
+/// What each mode is called when we name the cost model out loud.
+export const COST_MODEL_LABEL: Record<RouteMode, string> = {
+  shortest: "Distance",
+  accessible: "Step free",
+  weather: "Winter surface",
+};
 
 /// Metres up to a kilometre, miles past that.
 ///

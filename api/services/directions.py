@@ -172,18 +172,21 @@ def build(path: list, points: list, graph, start, target) -> Optional[dict]:
         leg["metres"] for leg in real if leg["tags"].get("highway") in FOOTPATH
     )
 
-    runs = _fold_short(_runs(real))
+    merged = _runs(real)
 
-    # a turn is a bend between two things you were told to walk along,
-    # not every wiggle in the path
+    # count turns before the short runs get folded away. folding is only
+    # about keeping the list readable, and counting after it was quietly
+    # throwing away most of the real turns.
     turns = 0
     previous = None
-    for run in runs:
+    for run in merged:
         if run["kind"] != "walk":
             continue
         if previous is not None and turn_size(previous, run["heading"]) >= TURN_DEGREES:
             turns += 1
         previous = run["heading"]
+
+    runs = _fold_short(merged)
 
     steps = [
         {

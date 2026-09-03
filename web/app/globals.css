@@ -327,43 +327,45 @@ button {
 .cards {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.card,
-.race-toggle {
+/* every choice in the lab is the same card, so race mode reads as one
+   more option rather than a stray checkbox under the list */
+.card {
   width: 100%;
   text-align: left;
   border: 1px solid var(--line);
   background: var(--surface);
-  border-radius: var(--radius);
-  padding: 10px 12px;
+  border-radius: 10px;
+  padding: 10px 13px;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: border-color 0.12s, background 0.12s;
 }
 
-.card:hover,
-.race-toggle:hover {
-  border-color: var(--accent);
+.card:hover {
+  border-color: #b9bec6;
 }
 
-.card.is-active,
-.race-toggle.is-active {
+.card.is-active {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
 
-.race-toggle {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  border-width: 2px;
+.card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 
 .card-name {
   display: block;
-  font-weight: 600;
+  font-weight: 650;
   font-size: 14px;
 }
 
@@ -371,6 +373,45 @@ button {
   display: block;
   font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--muted);
+}
+
+.card-tick {
+  color: var(--accent);
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* race mode is a switch, because it is a thing you leave on rather than
+   a choice between four */
+.switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: #cfd4db;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.switch.is-on {
+  background: var(--accent);
+}
+
+.switch.is-on::after {
+  transform: translateX(16px);
 }
 
 .checkbox {
@@ -401,22 +442,83 @@ button {
   align-items: baseline;
 }
 
-.lanes {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
+/* who won, before the lane by lane detail */
+
+.winners {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px 12px 0;
 }
 
+.winner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 9px 11px;
+}
+
+.winner-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.winner-value {
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+
+/* the rule runs off to the right of the label, so the lanes below read
+   as one group rather than four loose rows */
+/* two classes on purpose. section-label is defined further down and
+   would otherwise win and squash the spacing back to nothing. */
+.section-label.lanes-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 13px 0 5px;
+  padding: 0 14px;
+}
+
+.lanes-head::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* the whole results body scrolls, not the lane list on its own */
+.results-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 12px 10px;
+}
+
+/* each lane is its own rounded card. hard edged rows running the full
+   width read as one table rather than four things you can click. */
 .lane {
   width: 100%;
   text-align: left;
   border: 0;
-  border-bottom: 1px solid var(--line);
+  border-radius: 10px;
   background: transparent;
-  padding: 12px 16px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: background 0.12s;
 }
 
 .lane:hover:not(:disabled) {
@@ -691,34 +793,126 @@ button {
 
 /* navigate scrolls its own content so copy link stays pinned at the
    bottom however long the directions get */
-.panel-navigate {
+.panel-stack {
   padding: 0;
   gap: 0;
 }
 
-.navigate-scroll {
+.panel-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 /* once the steps overflow, flex is allowed to squash everything else to
    nothing. the stat box lost its whole height that way. */
-.navigate-scroll > * {
+.panel-scroll > * {
   flex-shrink: 0;
 }
 
-.navigate-foot {
+.panel-foot {
   border-top: 1px solid var(--line);
   padding: 12px 16px;
 }
 
-.navigate-foot .secondary {
+.panel-foot > button {
   width: 100%;
+}
+
+/* the budget picker reads as one track with a pill on it, and the four
+   choices share the width evenly so 15 min does not hog the end */
+.panel-stack .segmented {
+  background: var(--ground);
+  border-radius: 9px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.panel-stack .segmented button {
+  flex: 1;
+  padding: 8px 6px;
+  border-left: 0;
+  background: transparent;
+  border-radius: 6px;
+}
+
+.panel-stack .segmented button.is-active {
+  background: var(--ink);
+  color: #fff;
+}
+
+/* the placeholder that stands in for the map drawing before there is
+   anything drawn, so the panel is not a form floating in space */
+.reach-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 26px 18px;
+  min-height: 130px;
+  background: var(--ground);
+  border-radius: var(--radius);
+}
+
+.reach-empty-mark {
+  width: 46px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.reach-empty-note {
+  margin: 0;
+  max-width: 27ch;
+  text-align: center;
+  font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+
+/* what the search is about to do, read back as a short receipt */
+.summary {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.summary-head {
+  margin: 0;
+  padding: 10px 14px 8px;
+}
+
+.summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 13.5px;
+}
+
+.summary-key {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+}
+
+.summary-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.summary-value {
+  font-weight: 600;
 }
 
 .lede {
@@ -1041,11 +1235,19 @@ button {
   background: var(--accent-soft);
 }
 
+/* the table takes over the map area, so it is a card sitting on the
+   same grey ground the race panels sit on */
+.map-wrap.is-table {
+  background: var(--ground);
+  padding: 14px;
+  overflow-y: auto;
+}
+
 .table-wrap {
-  border-top: 1px solid var(--line);
   background: var(--surface);
-  padding: 14px 16px 16px;
-  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px 18px;
 }
 
 .table-head {
@@ -1063,32 +1265,34 @@ button {
 
 .table-scroll {
   overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
 }
 
 .compare {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
-  min-width: 560px;
+  font-size: 13.5px;
+  min-width: 460px;
 }
 
 .compare th {
   text-align: left;
   padding: 8px 12px;
-  background: var(--ground);
+  border-bottom: 1px solid var(--line);
   font: 600 10px ui-monospace, SFMono-Regular, Menlo, monospace;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
   white-space: nowrap;
 }
 
 .compare td {
-  padding: 9px 12px;
-  border-top: 1px solid var(--line);
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--line);
   white-space: nowrap;
+}
+
+.compare .is-right {
+  text-align: right;
 }
 
 .compare tbody tr.is-active {
@@ -1098,8 +1302,8 @@ button {
 .compare td:first-child {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 550;
+  gap: 10px;
+  font-weight: 600;
 }
 
 .table-empty {
@@ -1148,8 +1352,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-top: 4px;
-  border-top: 1px solid var(--line);
+  margin-top: 2px;
 }
 
 .cost-model-head {
@@ -1218,20 +1421,42 @@ button {
 .reach-list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  overflow-y: auto;
   min-height: 0;
 }
 
-.reach-row {
+.reach-head {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  font-size: 13px;
-  padding: 2px 0;
+  margin: 0 0 2px;
+}
+
+.reach-count {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* code, then the full name, then how long it takes. the code column is
+   fixed so the names all start in the same place. */
+.reach-row {
+  display: grid;
+  grid-template-columns: 62px 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13.5px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+
+.reach-code {
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .reach-name {
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1240,7 +1465,21 @@ button {
 .reach-time {
   font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--muted);
-  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.reach-more {
+  border: 0;
+  background: none;
+  padding: 11px 0;
+  text-align: left;
+  border-top: 1px solid var(--line);
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--accent);
+}
+
+.reach-more:hover {
+  text-decoration: underline;
 }
 
 /* building codes left on screen inside a reach area */

@@ -1,6 +1,11 @@
 "use client";
 
-import type { AlgorithmName, RouteMode, RouteReply } from "@/lib/api";
+import type {
+  AlgorithmName,
+  AlgorithmResult,
+  RouteMode,
+  RouteReply,
+} from "@/lib/api";
 import {
   ALGORITHM_COLORS,
   ALGORITHM_LABELS,
@@ -58,6 +63,7 @@ type Props = {
   progress: number;
   onPickAlgorithm: (algorithm: AlgorithmName) => void;
   onToggleRace: () => void;
+  onRaceAll: () => void;
   onSelectLane: (algorithm: AlgorithmName) => void;
   onRun: () => void;
   onReset: () => void;
@@ -72,53 +78,66 @@ type Props = {
 function IdlePanel(props: Props) {
   const { state, onPickAlgorithm, onToggleRace, onRun, canRun } = props;
   return (
-    <div className="panel">
-      <h2 className="panel-title">Pick an algorithm</h2>
-      <p className="panel-hint">click a card, or race all four</p>
+    <div className="panel panel-stack">
+      <div className="panel-scroll">
+        <h2 className="panel-title">Pick an algorithm</h2>
+        <p className="panel-hint">click a card, or race all four</p>
 
-      <div className="cards">
-        {ALL.map((name) => {
-          const active = !state.race && state.algorithm === name;
-          return (
-            <button
-              type="button"
-              key={name}
-              className={`card${active ? " is-active" : ""}`}
-              onClick={() => onPickAlgorithm(name)}
-            >
-              <span className="card-name">{ALGORITHM_LABELS[name]}</span>
-              <span className="card-note">{ALGORITHM_NOTES[name]}</span>
-            </button>
-          );
-        })}
+        <div className="cards">
+          {ALL.map((name) => {
+            // racing means no single algorithm is the chosen one
+            const active = !state.race && state.algorithm === name;
+            return (
+              <button
+                type="button"
+                key={name}
+                className={`card${active ? " is-active" : ""}`}
+                onClick={() => onPickAlgorithm(name)}
+                aria-pressed={active}
+              >
+                <span className="card-text">
+                  <span className="card-name">{ALGORITHM_LABELS[name]}</span>
+                  <span className="card-note">{ALGORITHM_NOTES[name]}</span>
+                </span>
+                {active ? (
+                  <span className="card-tick" aria-hidden="true">
+                    ✓
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            className={`card race-toggle${state.race ? " is-active" : ""}`}
+            onClick={onToggleRace}
+            aria-pressed={state.race}
+          >
+            <span className="card-text">
+              <span className="card-name">Race mode</span>
+              <span className="card-note">run all four on the same pair</span>
+            </span>
+            <span className={`switch${state.race ? " is-on" : ""}`} />
+          </button>
+        </div>
+
+        <CostModelPicker mode={state.mode} onMode={props.onMode} />
       </div>
 
-      <button
-        type="button"
-        className={`race-toggle${state.race ? " is-active" : ""}`}
-        onClick={onToggleRace}
-        aria-pressed={state.race}
-      >
-        <span>
-          <span className="card-name">Race mode</span>
-          <span className="card-note">run all four on the same pair</span>
-        </span>
-        <span className={`checkbox${state.race ? " is-on" : ""}`} />
-      </button>
-
-      <CostModelPicker mode={state.mode} onMode={props.onMode} />
-
-      <button
-        type="button"
-        className="primary run-button"
-        onClick={onRun}
-        disabled={!canRun}
-      >
-        {state.race ? "Race" : "Find route"} ▶
-      </button>
-      {!canRun ? (
-        <p className="panel-hint centered">pick a start and a destination</p>
-      ) : null}
+      <div className="panel-foot">
+        <button
+          type="button"
+          className="primary"
+          onClick={onRun}
+          disabled={!canRun}
+        >
+          {state.race ? "Race all four" : "Find route"}
+        </button>
+        {!canRun ? (
+          <p className="panel-hint centered">pick a start and a destination</p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -195,6 +214,49 @@ function NoPathPanel({ onShowShortest }: { onShowShortest: () => void }) {
   );
 }
 
+/// Who won, on the two things worth winning.
+///
+/// Only shown when there is more than one lane, since a single result
+/// is not the fastest of anything.
+function Winners({ results }: { results: AlgorithmResult[] }) {
+  const ran = results.filter((r) => r.status === "ok");
+  if (ran.length < 2) {
+    return null;
+  }
+
+  const fastest = ran.reduce((best, r) => (r.runtimeUs < best.runtimeUs ? r : best));
+  const leanest = ran.reduce((best, r) =>
+    r.nodesVisited < best.nodesVisited ? r : best,
+  );
+
+  const cards: { label: string; result: AlgorithmResult; value: string }[] = [
+    { label: "Fastest", result: fastest, value: runtime(fastest.runtimeUs) },
+    {
+      label: "Leanest search",
+      result: leanest,
+      value: `${count(leanest.nodesVisited)} nodes`,
+    },
+  ];
+
+  return (
+    <div className="winners">
+      {cards.map((card) => (
+        <div className="winner" key={card.label}>
+          <span className="section-label">{card.label}</span>
+          <span className="winner-who">
+            <span
+              className="lane-swatch"
+              style={{ background: ALGORITHM_COLORS[card.result.algorithm] }}
+            />
+            {ALGORITHM_LABELS[card.result.algorithm]}
+          </span>
+          <span className="winner-value">{card.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ResultsPanel(props: Props) {
   const { state, onSelectLane, onReset, onShowShortest } = props;
   const reply = state.reply as RouteReply;
@@ -230,7 +292,16 @@ function ResultsPanel(props: Props) {
         {state.race ? <span className="panel-hint">click a lane</span> : null}
       </div>
 
-      <div className="lanes">
+      {/* one scroll for the whole lot. giving the lanes their own made
+          a stubby inner scrollbar that hid the last card by a sliver. */}
+      <div className="results-body">
+        <Winners results={reply.results} />
+
+        {state.race ? (
+          <p className="section-label lanes-head">All four lanes</p>
+        ) : null}
+
+        <div className="lanes">
         {reply.results.map((result) => {
           const active = result.algorithm === state.selected;
           return (
@@ -270,36 +341,30 @@ function ResultsPanel(props: Props) {
             </button>
           );
         })}
+        </div>
       </div>
 
       <div className="results-foot">
-        <p className="foot-note">
-          cost model: {reply.cost.source} · bar length is nodes explored
-        </p>
         {reply.cost.notes.map((note) => (
           <p className="foot-note" key={note}>
             {note}
           </p>
         ))}
 
-        {/* the race toggle lives here too, otherwise there is no way back
-            to racing without starting over */}
-        <button
-          type="button"
-          className="foot-race"
-          onClick={props.onToggleRace}
-          aria-pressed={state.race}
-        >
-          <span className={`checkbox${state.race ? " is-on" : ""}`} />
-          Race all four
-        </button>
-
         <div className="foot-buttons">
-          <button type="button" className="secondary" onClick={props.onToggleTable}>
-            {state.showTable ? "Hide table ▾" : "Compare table ▸"}
-          </button>
+          {/* one algorithm has nothing to compare against, so the useful
+              offer there is to race the other three */}
+          {state.race ? (
+            <button type="button" className="secondary" onClick={props.onToggleTable}>
+              {state.showTable ? "Show lanes" : "Compare table"}
+            </button>
+          ) : (
+            <button type="button" className="secondary" onClick={props.onRaceAll}>
+              Race all four
+            </button>
+          )}
           <button type="button" className="primary" onClick={props.onReplay}>
-            ▶ Replay
+            Replay
           </button>
         </div>
         <button type="button" className="secondary" onClick={onReset}>

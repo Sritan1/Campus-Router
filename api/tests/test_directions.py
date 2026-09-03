@@ -189,6 +189,40 @@ def test_share_on_footpath_ignores_the_building_links():
     assert guide["onFootpath"] == 75
 
 
+def test_short_zigzags_still_count_as_turns():
+    """The count describes the route, not the tidied up list.
+
+    Short legs get folded out of the step list to keep it readable. They
+    used to be folded out of the turn count as well, which reported one
+    turn for a path that visibly zigzags eleven times.
+    """
+    # four hard corners, each leg too short to earn its own line
+    points = [
+        (0.0, 0.0),
+        (0.0002, 0.0),
+        (0.0002, 0.0002),
+        (0.0004, 0.0002),
+        (0.0004, 0.0004),
+        (0.0006, 0.0004),
+    ]
+    edges = [(i, i + 1, 22.0, {"highway": "footway"}) for i in range(1, 6)]
+    graph = FakeGraph(edges)
+
+    guide = directions.build(
+        list(range(1, 7)),
+        points,
+        graph,
+        FakeBuilding("A", -0.001, 0.0),
+        FakeBuilding("B", 0.001, 0.0004),
+    )
+
+    # every leg is under the thirty metre fold, so the list is short
+    walks = [s for s in guide["steps"] if s["kind"] == "walk"]
+    assert len(walks) < 4
+    # but the corners are still real and still counted
+    assert guide["turns"] >= 4
+
+
 def test_turning_a_corner_counts_once():
     # north for a while, then a hard right and east for a while
     points = [(0.0, 0.0), (0.0006, 0.0), (0.0012, 0.0), (0.0012, 0.0008), (0.0012, 0.0016)]

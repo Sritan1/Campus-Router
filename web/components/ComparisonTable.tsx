@@ -6,7 +6,6 @@ import {
   ALGORITHM_LABELS,
   count,
   distance,
-  duration,
   runtime,
 } from "@/lib/format";
 
@@ -22,7 +21,7 @@ export default function ComparisonTable({ reply, selected, onClose }: Props) {
       <div className="table-head">
         <h3 className="table-title">Route comparison</h3>
         <button type="button" className="link-button" onClick={onClose}>
-          close ▾
+          back to lanes
         </button>
       </div>
 
@@ -31,10 +30,9 @@ export default function ComparisonTable({ reply, selected, onClose }: Props) {
           <thead>
             <tr>
               <th>Algorithm</th>
-              <th>Path length</th>
-              <th>Est. time</th>
-              <th>Nodes visited</th>
-              <th>Runtime</th>
+              <th>Length</th>
+              <th>Nodes</th>
+              <th className="is-right">Runtime</th>
             </tr>
           </thead>
           <tbody>
@@ -53,12 +51,11 @@ export default function ComparisonTable({ reply, selected, onClose }: Props) {
                 {result.status === "ok" ? (
                   <>
                     <td>{distance(result.distanceM)}</td>
-                    <td>{duration(result.estSeconds)}</td>
                     <td>{count(result.nodesVisited)}</td>
-                    <td>{runtime(result.runtimeUs)}</td>
+                    <td className="is-right">{runtime(result.runtimeUs)}</td>
                   </>
                 ) : (
-                  <td colSpan={4} className="table-empty">
+                  <td colSpan={3} className="table-empty">
                     no route with these settings
                   </td>
                 )}

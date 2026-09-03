@@ -20,7 +20,13 @@ import {
 } from "@/lib/api";
 import { ALGORITHM_LABELS, temperature, wind } from "@/lib/format";
 import { PLAYBACK_MS, clamp, prefersReducedMotion } from "@/lib/playback";
-import { INITIAL, algorithmsFor, canRun, reduce } from "@/lib/state";
+import {
+  INITIAL,
+  algorithmsFor,
+  canRun,
+  reduce,
+  type AppState,
+} from "@/lib/state";
 import { findBuilding, readUrl, writeUrl } from "@/lib/url";
 
 // leaflet reaches for window as soon as it loads, so it cannot render
@@ -171,34 +177,47 @@ export default function Lab() {
     dispatch({ type: "finished" });
   }, [stopClock]);
 
-  const run = useCallback(async () => {
-    if (!canRun(state)) {
+  // takes the state to run rather than reading it, so a caller can turn
+  // racing on and run in one go without waiting for the dispatch
+  const runWith = useCallback(
+    async (wanted: AppState) => {
+      if (!canRun(wanted)) {
+        dispatch({ type: "run" });
+        return;
+      }
+      stopClock();
+      setStartedAt(null);
+      setProgress(0);
       dispatch({ type: "run" });
-      return;
-    }
-    stopClock();
-    setStartedAt(null);
-    setProgress(0);
-    dispatch({ type: "run" });
 
-    try {
-      const reply = await requestRoute({
-        start: state.startId as string,
-        target: state.targetId as string,
-        mode: state.mode,
-        algorithms: algorithmsFor(state),
-        trace: true,
-      });
-      dispatch({ type: "arrived", reply });
-      startClock();
-    } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : "could not reach the routing service";
-      dispatch({ type: "failed", message });
-    }
-  }, [state, startClock, stopClock]);
+      try {
+        const reply = await requestRoute({
+          start: wanted.startId as string,
+          target: wanted.targetId as string,
+          mode: wanted.mode,
+          algorithms: algorithmsFor(wanted),
+          trace: true,
+        });
+        dispatch({ type: "arrived", reply });
+        startClock();
+      } catch (error) {
+        const message =
+          error instanceof ApiError
+            ? error.message
+            : "could not reach the routing service";
+        dispatch({ type: "failed", message });
+      }
+    },
+    [startClock, stopClock],
+  );
+
+  const run = useCallback(() => runWith(state), [runWith, state]);
+
+  /// Switch to racing and go, from a single algorithm result.
+  const raceAll = useCallback(() => {
+    dispatch({ type: "toggleRace" });
+    return runWith({ ...state, race: true, selected: "astar" });
+  }, [runWith, state]);
 
   const replay = useCallback(() => {
     dispatch({ type: "replay" });
@@ -270,6 +289,12 @@ export default function Lab() {
       state.reply &&
       gridBounds &&
       (state.phase === "running" || state.phase === "results"),
+  );
+
+  // the table takes over the map area rather than sitting under it, so
+  // the numbers get the room instead of a strip at the bottom
+  const showTable = Boolean(
+    state.showTable && state.phase === "results" && state.reply,
   );
 
   // going back to routing should keep whatever is already picked
@@ -351,7 +376,15 @@ export default function Lab() {
       </p>
 
       <div className="body">
-        {showGrid ? (
+        {showTable ? (
+          <div className="map-wrap is-table" role="region" aria-label="route comparison">
+            <ComparisonTable
+              reply={state.reply as RouteReply}
+              selected={state.selected}
+              onClose={() => dispatch({ type: "toggleTable" })}
+            />
+          </div>
+        ) : showGrid ? (
           <div
             className="map-wrap is-grid"
             role="region"
@@ -404,6 +437,7 @@ export default function Lab() {
               dispatch({ type: "pickAlgorithm", algorithm })
             }
             onToggleRace={() => dispatch({ type: "toggleRace" })}
+            onRaceAll={raceAll}
             onSelectLane={(algorithm) => dispatch({ type: "selectLane", algorithm })}
             onRun={run}
             onReset={() => dispatch({ type: "reset" })}
@@ -416,13 +450,6 @@ export default function Lab() {
         </aside>
       </div>
 
-      {state.showTable && state.phase === "results" && state.reply ? (
-        <ComparisonTable
-          reply={state.reply}
-          selected={state.selected}
-          onClose={() => dispatch({ type: "toggleTable" })}
-        />
-      ) : null}
     </main>
   );
 }

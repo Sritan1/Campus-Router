@@ -157,7 +157,16 @@ export function reduce(state: AppState, action: Action): AppState {
       return { ...state, ...action.patch };
 
     case "reset":
-      return { ...INITIAL, mode: state.mode, race: state.race, algorithm: state.algorithm };
+      // the pair stays. new route means try something else on these two
+      // buildings, and retyping both to change one algorithm is a chore.
+      return {
+        ...INITIAL,
+        mode: state.mode,
+        race: state.race,
+        algorithm: state.algorithm,
+        startId: state.startId,
+        targetId: state.targetId,
+      };
 
     default:
       return state;

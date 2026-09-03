@@ -98,6 +98,28 @@ try {
   await page.waitForTimeout(3000);
   await page.screenshot({ path: `${shots}/race-done.png` });
 
+  // new route should leave the pair alone, otherwise trying another
+  // algorithm means typing both buildings in again
+  await page.getByRole("button", { name: "New route" }).click();
+  await page.waitForTimeout(600);
+  check("new route keeps both ends",
+        page.url().includes("from=SEO") && page.url().includes("to=LCC"), page.url());
+
+  // and racing from a single result has to run, not just flip a flag.
+  // the handler reads state that the dispatch has not updated yet.
+  await page.getByRole("button", { name: /^Dijkstra/ }).first().click();
+  await page.getByRole("complementary")
+    .getByRole("button", { name: "Find route", exact: true }).click();
+  await page.waitForSelector(".lane", { timeout: 15000 });
+  await page.waitForTimeout(5200);
+  check("one algorithm offers a race instead of a table",
+        await page.getByRole("button", { name: "Compare table" }).count() === 0);
+  await page.getByRole("button", { name: "Race all four", exact: true }).click();
+  await page.waitForTimeout(6500);
+  check("racing from one result runs in a single click",
+        await page.locator(".lane").count() === 4,
+        `${await page.locator(".lane").count()} lanes`);
+
   console.log("\nbackend down");
   await page.route("**/api/**", (r) => r.abort());
   await page.goto(base, { waitUntil: "domcontentloaded" });

@@ -182,8 +182,8 @@ export default function NavigatePanel(props: Props) {
   const via = ALGORITHM_WORD[best.algorithm] ?? best.algorithm;
 
   return (
-    <div className="panel panel-navigate">
-      <div className="navigate-scroll">
+    <div className="panel panel-stack">
+      <div className="panel-scroll">
         <div className="headline">
           <span className="headline-distance">{distance(best.distanceM)}</span>
           <span className="headline-time">{duration(best.estSeconds)} walk</span>
@@ -215,7 +215,7 @@ export default function NavigatePanel(props: Props) {
         ) : null}
       </div>
 
-      <div className="navigate-foot">
+      <div className="panel-foot">
         <CopyLink />
       </div>
     </div>

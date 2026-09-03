@@ -106,7 +106,9 @@ def isochrone(request: IsochroneRequest):
     reached_buildings = []
     for node_id, cost_m in zip(reply.get("ids", []), costs):
         building = graph_data.by_node.get(node_id)
-        if building is not None:
+        # where you already are is not somewhere you can get to, and it
+        # showed up in the list as a one minute walk
+        if building is not None and building.node_id != start.node_id:
             reached_buildings.append(
                 {**building.as_dict(), "seconds": round(cost_m / speed)}
             )

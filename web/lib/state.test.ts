@@ -184,7 +184,7 @@ describe("failures", () => {
 });
 
 describe("reset", () => {
-  it("clears the route but keeps how the user likes to search", () => {
+  it("clears the route but keeps the pair and how the user likes to search", () => {
     const settled = withEnds({
       phase: "results",
       reply: fakeReply(),
@@ -194,9 +194,13 @@ describe("reset", () => {
     });
     const next = reduce(settled, { type: "reset" });
 
-    expect(next.startId).toBeNull();
-    expect(next.targetId).toBeNull();
+    // going back to pick another algorithm should not make you type
+    // both buildings in again
+    expect(next.startId).toBe("1");
+    expect(next.targetId).toBe("2");
+    expect(next.phase).toBe("idle");
     expect(next.reply).toBeNull();
+    expect(next.showTable).toBe(false);
     expect(next.mode).toBe("accessible");
     expect(next.race).toBe(false);
     expect(next.algorithm).toBe("bfs");
