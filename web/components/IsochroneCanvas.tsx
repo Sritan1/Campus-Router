@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 
 import type { Isochrone } from "@/lib/api";
-import { REGION_COLOUR, grow, outlines, smooth } from "@/lib/isochrone";
+import { REGION_COLOUR, grow, outlines, simplify } from "@/lib/isochrone";
 
 type Props = {
   data: Isochrone | null;
@@ -13,7 +13,10 @@ type Props = {
 // the area is worked out on a grid this big. small enough to follow the
 // shape of where you can get, big enough that paths running alongside
 // each other join into one region.
-const CELL_M = 40;
+//
+// it also sets how generous the shape is. every filled square is grown
+// by one, so the outline sits up to this far outside the real ground.
+const CELL_M = 55;
 
 /// Draws everywhere you can walk to as an outlined area, paths on top.
 ///
@@ -85,42 +88,34 @@ export default function IsochroneCanvas({ data }: Props) {
         }
       }
 
-      const rings = outlines(grow(cells));
-      if (rings.length > 0) {
-        context!.beginPath();
-        for (const ring of rings) {
-          const rounded = smooth(ring);
-          context!.moveTo(rounded[0][0] * cell, rounded[0][1] * cell);
-          for (let i = 1; i < rounded.length; i++) {
-            context!.lineTo(rounded[i][0] * cell, rounded[i][1] * cell);
-          }
-          context!.closePath();
-        }
-
-        context!.fillStyle = REGION_COLOUR;
-        context!.globalAlpha = 0.14;
-        context!.fill();
-
-        context!.strokeStyle = REGION_COLOUR;
-        context!.globalAlpha = 0.95;
-        context!.lineWidth = 2.5;
-        context!.lineJoin = "round";
-        context!.stroke();
-        context!.globalAlpha = 1;
+      // a piece this small is a stray path, not an area worth outlining
+      const rings = outlines(grow(cells)).filter((ring) => ring.length >= 8);
+      if (rings.length === 0) {
+        return;
       }
 
-      // the paths themselves, thin, inside the area
       context!.beginPath();
-      for (const edge of data.edges) {
-        const from = map.latLngToContainerPoint(data.points[edge[0]]);
-        const to = map.latLngToContainerPoint(data.points[edge[1]]);
-        context!.moveTo(from.x, from.y);
-        context!.lineTo(to.x, to.y);
+      for (const ring of rings) {
+        // a little over one square. enough to lose the staircase, not
+        // enough to cut the corner off a whole block.
+        const shape = simplify(ring, 1.2);
+        context!.moveTo(shape[0][0] * cell, shape[0][1] * cell);
+        for (let i = 1; i < shape.length; i++) {
+          context!.lineTo(shape[i][0] * cell, shape[i][1] * cell);
+        }
+        context!.closePath();
       }
+
+      context!.fillStyle = REGION_COLOUR;
+      context!.globalAlpha = 0.1;
+      context!.fill();
+
+      // mitre, not round. the corners are the whole point of the shape.
       context!.strokeStyle = REGION_COLOUR;
-      context!.globalAlpha = 0.45;
-      context!.lineCap = "round";
-      context!.lineWidth = 1.6;
+      context!.globalAlpha = 0.85;
+      context!.lineWidth = 1.8;
+      context!.lineJoin = "miter";
+      context!.miterLimit = 6;
       context!.stroke();
       context!.globalAlpha = 1;
     }

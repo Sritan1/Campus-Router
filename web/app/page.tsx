@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
 
 import Header, { MODE_NOTES } from "@/components/Header";
+import ModePicker from "@/components/ModePicker";
 import NavigatePanel from "@/components/NavigatePanel";
 import ReachPanel from "@/components/ReachPanel";
 import {
@@ -168,6 +169,8 @@ export default function Navigate() {
         actionLabel="Find route"
         busy={busy}
         weatherReady={weatherReady}
+        // the picker lives in the sidebar now, over both views
+        showModes={false}
         otherMode={{ href: labHref, label: "Algorithm lab" }}
         onOpenSearch={setSearchFor}
         onCloseSearch={() => setSearchFor(null)}
@@ -241,6 +244,17 @@ export default function Navigate() {
               How far can I get
             </button>
           </div>
+
+          <ModePicker
+            mode={mode}
+            weatherReady={weatherReady}
+            onMode={(next) => {
+              if (next !== mode) {
+                setMode(next);
+                clear();
+              }
+            }}
+          />
 
           {view === "route" ? (
             <NavigatePanel

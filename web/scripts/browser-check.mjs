@@ -53,7 +53,9 @@ try {
   let b = await boxes(page);
   check("sidebar sits beside the map", b.sidebar.x > b.map.x + b.map.w - 5,
         `map ends ${b.map.x + b.map.w}, sidebar starts ${b.sidebar.x}`);
-  check("sidebar is the planned width", Math.abs(b.sidebar.w - 400) < 3, `${b.sidebar.w}px`);
+  // matches --sidebar in globals.css. widened with the type scale so the
+  // step lists and building names stopped running out of room.
+  check("sidebar is the planned width", Math.abs(b.sidebar.w - 440) < 3, `${b.sidebar.w}px`);
   await page.screenshot({ path: `${shots}/wide.png` });
 
   console.log("\nnarrow screen, under the 900px breakpoint");

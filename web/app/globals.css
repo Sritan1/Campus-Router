@@ -8,7 +8,7 @@
   --accent-soft: #eaf2fd;
   --danger: #b4442e;
   --radius: 8px;
-  --sidebar: 400px;
+  --sidebar: 440px;
 }
 
 * {
@@ -264,9 +264,11 @@ button {
   box-shadow: 0 2px 8px rgba(16, 18, 22, 0.08);
 }
 
+/* clear of leaflet's zoom buttons, which live in the same corner and
+   were sitting on top of the first few letters */
 .chip-mode {
   top: 12px;
-  left: 12px;
+  left: 54px;
   max-width: 260px;
 }
 
@@ -309,14 +311,14 @@ button {
 
 .panel-title {
   margin: 0;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 650;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 
 .panel-hint {
   margin: 0;
-  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--muted);
 }
 
@@ -327,7 +329,7 @@ button {
 .cards {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 /* every choice in the lab is the same card, so race mode reads as one
@@ -338,7 +340,7 @@ button {
   border: 1px solid var(--line);
   background: var(--surface);
   border-radius: 10px;
-  padding: 10px 13px;
+  padding: 9px 13px;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -359,7 +361,7 @@ button {
 .card-text {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -595,7 +597,7 @@ button {
 
 .empty-body {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   line-height: 1.55;
 }
@@ -802,10 +804,9 @@ button {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 16px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 
 /* once the steps overflow, flex is allowed to squash everything else to
@@ -814,9 +815,27 @@ button {
   flex-shrink: 0;
 }
 
+/* spacing is the hierarchy, so one flat gap between every child is
+   wrong. separate blocks get real air, and a heading stays close to
+   the line that belongs to it. */
+.panel-scroll > * + * {
+  margin-top: 18px;
+}
+
+.panel-scroll > .panel-title + .lede,
+.panel-scroll > .panel-title + .panel-hint,
+.panel-scroll > .panel-title + .empty-body,
+.panel-scroll > .lede + .lede,
+.panel-scroll > .lede + .foot-note,
+.panel-scroll > .empty-body + .empty-body,
+.panel-scroll > .foot-note + .foot-note,
+.panel-scroll > .section-label + * {
+  margin-top: 8px;
+}
+
 .panel-foot {
   border-top: 1px solid var(--line);
-  padding: 12px 16px;
+  padding: 14px 18px;
 }
 
 .panel-foot > button {
@@ -843,36 +862,6 @@ button {
 .panel-stack .segmented button.is-active {
   background: var(--ink);
   color: #fff;
-}
-
-/* the placeholder that stands in for the map drawing before there is
-   anything drawn, so the panel is not a form floating in space */
-.reach-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 26px 18px;
-  min-height: 130px;
-  background: var(--ground);
-  border-radius: var(--radius);
-}
-
-.reach-empty-mark {
-  width: 46px;
-  height: 26px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
-}
-
-.reach-empty-note {
-  margin: 0;
-  max-width: 27ch;
-  text-align: center;
-  font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--muted);
 }
 
 /* what the search is about to do, read back as a short receipt */
@@ -917,8 +906,8 @@ button {
 
 .lede {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.55;
   color: var(--muted);
 }
 
@@ -955,10 +944,12 @@ button {
   color: var(--muted);
 }
 
+/* no margin of its own on purpose. the panel decides how much air a
+   label gets, so it cannot fight the rules below.  */
 .section-label {
-  margin: 6px 0 0;
-  font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
-  letter-spacing: 0.09em;
+  margin: 0;
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -1230,7 +1221,7 @@ button {
 
 .chip-legend {
   top: 46px;
-  left: 12px;
+  left: 54px;
   border-color: var(--accent);
   background: var(--accent-soft);
 }
@@ -1348,11 +1339,11 @@ button {
 /* the lab picks a cost model in its sidebar, where it reads as what the
    algorithms are minimising rather than as a travel preference */
 
+/* no margin here either. the panel spacing rules above own the gaps. */
 .cost-model {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 2px;
+  gap: 8px;
 }
 
 .cost-model-head {
@@ -1366,6 +1357,38 @@ button {
   flex: 1;
   padding: 7px 6px;
   font-size: 12px;
+}
+
+/* the mode picker, sitting over both navigate views */
+
+.preference {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.preference .segmented {
+  background: var(--ground);
+  border-radius: 9px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.preference .segmented button {
+  flex: 1;
+  padding: 9px 6px;
+  border-left: 0;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.preference .segmented button.is-active {
+  background: var(--ink);
+  color: #fff;
 }
 
 /* navigate can show a route or how far you can get */

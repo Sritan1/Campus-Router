@@ -19,6 +19,10 @@ import { ALGORITHM_COLORS, LINE } from "@/lib/format";
 
 const CAMPUS_CENTER: [number, number] = [41.8708, -87.6505];
 
+// how many reachable buildings keep a label on the map. they arrive
+// nearest first, so these are the ones worth naming.
+const LABELLED = 12;
+
 type Props = {
   reply: RouteReply | null;
   selected: string;
@@ -124,7 +128,7 @@ export default function MapPane({
         {/* the buildings you could actually get to, which is the answer
             people are really after. these sit over a shaded area, so they
             need a white ring to stay legible against it. */}
-        {isochrone?.buildings.map((building) => (
+        {isochrone?.buildings.map((building, rank) => (
           <CircleMarker
             key={building.id}
             center={[building.lat, building.lon]}
@@ -136,15 +140,21 @@ export default function MapPane({
               fillOpacity: 1,
             }}
           >
-            {/* only ever the code on the map. full names across fifty
-                buildings would cover the thing they are drawn on.
+            {/* only ever the code on the map, and only for the nearest
+                few. fifty labels at fifteen minutes pile into an
+                unreadable heap over the middle of campus, so the rest
+                stay as dots you can hover.
                 a marker binds one tooltip, so the name goes in a popup
                 rather than a second one that would replace this. */}
-            {building.abbr ? (
+            {building.abbr && rank < LABELLED ? (
               <Tooltip permanent direction="right" offset={[9, 0]} className="reach-tag">
                 {building.abbr}
               </Tooltip>
-            ) : null}
+            ) : (
+              <Tooltip direction="right" offset={[9, 0]} className="reach-tag">
+                {building.abbr ?? building.name}
+              </Tooltip>
+            )}
             <Popup>
               <strong>{building.name}</strong>
               <br />

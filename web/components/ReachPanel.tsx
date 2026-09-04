@@ -83,10 +83,16 @@ function useRowsThatFit(
       if (!height) {
         return;
       }
+      // the heading and the show more line live in here too, so their
+      // height comes off before the rows are counted
+      const head = inner!.querySelector(".reach-head") as HTMLElement | null;
+      const more = inner!.querySelector(".reach-more") as HTMLElement | null;
+      const taken = (head?.offsetHeight ?? 0) + (more?.offsetHeight ?? 40);
+
       // space left under wherever the list starts. the things above it
       // do not move, so this does not fight itself.
       const room = outer!.getBoundingClientRect().bottom - inner!.getBoundingClientRect().top;
-      const many = Math.max(LEAST_SHOWN, Math.floor((room - 26) / height));
+      const many = Math.max(LEAST_SHOWN, Math.floor((room - taken - 10) / height));
       setFits((was) => (was === many ? was : many));
     }
 
@@ -183,19 +189,7 @@ export default function ReachPanel({
           <p className="empty-body">No other buildings within this time.</p>
         ) : null}
 
-        {!drawn ? (
-          <>
-            <div className="reach-empty">
-              <span className="reach-empty-mark" aria-hidden="true" />
-              <p className="reach-empty-note">
-                {busy
-                  ? "working out where you can get to"
-                  : "nothing drawn yet, pick a budget then show reach"}
-              </p>
-            </div>
-            <Summary start={start} minutes={minutes} mode={mode} />
-          </>
-        ) : null}
+        {!drawn ? <Summary start={start} minutes={minutes} mode={mode} /> : null}
       </div>
 
       <div className="panel-foot">

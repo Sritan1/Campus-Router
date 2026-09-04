@@ -62,7 +62,7 @@ export default function Header(props: Props) {
           title="swap start and destination"
           aria-label="swap start and destination"
         >
-          →
+          ⇄
         </button>
 
         <BuildingSearch

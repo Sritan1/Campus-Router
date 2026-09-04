@@ -132,16 +132,20 @@ export default function NavigatePanel(props: Props) {
 
   if (!reply) {
     return (
-      <div className="panel">
-        <h2 className="panel-title">Where are you going?</h2>
-        <p className="empty-body">
-          Pick a start and a destination, and this will find the walk between
-          them across campus footpaths.
-        </p>
-        <p className="empty-body">{MODE_SUMMARY[mode]}</p>
-        <button type="button" className="primary run-button" onClick={onRun} disabled={!ready}>
-          Find route
-        </button>
+      <div className="panel panel-stack">
+        <div className="panel-scroll">
+          <h2 className="panel-title">Where are you going?</h2>
+          <p className="empty-body">
+            Pick a start and a destination, and this will find the walk between
+            them across campus footpaths.
+          </p>
+          <p className="empty-body">{MODE_SUMMARY[mode]}</p>
+        </div>
+        <div className="panel-foot">
+          <button type="button" className="primary" onClick={onRun} disabled={!ready}>
+            Find route
+          </button>
+        </div>
       </div>
     );
   }

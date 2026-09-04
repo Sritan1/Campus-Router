@@ -79,21 +79,66 @@ export function outlines(cells: Set<string>): Ring[] {
   return rings;
 }
 
-/// Rounds the corners off a loop by cutting them, twice.
-///
-/// Straight off the grid the outline is all right angles, which reads as
-/// a staircase rather than an area.
-export function smooth(ring: Ring, rounds = 2): Ring {
-  let current = ring;
-  for (let pass = 0; pass < rounds; pass++) {
-    const next: Ring = [];
-    for (let i = 0; i < current.length; i++) {
-      const a = current[i];
-      const b = current[(i + 1) % current.length];
-      next.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25]);
-      next.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
-    }
-    current = next;
+/// How far a point sits from the line between two others.
+function offLine(
+  point: [number, number],
+  from: [number, number],
+  to: [number, number],
+): number {
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  const span = Math.hypot(dx, dy);
+  if (span === 0) {
+    return Math.hypot(point[0] - from[0], point[1] - from[1]);
   }
-  return current;
+  const cross = Math.abs(dx * (from[1] - point[1]) - (from[0] - point[0]) * dy);
+  return cross / span;
+}
+
+/// Drops the points that were not saying anything, keeping the corners.
+///
+/// Douglas and Peucker. Straight off the grid the outline is hundreds of
+/// little right angles, so this keeps the ones that turn and throws the
+/// rest away.
+function thin(points: Ring, tolerance: number): Ring {
+  if (points.length < 3) {
+    return points;
+  }
+
+  let worst = 0;
+  let at = 0;
+  const last = points.length - 1;
+  for (let i = 1; i < last; i++) {
+    const gap = offLine(points[i], points[0], points[last]);
+    if (gap > worst) {
+      worst = gap;
+      at = i;
+    }
+  }
+
+  if (worst <= tolerance) {
+    return [points[0], points[last]];
+  }
+
+  const left = thin(points.slice(0, at + 1), tolerance);
+  const right = thin(points.slice(at), tolerance);
+  return [...left.slice(0, -1), ...right];
+}
+
+/// Turns a staircase loop into a polygon with real corners.
+///
+/// The loop is cut in two before thinning, because the ends of a closed
+/// ring are both anchors and thinning it whole leaves a flat spot there.
+export function simplify(ring: Ring, tolerance = 1.6): Ring {
+  if (ring.length < 4) {
+    return ring;
+  }
+
+  const half = Math.floor(ring.length / 2);
+  const front = thin([...ring.slice(0, half + 1)], tolerance);
+  const back = thin([...ring.slice(half), ring[0]], tolerance);
+  const joined = [...front.slice(0, -1), ...back.slice(0, -1)];
+
+  // never hand back something too small to be a shape
+  return joined.length >= 3 ? joined : ring;
 }

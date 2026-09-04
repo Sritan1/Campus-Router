@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { grow, outlines, smooth, type Ring } from "./isochrone";
+import { grow, outlines, simplify, type Ring } from "./isochrone";
 
 function cells(...keys: string[]): Set<string> {
   return new Set(keys);
@@ -61,28 +61,74 @@ describe("tracing the outline", () => {
   });
 });
 
-describe("rounding the corners", () => {
-  const square: Ring = [
-    [0, 0],
-    [2, 0],
-    [2, 2],
-    [0, 2],
-  ];
+describe("simplifying into a polygon", () => {
+  /// A square carrying pointless extra points along its sides.
+  function padded(): Ring {
+    const ring: Ring = [];
+    for (let x = 0; x <= 10; x++) ring.push([x, 0]);
+    for (let y = 1; y <= 10; y++) ring.push([10, y]);
+    for (let x = 9; x >= 0; x--) ring.push([x, 10]);
+    for (let y = 9; y >= 1; y--) ring.push([0, y]);
+    return ring;
+  }
 
-  it("adds points instead of moving the shape somewhere else", () => {
-    const rounded = smooth(square);
-    expect(rounded.length).toBeGreaterThan(square.length);
-    // cutting corners always loses a little area, never gains
-    expect(area(rounded)).toBeLessThan(area(square));
-    expect(area(rounded)).toBeGreaterThan(area(square) * 0.7);
+  it("throws away the points that were not turning", () => {
+    const before = padded();
+    const after = simplify(before);
+    expect(before.length).toBe(40);
+    expect(after.length).toBeLessThan(10);
   });
 
-  it("stays inside the original", () => {
-    for (const [x, y] of smooth(square)) {
-      expect(x).toBeGreaterThanOrEqual(0);
-      expect(x).toBeLessThanOrEqual(2);
-      expect(y).toBeGreaterThanOrEqual(0);
-      expect(y).toBeLessThanOrEqual(2);
+  it("keeps the corners where they were", () => {
+    const after = simplify(padded());
+    for (const corner of [
+      [0, 0],
+      [10, 0],
+      [10, 10],
+      [0, 10],
+    ]) {
+      const found = after.some(
+        ([x, y]) =>
+          Math.abs(x - corner[0]) < 0.01 && Math.abs(y - corner[1]) < 0.01,
+      );
+      expect(found).toBe(true);
     }
+  });
+
+  it("keeps the area, since a straight side loses nothing", () => {
+    const before = padded();
+    expect(area(simplify(before))).toBeCloseTo(area(before), 5);
+  });
+
+  it("turns a staircase into something with fewer corners", () => {
+    // this is what a grid traced outline actually looks like
+    const stairs: Ring = [];
+    for (let i = 0; i < 8; i++) {
+      stairs.push([i, i]);
+      stairs.push([i + 1, i]);
+    }
+    stairs.push([8, 8]);
+    stairs.push([0, 8]);
+
+    expect(simplify(stairs, 2).length).toBeLessThan(stairs.length);
+  });
+
+  it("leaves a shape alone when it is already only corners", () => {
+    const triangle: Ring = [
+      [0, 0],
+      [4, 0],
+      [2, 3],
+    ];
+    expect(simplify(triangle)).toHaveLength(3);
+  });
+
+  it("never hands back something too small to be a shape", () => {
+    const tiny: Ring = [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [0, 1],
+    ];
+    expect(simplify(tiny, 99).length).toBeGreaterThanOrEqual(3);
   });
 });
