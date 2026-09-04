@@ -105,6 +105,19 @@ describe("the shared race frame", () => {
     expect(loose).toBeLessThan(tight * 3);
   });
 
+  it("keeps every stray when asked to cover all of it", () => {
+    // the single algorithm map passes 1, because one map has the room
+    // and a node drawn off the edge looks like a bug
+    const near: [number, number][] = [];
+    for (let i = 0; i < 200; i++) {
+      near.push([41.871 + (i % 10) * 0.0001, -87.651]);
+    }
+    const withStray: [number, number][] = [...near, [41.95, -87.65]];
+    const box = raceBounds(reply([result("bfs", withStray)]), 1)!;
+
+    expect(box[1][0]).toBeGreaterThan(41.95);
+  });
+
   it("leaves a margin so nothing sits on the edge", () => {
     const box = raceBounds(reply([result("astar", [[41.871, -87.651]])]))!;
     expect(box[0][0]).toBeLessThan(41.87);

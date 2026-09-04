@@ -15,7 +15,13 @@ const COVERAGE = 0.94;
 /// All four panels use this same box. If they framed themselves
 /// independently a smaller search would just look like a closer zoom,
 /// and the comparison would mean nothing.
-export function raceBounds(reply: RouteReply | null): Bounds | null {
+/// @param coverage how much of the searching has to be on screen. the
+/// grid trims a little because four panels have no room to spare. one
+/// map on its own shows the lot.
+export function raceBounds(
+  reply: RouteReply | null,
+  coverage = COVERAGE,
+): Bounds | null {
   if (!reply) {
     return null;
   }
@@ -61,7 +67,7 @@ export function raceBounds(reply: RouteReply | null): Bounds | null {
       }))
       .sort((a, b) => a.away - b.away);
 
-    const take = Math.max(1, Math.round(ranked.length * COVERAGE));
+    const take = Math.max(1, Math.round(ranked.length * coverage));
     for (let i = 0; i < take; i++) {
       kept.push(ranked[i].point);
     }

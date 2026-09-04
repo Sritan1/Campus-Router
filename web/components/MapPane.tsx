@@ -15,6 +15,7 @@ import "leaflet/dist/leaflet.css";
 import IsochroneCanvas from "@/components/IsochroneCanvas";
 import TraceCanvas from "@/components/TraceCanvas";
 import type { AlgorithmResult, GraphMeta, Isochrone, RouteReply } from "@/lib/api";
+import { raceBounds } from "@/lib/bounds";
 import { ALGORITHM_COLORS, LINE } from "@/lib/format";
 
 const CAMPUS_CENTER: [number, number] = [41.8708, -87.6505];
@@ -45,7 +46,9 @@ function FitToRoute({ points }: { points: [number, number][] }) {
     // reports the old one, so anything the trace canvas draws during
     // those few hundred milliseconds lands in the wrong place and stays
     // there.
-    map.fitBounds(points, { padding: [60, 60], maxZoom: 18, animate: false });
+    // the frame already carries its own margin, so this is just enough
+    // to keep a marker off the very edge
+    map.fitBounds(points, { padding: [24, 24], maxZoom: 18, animate: false });
   }, [map, points]);
 
   return null;
@@ -97,10 +100,21 @@ export default function MapPane({
     return unique;
   }, [results, chosen]);
 
-  // an isochrone has no route to frame on, so fit the reachable area
-  const fitPoints = isochrone?.points.length
-    ? isochrone.points
-    : (chosen?.points ?? []);
+  // what to frame on. an isochrone has no route, so it uses the ground
+  // it reached. a route uses the same frame the race panels do, which
+  // holds both buildings, the whole path, and nearly all of the search,
+  // so a single algorithm does not explore off the side of the screen.
+  //
+  // memoised because refitting runs off this array, and a fresh one
+  // every render would fight the user panning.
+  const fitPoints = useMemo<[number, number][]>(() => {
+    if (isochrone?.points.length) {
+      return isochrone.points;
+    }
+    // all of it, not the grid's 94 percent. one map has the room, and a
+    // node drawn off the edge looks like a bug.
+    return raceBounds(reply, 1) ?? chosen?.points ?? [];
+  }, [isochrone, reply, chosen]);
 
   return (
     <div className="map-pane">
@@ -109,6 +123,11 @@ export default function MapPane({
         zoom={16}
         className="map-canvas"
         scrollWheelZoom
+        // leaflet only sits on whole zoom levels by default, so a frame
+        // a hair too big for one drops to the next and shows everything
+        // at half the size. quarter steps actually fit the frame.
+        zoomSnap={0.25}
+        zoomDelta={0.25}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

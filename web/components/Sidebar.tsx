@@ -24,9 +24,9 @@ const ALL: AlgorithmName[] = ["dijkstra", "astar", "bfs", "bidirectional"];
 // in the lab this is not how you would like to get somewhere, it is
 // which number the four algorithms are minimising.
 const COST_MODELS: { id: RouteMode; label: string; note: string }[] = [
-  { id: "shortest", label: "Distance", note: "plain length, nothing weighted" },
-  { id: "accessible", label: "Step free", note: "steps blocked, rough surfaces cost more" },
-  { id: "weather", label: "Winter surface", note: "snow and ice penalties, the only mode above 1x" },
+  { id: "shortest", label: "Distance", note: "Plain length, nothing weighted" },
+  { id: "accessible", label: "Step free", note: "Steps blocked, rough surfaces cost more" },
+  { id: "weather", label: "Winter surface", note: "Snow and ice penalties, the only mode above 1x" },
 ];
 
 function CostModelPicker({
@@ -81,7 +81,7 @@ function IdlePanel(props: Props) {
     <div className="panel panel-stack">
       <div className="panel-scroll">
         <h2 className="panel-title">Pick an algorithm</h2>
-        <p className="panel-hint">click a card, or race all four</p>
+        <p className="panel-hint">Pick one, or race all four</p>
 
         <div className="cards">
           {ALL.map((name) => {
@@ -116,7 +116,7 @@ function IdlePanel(props: Props) {
           >
             <span className="card-text">
               <span className="card-name">Race mode</span>
-              <span className="card-note">run all four on the same pair</span>
+              <span className="card-note">Run all four on the same pair</span>
             </span>
             <span className={`switch${state.race ? " is-on" : ""}`} />
           </button>
@@ -135,7 +135,7 @@ function IdlePanel(props: Props) {
           {state.race ? "Race all four" : "Find route"}
         </button>
         {!canRun ? (
-          <p className="panel-hint centered">pick a start and a destination</p>
+          <p className="panel-hint centered">Pick a start and a destination</p>
         ) : null}
       </div>
     </div>
@@ -151,7 +151,7 @@ function RunningPanel({ state, progress, onSkip }: Props) {
     return (
       <div className="panel">
         <h2 className="panel-title">Running…</h2>
-        <p className="panel-hint">asking the engine</p>
+        <p className="panel-hint">Asking the engine</p>
         <div className="skeletons">
           {ALL.map((name) => (
             <div className="skeleton-lane" key={name}>
@@ -186,7 +186,7 @@ function RunningPanel({ state, progress, onSkip }: Props) {
           </div>
         ))}
       </div>
-      <p className="panel-hint">bar length is nodes explored</p>
+      <p className="panel-hint">Bar length is nodes explored</p>
 
       <button type="button" className="secondary run-button" onClick={onSkip}>
         Skip to results ▸
@@ -289,7 +289,7 @@ function ResultsPanel(props: Props) {
     <div className="panel panel-results">
       <div className="results-head">
         <h2 className="panel-title">{state.race ? "Race results" : "Result"}</h2>
-        {state.race ? <span className="panel-hint">click a lane</span> : null}
+        {state.race ? <span className="panel-hint">Click a lane</span> : null}
       </div>
 
       {/* one scroll for the whole lot. giving the lanes their own made
@@ -325,7 +325,7 @@ function ResultsPanel(props: Props) {
               <span className="lane-stats">
                 {result.status === "ok"
                   ? `${distance(result.distanceM)} · ${duration(result.estSeconds)} · ${count(result.nodesVisited)} nodes`
-                  : "no route with these settings"}
+                  : "No route with these settings"}
               </span>
               {result.status === "ok" ? (
                 <span className="lane-track">
@@ -356,7 +356,7 @@ function ResultsPanel(props: Props) {
               offer there is to race the other three */}
           {state.race ? (
             <button type="button" className="secondary" onClick={props.onToggleTable}>
-              {state.showTable ? "Show lanes" : "Compare table"}
+              {state.showTable ? "Show Maps" : "Compare table"}
             </button>
           ) : (
             <button type="button" className="secondary" onClick={props.onRaceAll}>

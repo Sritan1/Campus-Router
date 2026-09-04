@@ -59,8 +59,8 @@ export default function Header(props: Props) {
           type="button"
           className="swap"
           onClick={props.onSwap}
-          title="swap start and destination"
-          aria-label="swap start and destination"
+          title="Swap start and destination"
+          aria-label="Swap start and destination"
         >
           ⇄
         </button>
@@ -116,7 +116,7 @@ export default function Header(props: Props) {
 }
 
 export const MODE_NOTES: Record<RouteMode, string> = {
-  shortest: "shortest distance, nothing weighted",
-  accessible: "steps avoided, rough surfaces discouraged",
-  weather: "surface state inferred from the weather",
+  shortest: "Shortest distance, nothing weighted",
+  accessible: "Steps avoided, rough surfaces discouraged",
+  weather: "Surface state inferred from the weather",
 };

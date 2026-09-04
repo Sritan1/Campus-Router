@@ -79,7 +79,7 @@ export default function Navigate() {
       setError(
         caught instanceof ApiError
           ? caught.message
-          : "could not reach the routing service",
+          : "Could not reach the routing service",
       );
       setReach(null);
     } finally {
@@ -111,7 +111,7 @@ export default function Navigate() {
         setError(
           caught instanceof ApiError
             ? caught.message
-            : "could not reach the routing service",
+            : "Could not reach the routing service",
         );
         setReply(null);
       } finally {
@@ -204,7 +204,7 @@ export default function Navigate() {
             : notice}
           {notice && !sameBuilding ? (
             <button type="button" className="link-button" onClick={() => setNotice(null)}>
-              dismiss
+              Dismiss
             </button>
           ) : null}
         </div>

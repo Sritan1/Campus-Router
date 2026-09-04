@@ -204,7 +204,7 @@ export default function Lab() {
         const message =
           error instanceof ApiError
             ? error.message
-            : "could not reach the routing service";
+            : "Could not reach the routing service";
         dispatch({ type: "failed", message });
       }
     },
@@ -251,10 +251,10 @@ export default function Lab() {
 
   const weatherChip = (() => {
     if (weather.isLoading) {
-      return "weather…";
+      return "Weather…";
     }
     if (!weatherReady) {
-      return "weather unavailable";
+      return "Weather unavailable";
     }
     const value = weather.data as { tempC: number | null; windMps: number | null };
     return `${temperature(value.tempC)} · wind ${wind(value.windMps)}`;
@@ -365,7 +365,7 @@ export default function Lab() {
               className="link-button"
               onClick={() => setLinkNotice(null)}
             >
-              dismiss
+              Dismiss
             </button>
           ) : null}
         </div>
@@ -402,7 +402,7 @@ export default function Lab() {
             <p className="grid-credit">
               Map data ©{" "}
               <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>{" "}
-              contributors · panels are locked to one frame so the searches can
+              contributors · Panels are locked to one frame so the searches can
               be compared
             </p>
           </div>

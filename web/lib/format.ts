@@ -80,10 +80,10 @@ export const ALGORITHM_LABELS: Record<string, string> = {
 };
 
 export const ALGORITHM_NOTES: Record<string, string> = {
-  dijkstra: "weighted, exhaustive",
-  astar: "straight line heuristic",
-  bfs: "fewest hops, unweighted",
-  bidirectional: "meet in the middle",
+  dijkstra: "Weighted, exhaustive",
+  astar: "Straight line heuristic",
+  bfs: "Fewest hops, unweighted",
+  bidirectional: "Meet in the middle",
 };
 
 export const ALGORITHM_COLORS: Record<string, string> = {

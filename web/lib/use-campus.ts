@@ -40,10 +40,10 @@ export function useCampus() {
 
   const weatherChip = (() => {
     if (weather.isLoading) {
-      return "weather…";
+      return "Weather…";
     }
     if (!weatherReady) {
-      return "weather unavailable";
+      return "Weather unavailable";
     }
     const value = weather.data as { tempC: number | null; windMps: number | null };
     return `${temperature(value.tempC)} · wind ${wind(value.windMps)}`;

@@ -43,7 +43,7 @@ function Summary({
           Start
         </span>
         <span className="summary-value">
-          {start ? start.abbr ?? start.name : "not picked yet"}
+          {start ? start.abbr ?? start.name : "Not picked yet"}
         </span>
       </div>
       <div className="summary-row">
@@ -179,7 +179,7 @@ export default function ReachPanel({
                 onClick={() => setExpanded(!expanded)}
                 aria-expanded={expanded}
               >
-                {expanded ? "show fewer" : `and ${hidden} more`}
+                {expanded ? "Show fewer" : `Show ${hidden} more`}
               </button>
             ) : null}
           </div>
@@ -208,7 +208,7 @@ export default function ReachPanel({
           </button>
         )}
         {!ready && !drawn ? (
-          <p className="panel-hint centered">pick a start building</p>
+          <p className="panel-hint centered">Pick a start building</p>
         ) : null}
       </div>
     </div>

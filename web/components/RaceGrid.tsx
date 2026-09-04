@@ -58,7 +58,7 @@ function Panel({
         <span className="panel-stat">
           {result.status === "ok"
             ? `${count(result.nodesVisited)} explored · ${distance(result.distanceM)}`
-            : "no route"}
+            : "No route"}
         </span>
       </span>
 

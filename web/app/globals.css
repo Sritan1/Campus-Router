@@ -817,19 +817,24 @@ button {
 
 /* spacing is the hierarchy, so one flat gap between every child is
    wrong. separate blocks get real air, and a heading stays close to
-   the line that belongs to it. */
-.panel-scroll > * + * {
+   the line that belongs to it.
+
+   these name the shell as well as the scroller on purpose. plenty of
+   the children set margin zero themselves, at the same strength but
+   further down the file, and those were quietly winning. */
+.panel-stack .panel-scroll > * + * {
   margin-top: 18px;
 }
 
-.panel-scroll > .panel-title + .lede,
-.panel-scroll > .panel-title + .panel-hint,
-.panel-scroll > .panel-title + .empty-body,
-.panel-scroll > .lede + .lede,
-.panel-scroll > .lede + .foot-note,
-.panel-scroll > .empty-body + .empty-body,
-.panel-scroll > .foot-note + .foot-note,
-.panel-scroll > .section-label + * {
+.panel-stack .panel-scroll > .panel-title + .lede,
+.panel-stack .panel-scroll > .panel-title + .panel-hint,
+.panel-stack .panel-scroll > .panel-title + .empty-body,
+.panel-stack .panel-scroll > .headline + .lede,
+.panel-stack .panel-scroll > .lede + .lede,
+.panel-stack .panel-scroll > .lede + .foot-note,
+.panel-stack .panel-scroll > .empty-body + .empty-body,
+.panel-stack .panel-scroll > .foot-note + .foot-note,
+.panel-stack .panel-scroll > .section-label + * {
   margin-top: 8px;
 }
 
