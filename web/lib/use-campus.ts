@@ -93,6 +93,10 @@ export function useRestoreFromUrl(
   return { notice, setNotice, restored: doneRef };
 }
 
+// the parameters the app owns. everything else in the address bar is
+// somebody else's and gets left alone.
+const OURS = new Set(["from", "to", "mode", "race", "algo"]);
+
 /// Keeps the address bar current, without piling up history entries.
 export function useWriteUrl(
   ready: boolean,
@@ -110,7 +114,23 @@ export function useWriteUrl(
     if (!ready) {
       return;
     }
-    const query = writeUrl({ from, to, mode, race, algorithm });
-    window.history.replaceState(null, "", `${window.location.pathname}${query}`);
+    const next = new URLSearchParams(writeUrl({ from, to, mode, race, algorithm }));
+
+    // keep anything in the address bar that is not ours to manage. we
+    // used to rebuild the query from scratch, which quietly deleted
+    // whatever else someone had put there.
+    const current = new URLSearchParams(window.location.search);
+    for (const [key, value] of current) {
+      if (!OURS.has(key)) {
+        next.set(key, value);
+      }
+    }
+
+    const query = next.toString();
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`,
+    );
   }, [ready, from, to, mode, race, algorithm]);
 }

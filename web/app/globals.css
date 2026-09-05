@@ -1526,3 +1526,11 @@ button {
 .leaflet-tooltip.reach-tag::before {
   display: none;
 }
+
+/* where the search started from, so it does not read as one more
+   building you could walk to */
+.leaflet-tooltip.reach-tag.is-start {
+  background: var(--accent);
+  font-size: 12px;
+  padding: 3px 8px;
+}

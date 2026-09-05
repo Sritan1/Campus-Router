@@ -16,6 +16,10 @@ from api.core.config import settings
 
 log = logging.getLogger("engine")
 
+# health gets asked often, and building a fresh client each time costs
+# hundreds of milliseconds. same reason as the one in engine_client.
+_client = httpx.Client(timeout=settings.engine_timeout_s)
+
 
 class EngineProcess:
     def __init__(self) -> None:
@@ -38,10 +42,7 @@ class EngineProcess:
 
     def _ping(self) -> bool:
         try:
-            reply = httpx.get(
-                f"{settings.engine_base_url}/healthz",
-                timeout=settings.engine_timeout_s,
-            )
+            reply = _client.get(f"{settings.engine_base_url}/healthz")
             return reply.status_code == 200
         except (httpx.HTTPError, ValueError):
             return False

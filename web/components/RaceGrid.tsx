@@ -14,6 +14,7 @@ import {
   count,
   distance,
 } from "@/lib/format";
+import { TILE_MAX_ZOOM, TILE_URL } from "@/lib/tiles";
 
 type Props = {
   reply: RouteReply;
@@ -84,10 +85,7 @@ function Panel({
         zoomControl={false}
         attributionControl={false}
       >
-        <TileLayer
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maxZoom={19}
-        />
+        <TileLayer url={TILE_URL} maxZoom={TILE_MAX_ZOOM} />
 
         {/* the tiles are beige and tan, which is close enough to the
             warmer trace colours that they break up against it. dimming

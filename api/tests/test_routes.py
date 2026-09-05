@@ -174,11 +174,13 @@ def test_engine_client_omits_the_cap_rather_than_sending_a_null(monkeypatch):
         def json():
             return {"ok": True, "results": [], "pathGroups": []}
 
-    def fake_post(url, json=None, timeout=None):
+    def fake_post(url, json=None):
         sent.update(json)
         return Reply()
 
-    monkeypatch.setattr(engine_client.httpx, "post", fake_post)
+    # the client is built once and reused, so patch the instance rather
+    # than httpx itself
+    monkeypatch.setattr(engine_client._client, "post", fake_post)
     engine_client.route(-1, -2, ["astar"], {"multipliers": {}, "blocked": []}, trace=True)
 
     assert "maxTraceSamples" not in sent

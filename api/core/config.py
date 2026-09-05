@@ -3,7 +3,13 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# a local convenience only. real deployments set real environment
+# variables, and those win because this does not override them.
+load_dotenv(REPO_ROOT / "api" / ".env")
 
 
 def _env(key: str, fallback: str) -> str:

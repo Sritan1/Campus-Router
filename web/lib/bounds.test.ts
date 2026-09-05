@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AlgorithmResult, Building, RouteReply } from "./api";
-import { raceBounds } from "./bounds";
+import { boundsAround, raceBounds } from "./bounds";
 
 function building(lat: number, lon: number): Building {
   return {
@@ -59,6 +59,46 @@ function reply(results: AlgorithmResult[]): RouteReply {
 function spread(box: [[number, number], [number, number]]): number {
   return box[1][0] - box[0][0];
 }
+
+describe("the box around a set of points", () => {
+  it("holds every point it was given", () => {
+    const box = boundsAround(
+      [
+        [41.87, -87.65],
+        [41.88, -87.64],
+      ],
+      0.1,
+    )!;
+    expect(box[0][0]).toBeLessThan(41.87);
+    expect(box[1][0]).toBeGreaterThan(41.88);
+    expect(box[0][1]).toBeLessThan(-87.65);
+    expect(box[1][1]).toBeGreaterThan(-87.64);
+  });
+
+  it("grows by the fraction it was asked for", () => {
+    const span = 0.01;
+    const box = boundsAround(
+      [
+        [41.87, -87.65],
+        [41.87 + span, -87.65],
+      ],
+      0.1,
+    )!;
+    // ten percent of the span on each side, so the box is a fifth wider
+    expect(box[1][0] - box[0][0]).toBeCloseTo(span * 1.2, 6);
+  });
+
+  it("still gives a usable box for one point", () => {
+    // the isochrone is drawn wider than its points, so a floor matters
+    const box = boundsAround([[41.87, -87.65]], 0.1)!;
+    expect(box[1][0]).toBeGreaterThan(box[0][0]);
+    expect(box[1][1]).toBeGreaterThan(box[0][1]);
+  });
+
+  it("gives nothing when there are no points", () => {
+    expect(boundsAround([], 0.1)).toBeNull();
+  });
+});
 
 describe("the shared race frame", () => {
   it("always includes both ends", () => {

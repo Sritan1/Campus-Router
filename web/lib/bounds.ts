@@ -10,6 +10,40 @@ export type Bounds = [[number, number], [number, number]];
 // a speck in every panel.
 const COVERAGE = 0.94;
 
+/// The box around some points, grown by a fraction of its own size.
+///
+/// The isochrone is drawn deliberately wider than the ground it was
+/// measured from, since the cells are grown and the outline simplified,
+/// so framing on the raw points clips the shape that is actually drawn.
+export function boundsAround(
+  points: [number, number][],
+  margin: number,
+): Bounds | null {
+  if (points.length === 0) {
+    return null;
+  }
+
+  let minLat = Infinity;
+  let minLon = Infinity;
+  let maxLat = -Infinity;
+  let maxLon = -Infinity;
+  for (const [lat, lon] of points) {
+    minLat = Math.min(minLat, lat);
+    minLon = Math.min(minLon, lon);
+    maxLat = Math.max(maxLat, lat);
+    maxLon = Math.max(maxLon, lon);
+  }
+
+  // a floor as well as a fraction, so a tiny area still gets some air
+  const padLat = Math.max((maxLat - minLat) * margin, 0.0004);
+  const padLon = Math.max((maxLon - minLon) * margin, 0.0004);
+
+  return [
+    [minLat - padLat, minLon - padLon],
+    [maxLat + padLat, maxLon + padLon],
+  ];
+}
+
 /// The box that holds both ends, the whole route, and most of the searching.
 ///
 /// All four panels use this same box. If they framed themselves

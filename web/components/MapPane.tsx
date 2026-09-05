@@ -15,10 +15,23 @@ import "leaflet/dist/leaflet.css";
 import IsochroneCanvas from "@/components/IsochroneCanvas";
 import TraceCanvas from "@/components/TraceCanvas";
 import type { AlgorithmResult, GraphMeta, Isochrone, RouteReply } from "@/lib/api";
-import { raceBounds } from "@/lib/bounds";
+import { boundsAround, raceBounds } from "@/lib/bounds";
+import { REGION_COLOUR } from "@/lib/isochrone";
+import { TILE_ATTRIBUTION, TILE_MAX_ZOOM, TILE_URL } from "@/lib/tiles";
 import { ALGORITHM_COLORS, LINE } from "@/lib/format";
 
 const CAMPUS_CENTER: [number, number] = [41.8708, -87.6505];
+
+/// How far the map may be dragged, roughly the graph plus a quarter.
+///
+/// The graph runs 41.86062 to 41.88176 and -87.66568 to -87.63907, so
+/// this is that with room to see what is just past the edge. Panning off
+/// to another neighbourhood only shows streets nothing can route along.
+/// Update this if the pipeline ever pulls a different area.
+const CAMPUS_MAX_BOUNDS: [[number, number], [number, number]] = [
+  [41.8553, -87.6723],
+  [41.8871, -87.6324],
+];
 
 // how many reachable buildings keep a label on the map. they arrive
 // nearest first, so these are the ones worth naming.
@@ -109,7 +122,9 @@ export default function MapPane({
   // every render would fight the user panning.
   const fitPoints = useMemo<[number, number][]>(() => {
     if (isochrone?.points.length) {
-      return isochrone.points;
+      // the drawn area sits outside the points it came from, so framing
+      // on the points alone clips the edges of the shape
+      return boundsAround(isochrone.points, 0.12) ?? isochrone.points;
     }
     // all of it, not the grid's 94 percent. one map has the room, and a
     // node drawn off the edge looks like a bug.
@@ -123,6 +138,16 @@ export default function MapPane({
         zoom={16}
         className="map-canvas"
         scrollWheelZoom
+        // the graph is campus and about a hundred metres past it, so
+        // zooming out further only shows city we cannot route across.
+        // fourteen is roughly twice the campus, which still fits on a
+        // narrow screen where the map is short.
+        minZoom={14}
+        // and it cannot be dragged off the campus either. zoomed in
+        // there is room to move about inside the box, zoomed out the box
+        // is smaller than the screen so it simply holds still.
+        maxBounds={CAMPUS_MAX_BOUNDS}
+        maxBoundsViscosity={1}
         // leaflet only sits on whole zoom levels by default, so a frame
         // a hair too big for one drops to the next and shows everything
         // at half the size. quarter steps actually fit the frame.
@@ -130,9 +155,9 @@ export default function MapPane({
         zoomDelta={0.25}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maxZoom={19}
+          attribution={TILE_ATTRIBUTION}
+          url={TILE_URL}
+          maxZoom={TILE_MAX_ZOOM}
         />
 
         <TraceCanvas
@@ -143,6 +168,37 @@ export default function MapPane({
         />
 
         <IsochroneCanvas data={isochrone} />
+
+        {/* where you are measuring from. the gateway leaves it out of
+            the reachable list, since you cannot walk to where you already
+            are, so without this it has no marker at all. bigger, and the
+            colour of the area rather than the dark of a destination. */}
+        {isochrone ? (
+          <CircleMarker
+            center={[isochrone.start.lat, isochrone.start.lon]}
+            radius={11}
+            pathOptions={{
+              color: "#ffffff",
+              weight: 3.5,
+              fillColor: REGION_COLOUR,
+              fillOpacity: 1,
+            }}
+          >
+            <Tooltip
+              permanent
+              direction="right"
+              offset={[12, 0]}
+              className="reach-tag is-start"
+            >
+              {isochrone.start.abbr ?? isochrone.start.name}
+            </Tooltip>
+            <Popup>
+              <strong>{isochrone.start.name}</strong>
+              <br />
+              Everywhere below is within {isochrone.minutes} min
+            </Popup>
+          </CircleMarker>
+        ) : null}
 
         {/* the buildings you could actually get to, which is the answer
             people are really after. these sit over a shaded area, so they

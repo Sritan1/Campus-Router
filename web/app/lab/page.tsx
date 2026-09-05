@@ -28,6 +28,7 @@ import {
   type AppState,
 } from "@/lib/state";
 import { findBuilding, readUrl, writeUrl } from "@/lib/url";
+import { useWriteUrl } from "@/lib/use-campus";
 
 // leaflet reaches for window as soon as it loads, so it cannot render
 // on the server
@@ -121,20 +122,15 @@ export default function Lab() {
     });
   }, [list]);
 
-  // keep the address bar current without adding history entries
-  useEffect(() => {
-    if (!restoredRef.current) {
-      return;
-    }
-    const query = writeUrl({
-      from: start,
-      to: target,
-      mode: state.mode,
-      race: state.race,
-      algorithm: state.algorithm,
-    });
-    window.history.replaceState(null, "", `${window.location.pathname}${query}`);
-  }, [start, target, state.mode, state.race, state.algorithm]);
+  // keep the address bar current without adding history entries. same
+  // hook navigate uses, so both leave other people's parameters alone.
+  useWriteUrl(restoredRef.current, {
+    from: start,
+    to: target,
+    mode: state.mode,
+    race: state.race,
+    algorithm: state.algorithm,
+  });
 
   const stopClock = useCallback(() => {
     if (timerRef.current !== null) {
@@ -399,6 +395,8 @@ export default function Lab() {
               selected={state.selected}
               onSelect={(algorithm) => dispatch({ type: "selectLane", algorithm })}
             />
+            {/* the panels turn leaflet's own attribution off, so the
+                credit for whoever drew the tiles has to live here */}
             <p className="grid-credit">
               Map data ©{" "}
               <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>{" "}
