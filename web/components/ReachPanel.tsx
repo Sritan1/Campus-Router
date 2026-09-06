@@ -2,13 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { Building, Isochrone, RouteMode } from "@/lib/api";
-import { MODE_LABEL } from "@/lib/format";
+import type { Building, Isochrone } from "@/lib/api";
 
 type Props = {
   data: Isochrone | null;
   start: Building | null;
-  mode: RouteMode;
   minutes: number;
   busy: boolean;
   error: string | null;
@@ -28,11 +26,9 @@ const LEAST_SHOWN = 4;
 function Summary({
   start,
   minutes,
-  mode,
 }: {
   start: Building | null;
   minutes: number;
-  mode: RouteMode;
 }) {
   return (
     <div className="summary">
@@ -49,10 +45,6 @@ function Summary({
       <div className="summary-row">
         <span className="summary-key">Budget</span>
         <span className="summary-value">{minutes} min walk</span>
-      </div>
-      <div className="summary-row">
-        <span className="summary-key">Mode</span>
-        <span className="summary-value">{MODE_LABEL[mode]}</span>
       </div>
     </div>
   );
@@ -108,7 +100,6 @@ function useRowsThatFit(
 export default function ReachPanel({
   data,
   start,
-  mode,
   minutes,
   busy,
   error,
@@ -191,7 +182,7 @@ export default function ReachPanel({
           </p>
         ) : null}
 
-        {!drawn ? <Summary start={start} minutes={minutes} mode={mode} /> : null}
+        {!drawn ? <Summary start={start} minutes={minutes} /> : null}
       </div>
 
       <div className="panel-foot">

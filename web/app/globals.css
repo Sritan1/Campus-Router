@@ -829,6 +829,8 @@ button {
 .panel-stack .panel-scroll > .lede + .foot-note,
 .panel-stack .panel-scroll > .empty-body + .empty-body,
 .panel-stack .panel-scroll > .foot-note + .foot-note,
+.panel-stack .panel-scroll > .preference + .lede,
+.panel-stack .panel-scroll > .preference + .empty-body,
 .panel-stack .panel-scroll > .section-label + * {
   margin-top: 8px;
 }
@@ -902,6 +904,13 @@ button {
 
 .summary-value {
   font-weight: 600;
+}
+
+/* weather's sentence runs to two lines where the other two fit on one,
+   so the card under it jumped every time you switched mode. hold two
+   lines worth of room whatever is in it. */
+.mode-caption {
+  min-height: 3.1em;
 }
 
 .lede {
@@ -1362,12 +1371,13 @@ button {
 
 /* the mode picker, sitting over both navigate views */
 
+/* this used to be a strip above the panel, so it carried its own
+   padding and a rule under it. inside the panel the scroller already
+   pads, and the rule read as a stray line across the middle. */
 .preference {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 

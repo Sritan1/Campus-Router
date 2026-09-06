@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
 
 import Header from "@/components/Header";
-import ModePicker from "@/components/ModePicker";
 import NavigatePanel from "@/components/NavigatePanel";
 import ReachPanel from "@/components/ReachPanel";
 import {
@@ -74,7 +73,10 @@ export default function Navigate() {
     setBusy(true);
     setError(null);
     try {
-      setReach(await requestIsochrone({ start: start.id, mode, minutes }));
+      // reach is always plain distance. measured across all 59 buildings,
+      // the other two modes only shrink the area and almost never change
+      // its shape, so offering them taught people the control was broken.
+      setReach(await requestIsochrone({ start: start.id, mode: "shortest", minutes }));
     } catch (caught) {
       setError(
         caught instanceof ApiError
@@ -85,7 +87,7 @@ export default function Navigate() {
     } finally {
       setBusy(false);
     }
-  }, [start, mode, minutes]);
+  }, [start, minutes]);
 
   const run = useCallback(
     async (withMode: RouteMode = mode) => {
@@ -120,12 +122,6 @@ export default function Navigate() {
     },
     [start, target, mode],
   );
-
-  const showShortest = useCallback(() => {
-    setMode("shortest");
-    clear();
-    void run("shortest");
-  }, [clear, run]);
 
   const labHref = `/lab${writeUrl({
     from: start,
@@ -238,33 +234,31 @@ export default function Navigate() {
             </button>
           </div>
 
-          <ModePicker
-            mode={mode}
-            weatherReady={weatherReady}
-            onMode={(next) => {
-              if (next !== mode) {
-                setMode(next);
-                clear();
-              }
-            }}
-          />
-
+          {/* the picker lives inside the route panel now. only the route
+              uses a cost model, so reach never shows a dead control */}
           {view === "route" ? (
             <NavigatePanel
               reply={reply}
+              start={start}
+              target={target}
               mode={mode}
+              weatherReady={weatherReady}
               busy={busy}
               error={error}
               ready={Boolean(start && target && !sameBuilding)}
               labHref={labHref}
               onRun={() => void run()}
-              onShowShortest={showShortest}
+              onMode={(next) => {
+                if (next !== mode) {
+                  setMode(next);
+                  clear();
+                }
+              }}
             />
           ) : (
             <ReachPanel
               data={reach}
               start={start}
-              mode={mode}
               minutes={minutes}
               busy={busy}
               error={error}

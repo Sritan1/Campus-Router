@@ -11,10 +11,10 @@ type Props = {
   onMode: (mode: RouteMode) => void;
 };
 
-/// How you would like to get there, above both navigate views.
+/// How you would like to get there, inside the route panel.
 ///
-/// It sits over the panel rather than in the header because it applies
-/// to the route and to how far you can get, not to one of them.
+/// It used to sit above both views because reach used it too. Reach is
+/// plain distance now, so it lives with the route and nothing else.
 export default function ModePicker({ mode, weatherReady, onMode }: Props) {
   return (
     <div className="preference">

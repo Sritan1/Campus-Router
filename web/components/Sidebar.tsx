@@ -74,7 +74,6 @@ type Props = {
   onSelectLane: (algorithm: AlgorithmName) => void;
   onRun: () => void;
   onReset: () => void;
-  onShowShortest: () => void;
   onSkip: () => void;
   onReplay: () => void;
   onToggleTable: () => void;
@@ -201,20 +200,6 @@ function RunningPanel({ state, progress, onSkip }: Props) {
   );
 }
 
-function NoPathPanel({ onShowShortest }: { onShowShortest: () => void }) {
-  return (
-    <div className="panel">
-      <h2 className="panel-title">Could not find a step free route</h2>
-      <p className="empty-body">
-        The mapped footpaths offer no way between these buildings without steps.
-      </p>
-      <button type="button" className="secondary" onClick={onShowShortest}>
-        Show the shortest route instead
-      </button>
-    </div>
-  );
-}
-
 /// Who won, on the two things worth winning.
 ///
 /// Only shown when there is more than one lane, since a single result
@@ -259,14 +244,14 @@ function Winners({ results }: { results: AlgorithmResult[] }) {
 }
 
 function ResultsPanel(props: Props) {
-  const { state, onSelectLane, onReset, onShowShortest } = props;
+  const { state, onSelectLane, onReset } = props;
   const reply = state.reply as RouteReply;
   const anyRoute = reply.results.some((result) => result.status === "ok");
 
+  // no pair on campus fails today, but the engine can still answer
+  // no_path, so the guard stays rather than rendering half a result
   if (!anyRoute) {
-    return state.mode === "accessible" ? (
-      <NoPathPanel onShowShortest={onShowShortest} />
-    ) : (
+    return (
       <div className="panel">
         <h2 className="panel-title">No route found</h2>
         <p className="empty-body">

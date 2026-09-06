@@ -220,12 +220,6 @@ export default function Lab() {
     startClock();
   }, [startClock]);
 
-  const showShortest = useCallback(() => {
-    dispatch({ type: "setMode", mode: "shortest" });
-    // the mode change clears the result, so ask again straight away
-    setTimeout(run, 0);
-  }, [run]);
-
   // says which line is which, so the dashed grey ones are not a mystery
   const legend = (() => {
     if (state.phase !== "results" || !state.reply) {
@@ -437,7 +431,6 @@ export default function Lab() {
             onSelectLane={(algorithm) => dispatch({ type: "selectLane", algorithm })}
             onRun={run}
             onReset={() => dispatch({ type: "reset" })}
-            onShowShortest={showShortest}
             onSkip={skip}
             onReplay={replay}
             onToggleTable={() => dispatch({ type: "toggleTable" })}

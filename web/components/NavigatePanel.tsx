@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import type { Directions, RouteMode, RouteReply } from "@/lib/api";
+import type { Building, Directions, RouteMode, RouteReply } from "@/lib/api";
 import { agreementFor } from "@/lib/agreement";
-import { ALGORITHM_COLORS, distance, duration } from "@/lib/format";
+import { ALGORITHM_COLORS, MODE_LABEL, distance, duration } from "@/lib/format";
+import ModePicker from "@/components/ModePicker";
 
 // the four lanes, in the order the lab races them
 const LANE_COLOURS = [
@@ -17,13 +18,16 @@ const LANE_COLOURS = [
 
 type Props = {
   reply: RouteReply | null;
+  start: Building | null;
+  target: Building | null;
   mode: RouteMode;
+  weatherReady: boolean;
   busy: boolean;
   error: string | null;
   ready: boolean;
   labHref: string;
   onRun: () => void;
-  onShowShortest: () => void;
+  onMode: (mode: RouteMode) => void;
 };
 
 const MODE_SUMMARY: Record<RouteMode, string> = {
@@ -31,6 +35,47 @@ const MODE_SUMMARY: Record<RouteMode, string> = {
   accessible: "A step free route that sticks to well-paved paths.",
   weather: "Winter-aware routing that steers you off the surfaces that turn treacherous.",
 };
+
+/// What the search is about to do, before it has done it.
+///
+/// Same card the reach view shows, since both are a receipt of the
+/// settings you are about to run.
+function Summary({
+  start,
+  target,
+  mode,
+}: {
+  start: Building | null;
+  target: Building | null;
+  mode: RouteMode;
+}) {
+  const named = (building: Building | null) =>
+    building ? building.abbr ?? building.name : "Not picked yet";
+
+  return (
+    <div className="summary">
+      <p className="section-label summary-head">Route</p>
+      <div className="summary-row">
+        <span className="summary-key">
+          <span className="summary-dot" aria-hidden="true" />
+          Start
+        </span>
+        <span className="summary-value">{named(start)}</span>
+      </div>
+      <div className="summary-row">
+        <span className="summary-key">
+          <span className="summary-dot" aria-hidden="true" />
+          Destination
+        </span>
+        <span className="summary-value">{named(target)}</span>
+      </div>
+      <div className="summary-row">
+        <span className="summary-key">Mode</span>
+        <span className="summary-value">{MODE_LABEL[mode]}</span>
+      </div>
+    </div>
+  );
+}
 
 function Stats({ guide }: { guide: Directions }) {
   return (
@@ -91,7 +136,11 @@ function CopyLink() {
 }
 
 export default function NavigatePanel(props: Props) {
-  const { reply, mode, busy, error, ready, labHref, onRun, onShowShortest } = props;
+  const { reply, start, target, mode, weatherReady, busy, error, ready, labHref, onRun, onMode } =
+    props;
+  const picker = (
+    <ModePicker mode={mode} weatherReady={weatherReady} onMode={onMode} />
+  );
 
   if (error) {
     return (
@@ -123,7 +172,9 @@ export default function NavigatePanel(props: Props) {
         <div className="panel-scroll">
           <h2 className="panel-title">Where are you going?</h2>
           <p className="empty-body">Pick a start and a destination to begin.</p>
-          <p className="empty-body">{MODE_SUMMARY[mode]}</p>
+          {picker}
+          <p className="empty-body mode-caption">{MODE_SUMMARY[mode]}</p>
+          <Summary start={start} target={target} mode={mode} />
         </div>
         <div className="panel-foot">
           <button type="button" className="primary" onClick={onRun} disabled={!ready}>
@@ -136,29 +187,16 @@ export default function NavigatePanel(props: Props) {
 
   const best = reply.results.find((r) => r.status === "ok");
 
+  // no pair on campus fails today, but the engine can still answer
+  // no_path, so the guard stays rather than reading a route that is
+  // not there
   if (!best) {
     return (
       <div className="panel">
-        <h2 className="panel-title">
-          {mode === "accessible"
-            ? "Could not find a step free route"
-            : "No route found"}
-        </h2>
-        {mode === "accessible" ? (
-          <>
-            <p className="empty-body">
-              The mapped footpaths offer no way between these buildings without
-              steps.
-            </p>
-            <button type="button" className="secondary" onClick={onShowShortest}>
-              Show the shortest route instead
-            </button>
-          </>
-        ) : (
-          <p className="empty-body">
-            These two buildings are not connected by the mapped path network.
-          </p>
-        )}
+        <h2 className="panel-title">No route found</h2>
+        <p className="empty-body">
+          These two buildings are not connected by the mapped path network.
+        </p>
       </div>
     );
   }
@@ -174,6 +212,9 @@ export default function NavigatePanel(props: Props) {
           <span className="headline-time">{duration(best.estSeconds)} walk</span>
         </div>
 
+        {/* the picker rides with the sentence in both states, otherwise
+            there is no way to change mode once a route is on screen */}
+        {picker}
         <p className="lede">{MODE_SUMMARY[mode]}</p>
         {reply.cost.notes.map((note) => (
           <p className="foot-note" key={note}>
