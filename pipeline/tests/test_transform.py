@@ -152,3 +152,64 @@ def test_unnamed_buildings_are_dropped():
     buildings = transform.build_buildings(raw, nodes, network, set())
     # building 501 has no name so it cannot be searched for
     assert [b["id"] for b in buildings] == ["500"]
+
+
+def test_entrances_off_any_way_still_get_a_position():
+    raw = raw_bundle()
+    raw["entrances"]["elements"].append(
+        {"type": "node", "id": 700, "lat": 41.8703, "lon": -87.6500}
+    )
+    nodes = transform.build_nodes(raw)
+    # node 700 sits on no way at all, which is the case a patch needs
+    assert nodes[700] == (41.8703, -87.6500)
+
+
+def test_a_patch_joins_two_known_nodes():
+    raw = raw_bundle()
+    raw["entrances"]["elements"].append(
+        {"type": "node", "id": 700, "lat": 41.8703, "lon": -87.6500}
+    )
+    nodes = transform.build_nodes(raw)
+    edges = transform.build_edges(raw, nodes)
+    before = len(edges)
+
+    added = transform.apply_patches(
+        edges, nodes, [{"u": 3, "v": 700, "tags": {"highway": "footway"}}]
+    )
+    assert added == 1
+    assert len(edges) == before + 1
+
+    patch = edges[-1]
+    assert patch["way_id"] == transform.PATCH_WAY_ID
+    assert patch["class_key"] == "footway|unknown|none"
+    assert patch["length_m"] > 0
+    # the patched node is now part of the network
+    assert 700 in transform.largest_component(edges)
+
+
+def test_a_patch_openstreetmap_already_has_is_skipped():
+    raw = raw_bundle()
+    nodes = transform.build_nodes(raw)
+    edges = transform.build_edges(raw, nodes)
+    before = len(edges)
+
+    # nodes 1 and 2 are already joined by way 100
+    added = transform.apply_patches(
+        edges, nodes, [{"u": 1, "v": 2, "tags": {"highway": "footway"}}]
+    )
+    assert added == 0
+    assert len(edges) == before
+
+
+def test_a_patch_naming_an_unknown_node_stops_the_build():
+    raw = raw_bundle()
+    nodes = transform.build_nodes(raw)
+    edges = transform.build_edges(raw, nodes)
+
+    try:
+        transform.apply_patches(
+            edges, nodes, [{"u": 1, "v": 999999, "tags": {"highway": "footway"}}]
+        )
+    except SystemExit:
+        return
+    raise AssertionError("a patch pointing at a missing node should fail loudly")

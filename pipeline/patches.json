@@ -1,0 +1,12 @@
+{
+  "note": "Paths that exist on the ground but are not in openstreetmap yet. Every entry joins two nodes that are already in the overpass dump, so a patch declares a connection rather than inventing geometry. Remove an entry once openstreetmap carries the path itself.",
+  "ways": [
+    {
+      "u": 1645164024,
+      "v": 12923649676,
+      "tags": { "highway": "footway", "surface": "concrete" },
+      "why": "Step free entrance to Student Center East. The entrance node is already in openstreetmap but no path touches it, so SCET could only be reached up a 1.5 metre staircase and had no step free route from anywhere. Confirmed on the ground 2026-09-06, level approach and automatic doors.",
+      "length_m": 15.8
+    }
+  ]
+}

@@ -13,8 +13,12 @@ import pathlib
 from pipeline.geo import haversine_m
 
 RAW_PATH = pathlib.Path(__file__).resolve().parent / "raw" / "campus_raw.json"
+PATCH_PATH = pathlib.Path(__file__).resolve().parent / "patches.json"
 OUT_PATH = pathlib.Path(__file__).resolve().parents[1] / "api" / "data" / "graph.json"
 ENGINE_PATH = pathlib.Path(__file__).resolve().parents[1] / "api" / "data" / "graph.campus"
+
+# patched edges come from no real way, so they get their own marker
+PATCH_WAY_ID = -1
 
 # buildings become real nodes so routing is just node to node. osm way ids
 # and node ids can collide, so building nodes go negative.
@@ -84,7 +88,60 @@ def build_nodes(raw: dict) -> dict:
     for element in raw["ways"]["elements"]:
         if element["type"] == "node":
             nodes[element["id"]] = (element["lat"], element["lon"])
+
+    # entrances come back in their own query and some sit on no way at
+    # all, which is exactly the kind of node a patch needs to reach
+    for element in raw["entrances"]["elements"]:
+        if "lat" in element and "lon" in element:
+            nodes.setdefault(element["id"], (element["lat"], element["lon"]))
     return nodes
+
+
+def load_patches() -> list:
+    """Paths we know are there that openstreetmap has not mapped yet.
+
+    Each one names two nodes already in the dump, so this declares a
+    connection rather than drawing new geometry.
+    """
+    if not PATCH_PATH.exists():
+        return []
+    return json.loads(PATCH_PATH.read_text(encoding="utf-8"))["ways"]
+
+
+def apply_patches(edges: list, nodes: dict, patches: list) -> int:
+    """Adds the patched paths onto the edge list."""
+    seen = {(edge["u"], edge["v"]) for edge in edges}
+    added = 0
+
+    for patch in patches:
+        u, v = patch["u"], patch["v"]
+        if u not in nodes or v not in nodes:
+            raise SystemExit(f"patch names node {u} or {v} which the dump does not have")
+
+        pair = (u, v) if u < v else (v, u)
+        if pair in seen:
+            # openstreetmap has caught up, the patch is no longer needed
+            continue
+
+        length = haversine_m(*nodes[u], *nodes[v])
+        if length <= 0:
+            continue
+
+        edges.append(
+            {
+                "id": len(edges),
+                "u": pair[0],
+                "v": pair[1],
+                "way_id": PATCH_WAY_ID,
+                "length_m": round(length, 3),
+                "tags": dict(patch["tags"]),
+                "class_key": class_key(patch["tags"]),
+            }
+        )
+        seen.add(pair)
+        added += 1
+
+    return added
 
 
 def road_names_by_node(raw: dict) -> dict:
@@ -337,8 +394,11 @@ def main() -> int:
     raw = load_raw()
     nodes = build_nodes(raw)
     edges = build_edges(raw, nodes)
+    patched = apply_patches(edges, nodes, load_patches())
     print(f"nodes from overpass : {len(nodes)}")
     print(f"edges built         : {len(edges)}")
+    if patched:
+        print(f"local patches       : {patched} added, see pipeline/patches.json")
 
     component = largest_component(edges)
     if not args.keep_all:
