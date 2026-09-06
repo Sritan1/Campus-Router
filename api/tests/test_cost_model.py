@@ -49,7 +49,7 @@ def test_multipliers_are_never_below_one():
 def test_warm_weather_leaves_the_route_alone():
     table = cost_model.build("weather", CLASSES, {"tempC": 18, "condition": "Clear"})
     assert table["multipliers"] == {}
-    assert any("not changing the route" in note for note in table["notes"])
+    assert any("Routes match Shortest" in note for note in table["notes"])
 
 
 def test_missing_weather_is_treated_as_nothing_frozen():

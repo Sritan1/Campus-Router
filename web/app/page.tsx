@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
 
-import Header, { MODE_NOTES } from "@/components/Header";
+import Header from "@/components/Header";
 import ModePicker from "@/components/ModePicker";
 import NavigatePanel from "@/components/NavigatePanel";
 import ReachPanel from "@/components/ReachPanel";
@@ -141,13 +141,17 @@ export default function Navigate() {
         <div className="fatal">
           <h1 className="fatal-title">Cannot reach the routing service</h1>
           <p className="fatal-body">
-            The map and search need the backend, and it is not answering at{" "}
-            <code>{API_BASE}</code>.
+            The service may be starting up or temporarily unavailable. Try again
+            in a moment.
           </p>
-          <p className="fatal-body">
-            If you are running this locally, start it with{" "}
-            <code>scripts/dev.ps1</code> and reload.
-          </p>
+          {/* the address and the command are only any use to whoever is
+              running it, so a visitor never sees either */}
+          {process.env.NODE_ENV === "development" ? (
+            <p className="fatal-body">
+              Not answering at <code>{API_BASE}</code>. Start it with{" "}
+              <code>scripts/dev.ps1</code> and reload.
+            </p>
+          ) : null}
           <button type="button" className="primary" onClick={() => buildings.refetch()}>
             Try again
           </button>
@@ -164,13 +168,9 @@ export default function Navigate() {
         buildings={list}
         start={start}
         target={target}
-        mode={mode}
         searchFor={searchFor}
         actionLabel="Find route"
         busy={busy}
-        weatherReady={weatherReady}
-        // the picker lives in the sidebar now, over both views
-        showModes={false}
         otherMode={{ href: labHref, label: "Algorithm lab" }}
         onOpenSearch={setSearchFor}
         onCloseSearch={() => setSearchFor(null)}
@@ -187,12 +187,6 @@ export default function Navigate() {
           setStart(target);
           setTarget(start);
           clear();
-        }}
-        onMode={(next) => {
-          if (next !== mode) {
-            setMode(next);
-            clear();
-          }
         }}
         onRun={() => void run()}
       />
@@ -221,7 +215,6 @@ export default function Navigate() {
             reducedMotion={false}
             isochrone={view === "reach" ? reach : null}
           />
-          <div className="chip chip-mode">{MODE_NOTES[mode]}</div>
           <div className="chip chip-weather">{weatherChip}</div>
         </div>
 
@@ -241,7 +234,7 @@ export default function Navigate() {
               aria-pressed={view === "reach"}
               onClick={() => setView("reach")}
             >
-              How far can I get
+              Reach
             </button>
           </div>
 

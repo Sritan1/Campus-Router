@@ -10,6 +10,7 @@ import {
   ALGORITHM_COLORS,
   ALGORITHM_LABELS,
   ALGORITHM_NOTES,
+  MODE_LABEL,
   count,
   distance,
   duration,
@@ -23,10 +24,16 @@ const ALL: AlgorithmName[] = ["dijkstra", "astar", "bfs", "bidirectional"];
 // the same three modes navigate offers, named for what they mean here.
 // in the lab this is not how you would like to get somewhere, it is
 // which number the four algorithms are minimising.
-const COST_MODELS: { id: RouteMode; label: string; note: string }[] = [
-  { id: "shortest", label: "Distance", note: "Plain length, nothing weighted" },
-  { id: "accessible", label: "Step free", note: "Steps blocked, rough surfaces cost more" },
-  { id: "weather", label: "Winter surface", note: "Snow and ice penalties, the only mode above 1x" },
+// names come from MODE_LABEL so the lab and navigate cannot drift apart.
+// only the notes are the lab's own, since it explains the cost model
+// rather than how you would like to get there.
+const COST_MODELS: { id: RouteMode; note: string }[] = [
+  { id: "shortest", note: "Plain distance, nothing weighted up or down." },
+  { id: "accessible", note: "Steps removed from the graph, rough surfaces penalised." },
+  {
+    id: "weather",
+    note: "Measured winter penalties, applied only when the ground is likely frozen.",
+  },
 ];
 
 function CostModelPicker({
@@ -49,7 +56,7 @@ function CostModelPicker({
             aria-pressed={mode === m.id}
             onClick={() => onMode(m.id)}
           >
-            {m.label}
+            {MODE_LABEL[m.id]}
           </button>
         ))}
       </div>
@@ -151,7 +158,6 @@ function RunningPanel({ state, progress, onSkip }: Props) {
     return (
       <div className="panel">
         <h2 className="panel-title">Running…</h2>
-        <p className="panel-hint">Asking the engine</p>
         <div className="skeletons">
           {ALL.map((name) => (
             <div className="skeleton-lane" key={name}>
@@ -186,7 +192,7 @@ function RunningPanel({ state, progress, onSkip }: Props) {
           </div>
         ))}
       </div>
-      <p className="panel-hint">Bar length is nodes explored</p>
+      <p className="panel-hint">Bars show how much of the graph each one searched</p>
 
       <button type="button" className="secondary run-button" onClick={onSkip}>
         Skip to results ▸
@@ -198,14 +204,9 @@ function RunningPanel({ state, progress, onSkip }: Props) {
 function NoPathPanel({ onShowShortest }: { onShowShortest: () => void }) {
   return (
     <div className="panel">
-      <h2 className="panel-title">No step free route</h2>
+      <h2 className="panel-title">Could not find a step free route</h2>
       <p className="empty-body">
-        There is no way between these two buildings that avoids steps, going by
-        the paths OpenStreetMap has mapped around campus.
-      </p>
-      <p className="empty-body">
-        Accessibility tagging on campus is incomplete, so a route may exist even
-        though the data does not show one.
+        The mapped footpaths offer no way between these buildings without steps.
       </p>
       <button type="button" className="secondary" onClick={onShowShortest}>
         Show the shortest route instead

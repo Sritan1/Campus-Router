@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { Building, Isochrone, RouteMode } from "@/lib/api";
-import { COST_MODEL_LABEL } from "@/lib/format";
+import { MODE_LABEL } from "@/lib/format";
 
 type Props = {
   data: Isochrone | null;
@@ -51,8 +51,8 @@ function Summary({
         <span className="summary-value">{minutes} min walk</span>
       </div>
       <div className="summary-row">
-        <span className="summary-key">Cost model</span>
-        <span className="summary-value">{COST_MODEL_LABEL[mode]}</span>
+        <span className="summary-key">Mode</span>
+        <span className="summary-value">{MODE_LABEL[mode]}</span>
       </div>
     </div>
   );
@@ -138,7 +138,7 @@ export default function ReachPanel({
       <div className="panel-scroll" ref={scrollRef}>
         <h2 className="panel-title">How far can I get?</h2>
         <p className="lede">
-          Everywhere you can walk to from your start, going by campus footpaths.
+          Everywhere you can reach on foot from your start.
         </p>
 
         <div className="segmented" role="group" aria-label="walking time">
@@ -186,7 +186,9 @@ export default function ReachPanel({
         ) : null}
 
         {drawn && found.length === 0 ? (
-          <p className="empty-body">No other buildings within this time.</p>
+          <p className="empty-body">
+            No other buildings reachable in {minutes} min.
+          </p>
         ) : null}
 
         {!drawn ? <Summary start={start} minutes={minutes} mode={mode} /> : null}

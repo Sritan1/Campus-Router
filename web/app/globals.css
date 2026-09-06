@@ -266,11 +266,6 @@ button {
 
 /* clear of leaflet's zoom buttons, which live in the same corner and
    were sitting on top of the first few letters */
-.chip-mode {
-  top: 12px;
-  left: 54px;
-  max-width: 260px;
-}
 
 .chip-weather {
   top: 12px;
@@ -1224,8 +1219,9 @@ button {
 
 /* comparison table */
 
+/* moved up to where the mode chip used to sit, now that it is gone */
 .chip-legend {
-  top: 46px;
+  top: 12px;
   left: 54px;
   border-color: var(--accent);
   background: var(--accent-soft);

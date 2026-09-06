@@ -4,11 +4,12 @@ import type { RouteMode } from "./api";
 
 const METRES_PER_MILE = 1609.344;
 
-/// What each mode is called when we name the cost model out loud.
-export const COST_MODEL_LABEL: Record<RouteMode, string> = {
-  shortest: "Distance",
-  accessible: "Step free",
-  weather: "Winter surface",
+/// What each mode is called, everywhere. The picker, the reach receipt
+/// and the lab all read from here so they cannot drift apart.
+export const MODE_LABEL: Record<RouteMode, string> = {
+  shortest: "Shortest",
+  accessible: "Accessible",
+  weather: "Weather",
 };
 
 /// Metres up to a kilometre, miles past that.
@@ -80,10 +81,10 @@ export const ALGORITHM_LABELS: Record<string, string> = {
 };
 
 export const ALGORITHM_NOTES: Record<string, string> = {
-  dijkstra: "Weighted, exhaustive",
-  astar: "Straight line heuristic",
-  bfs: "Fewest hops, unweighted",
-  bidirectional: "Meet in the middle",
+  dijkstra: "Checks everything",
+  astar: "Aims at the target",
+  bfs: "Fewest edges, ignores distance",
+  bidirectional: "Searches from both ends",
 };
 
 export const ALGORITHM_COLORS: Record<string, string> = {

@@ -7,7 +7,7 @@ await page.setViewportSize({ width: 1420, height: 900 });
 for (const minutes of ["5 min", "15 min"]) {
   await page.goto("http://localhost:3000/?from=ARC", { waitUntil: "networkidle" });
   await page.waitForTimeout(900);
-  await page.getByRole("button", { name: "How far can I get" }).click();
+  await page.getByRole("button", { name: "Reach", exact: true }).click();
   await page.getByRole("button", { name: minutes, exact: true }).click();
   await page.getByRole("button", { name: "Show reach" }).click();
   await page.waitForSelector(".reach-list", { timeout: 25000 });

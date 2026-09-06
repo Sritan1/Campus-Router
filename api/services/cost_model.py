@@ -117,7 +117,7 @@ def build(mode: str, classes: list[str], weather: Optional[dict] = None) -> dict
             elif surface in ROUGH_SURFACES:
                 # not blocked, just discouraged. rough is passable, steps are not.
                 multipliers[class_key] = 1.5
-        notes.append("Steps blocked, rough surfaces discouraged")
+        notes.append("Route avoids all steps and prefers smooth ground.")
 
     elif mode == "weather":
         states = infer_states(weather)
@@ -125,7 +125,7 @@ def build(mode: str, classes: list[str], weather: Optional[dict] = None) -> dict
             # with no reading at all the caller says so instead, otherwise
             # we would claim the ground is clear without knowing
             if weather:
-                notes.append("Nothing frozen underfoot, weather is not changing the route")
+                notes.append("Mild conditions. Routes match Shortest.")
         else:
             for class_key in classes:
                 highway, surface, _ = _parts(class_key)
@@ -139,10 +139,6 @@ def build(mode: str, classes: list[str], weather: Optional[dict] = None) -> dict
                 value = multiplier_for_state(state)
                 if value > 1.0:
                     multipliers[class_key] = round(value, 4)
-            notes.append(
-                "Surface state guessed from the weather, "
-                f"paths {states['flat']}, steps {states['steps']}"
-            )
 
     elif mode != "shortest":
         raise ValueError(f"unknown mode {mode}")

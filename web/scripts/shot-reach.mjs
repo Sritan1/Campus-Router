@@ -4,7 +4,7 @@ const p = await b.newPage();
 await p.setViewportSize({ width: 1400, height: 900 });
 await p.goto("http://localhost:3000/?from=SEO", { waitUntil: "networkidle" });
 await p.waitForTimeout(800);
-await p.getByRole("button", { name: "How far can I get" }).click();
+await p.getByRole("button", { name: "Reach", exact: true }).click();
 await p.waitForTimeout(300);
 await p.getByRole("button", { name: "5 min", exact: true }).click();
 await p.getByRole("button", { name: "Show reach" }).click();

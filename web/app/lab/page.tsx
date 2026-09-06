@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import ComparisonTable from "@/components/ComparisonTable";
-import Header, { MODE_NOTES } from "@/components/Header";
+import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import { raceBounds, type Bounds } from "@/lib/bounds";
 import {
@@ -310,13 +310,17 @@ export default function Lab() {
         <div className="fatal">
           <h1 className="fatal-title">Cannot reach the routing service</h1>
           <p className="fatal-body">
-            The map and search need the backend, and it is not answering at{" "}
-            <code>{API_BASE}</code>.
+            The service may be starting up or temporarily unavailable. Try again
+            in a moment.
           </p>
-          <p className="fatal-body">
-            If you are running this locally, start it with{" "}
-            <code>scripts/dev.ps1</code> and reload.
-          </p>
+          {/* the address and the command are only any use to whoever is
+              running it, so a visitor never sees either */}
+          {process.env.NODE_ENV === "development" ? (
+            <p className="fatal-body">
+              Not answering at <code>{API_BASE}</code>. Start it with{" "}
+              <code>scripts/dev.ps1</code> and reload.
+            </p>
+          ) : null}
           <button
             type="button"
             className="primary"
@@ -335,18 +339,14 @@ export default function Lab() {
         buildings={list}
         start={start}
         target={target}
-        mode={state.mode}
         searchFor={state.searchFor}
         actionLabel={state.race ? "Race" : "Find route"}
         busy={state.phase === "running"}
-        weatherReady={weatherReady}
-        showModes={false}
         otherMode={{ href: navigateHref, label: "Back to routing" }}
         onOpenSearch={(which) => dispatch({ type: "openSearch", which })}
         onCloseSearch={() => dispatch({ type: "closeSearch" })}
         onPick={(which, b) => dispatch({ type: "pickBuilding", which, id: b.id })}
         onSwap={() => dispatch({ type: "swapEnds" })}
-        onMode={(mode) => dispatch({ type: "setMode", mode })}
         onRun={run}
       />
 
@@ -400,8 +400,7 @@ export default function Lab() {
             <p className="grid-credit">
               Map data ©{" "}
               <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>{" "}
-              contributors · Panels are locked to one frame so the searches can
-              be compared
+              contributors · All four share one frame
             </p>
           </div>
         ) : (
@@ -420,7 +419,6 @@ export default function Lab() {
             className={`scrim${state.phase === "running" && state.reply ? " is-on" : ""}`}
             aria-hidden="true"
           />
-          <div className="chip chip-mode">{MODE_NOTES[state.mode]}</div>
           <div className="chip chip-weather">{weatherChip}</div>
           {legend ? <div className="chip chip-legend">{legend}</div> : null}
         </div>

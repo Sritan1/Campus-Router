@@ -1,12 +1,9 @@
 "use client";
 
 import type { RouteMode } from "@/lib/api";
+import { MODE_LABEL } from "@/lib/format";
 
-const MODES: { id: RouteMode; label: string }[] = [
-  { id: "shortest", label: "Shortest" },
-  { id: "accessible", label: "Accessible" },
-  { id: "weather", label: "Weather" },
-];
+const MODES: RouteMode[] = ["shortest", "accessible", "weather"];
 
 type Props = {
   mode: RouteMode;
@@ -26,21 +23,21 @@ export default function ModePicker({ mode, weatherReady, onMode }: Props) {
         {MODES.map((choice) => {
           // weather mode still works without a reading, it just cannot do
           // anything useful, so say that rather than hiding it
-          const degraded = choice.id === "weather" && !weatherReady;
+          const degraded = choice === "weather" && !weatherReady;
           return (
             <button
               type="button"
-              key={choice.id}
-              className={`${mode === choice.id ? "is-active" : ""}${degraded ? " is-degraded" : ""}`}
-              aria-pressed={mode === choice.id}
+              key={choice}
+              className={`${mode === choice ? "is-active" : ""}${degraded ? " is-degraded" : ""}`}
+              aria-pressed={mode === choice}
               title={
                 degraded
-                  ? "No weather reading, this will route as shortest distance"
+                  ? "No weather data right now, falling back to shortest distance"
                   : undefined
               }
-              onClick={() => onMode(choice.id)}
+              onClick={() => onMode(choice)}
             >
-              {choice.label}
+              {MODE_LABEL[choice]}
             </button>
           );
         })}

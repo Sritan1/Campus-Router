@@ -27,22 +27,9 @@ type Props = {
 };
 
 const MODE_SUMMARY: Record<RouteMode, string> = {
-  shortest: "Shortest walk between the two buildings.",
-  accessible: "Step free route. Rough surfaces avoided where the data says so.",
-  weather: "Adjusted for what the ground is likely to be underfoot.",
-};
-
-const ALGORITHM_WORD: Record<string, string> = {
-  dijkstra: "Dijkstra",
-  astar: "A*",
-  bidirectional: "bidirectional Dijkstra",
-  bfs: "breadth first search",
-};
-
-const COST_WORD: Record<RouteMode, string> = {
-  shortest: "distance",
-  accessible: "step free",
-  weather: "winter surface",
+  shortest: "The quickest way across campus on foot.",
+  accessible: "A step free route that sticks to well-paved paths.",
+  weather: "Winter-aware routing that steers you off the surfaces that turn treacherous.",
 };
 
 function Stats({ guide }: { guide: Directions }) {
@@ -67,7 +54,7 @@ function Stats({ guide }: { guide: Directions }) {
 function Steps({ guide }: { guide: Directions }) {
   return (
     <>
-      <p className="section-label">Along the way</p>
+      <p className="section-label">Directions</p>
       <ol className="steps">
         {guide.steps.map((step, i) => (
           <li className={`step is-${step.kind}`} key={`${step.text}-${i}`}>
@@ -135,10 +122,7 @@ export default function NavigatePanel(props: Props) {
       <div className="panel panel-stack">
         <div className="panel-scroll">
           <h2 className="panel-title">Where are you going?</h2>
-          <p className="empty-body">
-            Pick a start and a destination, and this will find the walk between
-            them across campus footpaths.
-          </p>
+          <p className="empty-body">Pick a start and a destination to begin.</p>
           <p className="empty-body">{MODE_SUMMARY[mode]}</p>
         </div>
         <div className="panel-foot">
@@ -156,17 +140,15 @@ export default function NavigatePanel(props: Props) {
     return (
       <div className="panel">
         <h2 className="panel-title">
-          {mode === "accessible" ? "No step free route" : "No route found"}
+          {mode === "accessible"
+            ? "Could not find a step free route"
+            : "No route found"}
         </h2>
         {mode === "accessible" ? (
           <>
             <p className="empty-body">
-              There is no way between these two buildings that avoids steps,
-              going by the paths OpenStreetMap has mapped around campus.
-            </p>
-            <p className="empty-body">
-              Accessibility tagging here is incomplete, so a route may exist
-              even though the data does not show one.
+              The mapped footpaths offer no way between these buildings without
+              steps.
             </p>
             <button type="button" className="secondary" onClick={onShowShortest}>
               Show the shortest route instead
@@ -183,7 +165,6 @@ export default function NavigatePanel(props: Props) {
 
   const agreement = agreementFor(reply);
   const guide = reply.directions;
-  const via = ALGORITHM_WORD[best.algorithm] ?? best.algorithm;
 
   return (
     <div className="panel panel-stack">
@@ -193,10 +174,7 @@ export default function NavigatePanel(props: Props) {
           <span className="headline-time">{duration(best.estSeconds)} walk</span>
         </div>
 
-        <p className="lede">
-          {MODE_SUMMARY[mode]} Found with {via} on the {COST_WORD[mode]} cost
-          model.
-        </p>
+        <p className="lede">{MODE_SUMMARY[mode]}</p>
         {reply.cost.notes.map((note) => (
           <p className="foot-note" key={note}>
             {note}

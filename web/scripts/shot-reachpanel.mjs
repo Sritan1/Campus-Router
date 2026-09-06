@@ -7,7 +7,7 @@ async function open(height) {
   await page.setViewportSize({ width: 1500, height });
   await page.goto("http://localhost:3000/?from=ARC", { waitUntil: "networkidle" });
   await page.waitForTimeout(1000);
-  await page.getByRole("button", { name: "How far can I get" }).click();
+  await page.getByRole("button", { name: "Reach", exact: true }).click();
   await page.getByRole("button", { name: "15 min", exact: true }).click();
   await page.getByRole("button", { name: "Show reach" }).click();
   await page.waitForSelector(".reach-list", { timeout: 25000 });

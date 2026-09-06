@@ -66,8 +66,8 @@ export default function ComparisonTable({ reply, selected, onClose }: Props) {
       </div>
 
       <p className="table-foot">
-        Runtime is the engine's own measured time. The exploration animation runs
-        longer than that on purpose so it can be watched.
+        Runtime is measured in the engine. The animation is slowed down so it can
+        be watched.
       </p>
     </section>
   );
