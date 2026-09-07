@@ -31,6 +31,15 @@ The reply carries one entry per algorithm with the path, the stats, and an `estS
 worked out from the walking speed below. `pathGroups` says which algorithms landed on
 the same path so the map can draw two lines rather than four on top of each other.
 
+**Which distance `estSeconds` is timed on depends on the mode**, and `cost.speedDerived`
+says which one was used. In weather mode the multipliers are measured speed ratios, so a
+weighted metre really does take longer and the estimate is timed on the weighted cost.
+Anywhere else it is timed on the real distance. That matters because accessible mode
+discourages rough ground with a flat 1.5, which is a routing preference rather than a
+speed, and timing it would invent a slower walk out of a nudge. Until this was fixed every
+mode timed the plain distance, so weather mode would route you around ice and then promise
+the same time as bare pavement.
+
 **A route that does not exist is not an error.** Blocking steps genuinely strands parts
 of campus, so those come back as `"status": "no_path"` inside a normal 200.
 

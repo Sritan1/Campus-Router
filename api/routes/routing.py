@@ -181,7 +181,13 @@ def route(request: RouteRequest):
     for entry in engine_reply.get("results", []):
         item = dict(entry)
         if entry.get("status") == "ok" and entry.get("distanceM") is not None:
-            item["estSeconds"] = round(entry["distanceM"] / speed)
+            # in weather mode the weighted cost is already the slower walk,
+            # so timing the plain distance would reroute you around ice and
+            # then promise the same time as bare pavement
+            metres = entry["distanceM"]
+            if cost.get("speedDerived") and entry.get("cost") is not None:
+                metres = entry["cost"]
+            item["estSeconds"] = round(metres / speed)
         results.append(item)
 
     # walking directions describe one route, so they follow whichever
@@ -212,6 +218,9 @@ def route(request: RouteRequest):
             "blockedClasses": len(cost["blocked"]),
             "adjustedClasses": len(cost["multipliers"]),
             "walkingSpeedMps": speed,
+            # says whether estSeconds was timed on the weighted walk or
+            # the plain one, which is the difference between the modes
+            "speedDerived": cost["speedDerived"],
         },
         "weather": current,
     }

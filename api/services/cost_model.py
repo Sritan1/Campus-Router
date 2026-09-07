@@ -150,5 +150,10 @@ def build(mode: str, classes: list[str], weather: Optional[dict] = None) -> dict
         "blocked": blocked,
         "notes": notes,
         "walkingSpeedMps": round(walking_speed((weather or {}).get("tempC")), 4),
+        # weather multipliers are measured speed ratios, so a weighted
+        # metre really does take longer and the time estimate can use it.
+        # accessible discourages rough ground with a made up 1.5, which
+        # is a preference and would inflate a time estimate for nothing.
+        "speedDerived": mode == "weather",
         "source": "Fossum and Ryeng 2021",
     }

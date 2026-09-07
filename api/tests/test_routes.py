@@ -80,6 +80,74 @@ def test_graph_meta_reports_real_counts(client):
     assert body["counts"]["buildings"] == 113
 
 
+def weighted_reply():
+    """A walk where the weather made the going slower than the distance."""
+    return fake_engine_reply(
+        results=[
+            {
+                "algorithm": "dijkstra",
+                "status": "ok",
+                "cost": 1000.0,
+                "distanceM": 800.0,
+                "hops": 40,
+                "nodesVisited": 100,
+                "edgesRelaxed": 200,
+                "runtimeUs": 900,
+                "path": [-664275388, -19063353],
+                "points": [[41.87, -87.65], [41.871, -87.651]],
+            }
+        ]
+    )
+
+
+def test_weather_times_the_slower_walk_and_not_the_bare_distance(client, monkeypatch):
+    def capture(start, target, algorithms, cost, trace=False, max_trace_samples=None):
+        return weighted_reply()
+
+    monkeypatch.setattr(engine_client, "route", capture)
+    monkeypatch.setattr(
+        routing.weather_cache, "get_or_none",
+        lambda: {"tempC": -3.0, "condition": "Snow"},
+    )
+    body = client.post(
+        "/api/route", json={"start": "ARC", "target": "SES", "mode": "weather"}
+    ).json()
+
+    speed = body["cost"]["walkingSpeedMps"]
+    assert body["cost"]["speedDerived"] is True
+    # 1000 weighted metres, not the 800 real ones
+    assert body["results"][0]["estSeconds"] == round(1000.0 / speed)
+
+
+def test_accessible_times_the_real_distance(client, monkeypatch):
+    """The 1.5 on rough ground is a preference, not a measured speed.
+
+    Timing the weighted cost there would invent a slower walk out of a
+    routing nudge.
+    """
+    def capture(start, target, algorithms, cost, trace=False, max_trace_samples=None):
+        return weighted_reply()
+
+    monkeypatch.setattr(engine_client, "route", capture)
+    body = client.post(
+        "/api/route", json={"start": "ARC", "target": "SES", "mode": "accessible"}
+    ).json()
+
+    speed = body["cost"]["walkingSpeedMps"]
+    assert body["cost"]["speedDerived"] is False
+    assert body["results"][0]["estSeconds"] == round(800.0 / speed)
+
+
+def test_shortest_is_unaffected(client, monkeypatch):
+    def capture(start, target, algorithms, cost, trace=False, max_trace_samples=None):
+        return weighted_reply()
+
+    monkeypatch.setattr(engine_client, "route", capture)
+    body = client.post("/api/route", json={"start": "ARC", "target": "SES"}).json()
+    speed = body["cost"]["walkingSpeedMps"]
+    assert body["results"][0]["estSeconds"] == round(800.0 / speed)
+
+
 def test_route_rejects_a_bad_mode(client):
     reply = client.post("/api/route", json={"start": "SEO", "target": "LCC", "mode": "fly"})
     assert reply.status_code == 400
