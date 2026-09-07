@@ -154,6 +154,91 @@ def test_unnamed_buildings_are_dropped():
     assert [b["id"] for b in buildings] == ["500"]
 
 
+def stepped_bundle():
+    """A building whose closest paths are only reachable up steps.
+
+    Three nodes right at the door in their own little pocket, a bigger
+    network further off, and steps as the only thing joining them.
+    """
+    return {
+        "campus_relations": [1],
+        "campus_bounds": {},
+        "query_box": [],
+        "ways": {
+            "elements": [
+                {"type": "node", "id": 10, "lat": 41.87000, "lon": -87.65000},
+                {"type": "node", "id": 11, "lat": 41.87001, "lon": -87.65000},
+                {"type": "node", "id": 12, "lat": 41.87002, "lon": -87.65000},
+                {"type": "node", "id": 20, "lat": 41.87030, "lon": -87.65000},
+                {"type": "node", "id": 21, "lat": 41.87040, "lon": -87.65000},
+                {"type": "node", "id": 22, "lat": 41.87050, "lon": -87.65000},
+                {"type": "node", "id": 23, "lat": 41.87060, "lon": -87.65000},
+                {"type": "way", "id": 100, "nodes": [10, 11, 12],
+                 "tags": {"highway": "footway"}},
+                {"type": "way", "id": 101, "nodes": [20, 21, 22, 23],
+                 "tags": {"highway": "footway"}},
+                {"type": "way", "id": 102, "nodes": [12, 20],
+                 "tags": {"highway": "steps"}},
+            ]
+        },
+        "buildings": {
+            "elements": [
+                {"type": "way", "id": 500,
+                 "center": {"lat": 41.870005, "lon": -87.65000},
+                 "tags": {"building": "yes", "name": "Stranded Hall", "ref": "SH"}},
+            ]
+        },
+        "entrances": {"elements": []},
+    }
+
+
+def stepped_parts():
+    raw = stepped_bundle()
+    nodes = transform.build_nodes(raw)
+    edges = transform.build_edges(raw, nodes)
+    network = {e["u"] for e in edges} | {e["v"] for e in edges}
+    return raw, nodes, edges, network
+
+
+def test_the_step_free_component_leaves_out_what_only_steps_reach():
+    _, _, edges, _ = stepped_parts()
+    free = transform.step_free_component(edges)
+    # the bigger side wins, so the pocket by the door is the stranded one
+    assert free == {20, 21, 22, 23}
+
+
+def test_a_building_walled_in_by_steps_gets_a_step_free_link():
+    raw, nodes, edges, network = stepped_parts()
+    free = transform.step_free_component(edges)
+
+    building = transform.build_buildings(raw, nodes, network, set(), free)[0]
+    picked = [l["node_id"] for l in building["links"]]
+
+    # the three nodes at the door are still there, they are the closest
+    assert {10, 11, 12}.issubset(set(picked))
+    # and one that can actually be reached without steps came with them
+    assert 20 in picked
+    assert building["step_free_fallback"] is True
+
+
+def test_a_building_that_is_already_reachable_gains_nothing():
+    raw, nodes, edges, network = stepped_parts()
+    free = transform.step_free_component(edges)
+    # move the building next to the main network instead
+    raw["buildings"]["elements"][0]["center"] = {"lat": 41.87045, "lon": -87.65000}
+
+    building = transform.build_buildings(raw, nodes, network, set(), free)[0]
+    assert building["step_free_fallback"] is False
+    assert all(n in free for n in [l["node_id"] for l in building["links"]])
+
+
+def test_without_a_step_free_set_the_rescue_stays_out_of_the_way():
+    raw, nodes, edges, network = stepped_parts()
+    building = transform.build_buildings(raw, nodes, network, set())[0]
+    assert building["step_free_fallback"] is False
+    assert [l["node_id"] for l in building["links"]] == [10, 11, 12]
+
+
 def test_entrances_off_any_way_still_get_a_position():
     raw = raw_bundle()
     raw["entrances"]["elements"].append(

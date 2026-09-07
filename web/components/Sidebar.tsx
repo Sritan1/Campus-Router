@@ -285,7 +285,7 @@ function ResultsPanel(props: Props) {
         <Winners results={reply.results} />
 
         {state.race ? (
-          <p className="section-label lanes-head">All four lanes</p>
+          <p className="section-label lanes-head">All four algorithms</p>
         ) : null}
 
         <div className="lanes">

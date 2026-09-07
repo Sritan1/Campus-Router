@@ -83,6 +83,16 @@ Preferring entrances is not free. If the only nearby entrance sits somewhere the
 can barely reach, the building is attached there and a closer, better connected node is
 never considered. That is exactly what stranded Student Center East, see `patches.json`.
 
+**A building is reachable if any of its doors is.** So if every node we picked turns out to
+sit behind steps, we add the nearest one that does not, and flag it as
+`step_free_fallback`. Without that, a building inherits the accessibility of whichever
+corner of it happened to be closest, which is not the same question.
+
+That is not hypothetical. ETMSW was fine until somebody mapped the sunken courtyard beside
+it in detail. The new path nodes were 1.9 m from the centre against 13.8 m for the old
+link, so the rule preferred them, and the courtyard is reached by steps because it is a
+sunken courtyard. The building did not become inaccessible, our idea of its front door did.
+
 ## Things worth knowing
 
 - The graph is trimmed to its largest connected piece. Stray disconnected paths exist in

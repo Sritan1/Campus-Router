@@ -277,11 +277,27 @@ def pick_refs(tags: dict):
     return (parts[0] if parts else None), aliases
 
 
-def build_buildings(raw: dict, nodes: dict, network: set, entrance_ids: set) -> list:
+def step_free_component(edges: list) -> set:
+    """The biggest chunk you can get around without using steps."""
+    return largest_component(
+        [e for e in edges if e["class_key"].split("|")[0] != "steps"]
+    )
+
+
+def build_buildings(
+    raw: dict,
+    nodes: dict,
+    network: set,
+    entrance_ids: set,
+    step_free: set | None = None,
+) -> list:
     """Attaches each named building to the walking network.
 
     Real entrances win. If a building has none nearby we fall back to
     the closest network nodes, which is the usual way this is done.
+
+    A building is reachable if any of its doors is, so if every node we
+    picked is walled off behind steps we add the nearest one that is not.
     """
     buildings = []
 
@@ -319,6 +335,22 @@ def build_buildings(raw: dict, nodes: dict, network: set, entrance_ids: set) -> 
             chosen = everything[:1]
             fallback_used = True
 
+        # every door we picked can sit somewhere steps are the only way
+        # out, which reads as the building being unreachable when really
+        # we just picked the wrong door
+        step_free_used = False
+        if step_free and not any(nid in step_free for _, nid in chosen):
+            reachable = [(d, nid) for d, nid in near if nid in step_free]
+            if not reachable:
+                reachable = sorted(
+                    (haversine_m(clat, clon, nlat, nlon), nid)
+                    for nid, (nlat, nlon) in candidates
+                    if nid in step_free
+                )
+            if reachable:
+                chosen = list(chosen) + reachable[:1]
+                step_free_used = True
+
         abbr, aliases = pick_refs(tags)
         buildings.append(
             {
@@ -334,6 +366,7 @@ def build_buildings(raw: dict, nodes: dict, network: set, entrance_ids: set) -> 
                 ],
                 "linked_via_entrance": bool(entrances_near),
                 "link_fallback": fallback_used,
+                "step_free_fallback": step_free_used,
             }
         )
 
@@ -408,8 +441,12 @@ def main() -> int:
 
     used = {e["u"] for e in edges} | {e["v"] for e in edges}
     entrance_ids = {e["id"] for e in raw["entrances"]["elements"]}
-    buildings = build_buildings(raw, nodes, used, entrance_ids)
+    step_free = step_free_component(edges)
+    buildings = build_buildings(raw, nodes, used, entrance_ids, step_free)
+    rescued = [b["name"] for b in buildings if b["step_free_fallback"]]
     print(f"buildings named     : {len(buildings)}")
+    if rescued:
+        print(f"step free rescues   : {len(rescued)} ({', '.join(rescued)})")
 
     classes = collections.Counter(e["class_key"] for e in edges)
 
