@@ -191,7 +191,7 @@ function RunningPanel({ state, progress, onSkip }: Props) {
           </div>
         ))}
       </div>
-      <p className="panel-hint">Bars show how much of the graph each one searched</p>
+      <p className="panel-hint">Bars are engine time, numbers are nodes explored</p>
 
       <button type="button" className="secondary run-button" onClick={onSkip}>
         Skip to results ▸
@@ -264,11 +264,12 @@ function ResultsPanel(props: Props) {
     );
   }
 
-  // bars are scaled against the busiest search, so the widest one fills
-  // the track and the rest are read against it
-  const busiest = Math.max(
+  // bars are scaled against the slowest run, so the widest one fills the
+  // track and the rest are read against it. this matches the runtime
+  // printed on the same lane rather than the node count beside it.
+  const slowest = Math.max(
     1,
-    ...reply.results.map((r) => (r.status === "ok" ? r.nodesVisited : 0)),
+    ...reply.results.map((r) => (r.status === "ok" ? r.runtimeUs : 0)),
   );
 
   return (
@@ -318,7 +319,7 @@ function ResultsPanel(props: Props) {
                   <span
                     className="lane-fill"
                     style={{
-                      width: `${(result.nodesVisited / busiest) * 100}%`,
+                      width: `${(result.runtimeUs / slowest) * 100}%`,
                       background: ALGORITHM_COLORS[result.algorithm],
                     }}
                   />

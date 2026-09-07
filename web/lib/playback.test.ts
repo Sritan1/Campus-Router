@@ -7,13 +7,14 @@ function result(
   algorithm: string,
   nodesVisited: number,
   tracePoints: number,
+  runtimeUs = 0,
 ): AlgorithmResult {
   return {
     algorithm: algorithm as AlgorithmResult["algorithm"],
     status: "ok",
     nodesVisited,
     edgesRelaxed: 0,
-    runtimeUs: 0,
+    runtimeUs,
     trace: {
       points: Array.from({ length: tracePoints }, () => [0, 0] as [number, number]),
       edges: Array.from({ length: Math.max(0, tracePoints - 1) }, (_, i) => [i, i + 1] as [number, number]),
@@ -57,20 +58,27 @@ describe("how much of the search is drawn", () => {
 });
 
 describe("bars", () => {
+  // runtimes from a real cross campus race, where bfs settles the most
+  // nodes of anyone and still finishes first
   const all = [
-    result("dijkstra", 852, 200),
-    result("astar", 185, 185),
-    result("bfs", 421, 200),
+    result("dijkstra", 12898, 200, 2521),
+    result("astar", 3183, 185, 1156),
+    result("bfs", 13316, 200, 764),
   ];
 
-  it("the busiest algorithm fills the whole bar", () => {
+  it("the slowest algorithm fills the whole bar", () => {
     expect(barFraction(all[0], all, 1)).toBe(1);
   });
 
-  it("a lighter search gets a shorter bar", () => {
-    // this is the whole point of the panel, a star doing less work
-    expect(barFraction(all[1], all, 1)).toBeCloseTo(185 / 852, 5);
-    expect(barFraction(all[1], all, 1)).toBeLessThan(barFraction(all[2], all, 1));
+  it("a quicker run gets a shorter bar", () => {
+    expect(barFraction(all[1], all, 1)).toBeCloseTo(1156 / 2521, 5);
+  });
+
+  it("measures time and not work, so the busiest search can be shortest", () => {
+    // bfs settles more nodes than dijkstra and still gets the shorter
+    // bar. keying on nodes hid exactly this.
+    expect(all[2].nodesVisited).toBeGreaterThan(all[0].nodesVisited);
+    expect(barFraction(all[2], all, 1)).toBeLessThan(barFraction(all[0], all, 1));
   });
 
   it("everything starts empty and grows on one shared clock", () => {
@@ -84,5 +92,10 @@ describe("bars", () => {
     for (const one of all) {
       expect(barFraction(one, all, 5)).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("does not divide by zero when nothing was measured", () => {
+    const zero = [result("dijkstra", 10, 5), result("astar", 5, 5)];
+    expect(barFraction(zero[0], zero, 1)).toBe(0);
   });
 });

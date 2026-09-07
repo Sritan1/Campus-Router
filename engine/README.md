@@ -65,9 +65,14 @@ Parents always point backwards, so a client drawing in order never needs a point
 not seen yet.
 
 Traces can be thinned if they get huge, evenly across the whole run so the shape survives.
-The cap defaults to 8000, which this graph never reaches, so in practice nothing is
-dropped. If it ever does thin, a segment whose parent was dropped comes back with `-1`
+The cap defaults to 20000, above the node count of the whole graph, so in practice nothing
+is dropped. If it ever does thin, a segment whose parent was dropped comes back with `-1`
 rather than a wrong line.
+
+It was 8000 until round 18. That cleared the old east-campus graph easily, but adding west
+campus doubled the node count and a cross-campus search settles about 13000, so BFS was
+silently losing three quarters of its edges while A\* stayed complete. A cap only has to be
+wrong once for the race to look like an algorithm bug.
 
 ### JSON
 

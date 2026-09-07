@@ -416,7 +416,7 @@ def main() -> int:
     graph = {
         "schema_version": SCHEMA_VERSION,
         "meta": {
-            "campus_relation": raw["campus_relation"],
+            "campus_relations": raw["campus_relations"],
             "campus_bounds": raw["campus_bounds"],
             "query_box": raw["query_box"],
             "counts": {

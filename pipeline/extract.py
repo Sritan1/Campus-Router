@@ -11,8 +11,26 @@ import pathlib
 
 from pipeline import overpass
 
-# the east campus, as mapped in openstreetmap
-CAMPUS_RELATION = 19755400
+# east campus and west campus, as mapped in openstreetmap. west is the
+# health sciences half and it was missing entirely until round 18.
+CAMPUS_RELATIONS = [19755400, 17687555]
+
+# uic buildings that sit in neither campus relation. south campus has no
+# relation of its own, so without these they are simply lost.
+EXTRA_BUILDINGS = [
+    ("relation", 17650163),   # Thomas Beckham Hall, TBH
+    ("relation", 17650162),   # Marie Robinson Hall, MRH
+    ("way", 149877814),       # Taylor Street Building, TSB
+    ("way", 210257610),       # 1253 South Halsted
+    ("way", 930816391),       # Maxwell Street Parking Structure
+]
+
+# way 210257184 is a second piece of the Taylor Street Building with no
+# code. adding it would put two identical names in the search box, which
+# is worse than leaving it out.
+
+# the school of law is uic too but sits downtown, about 1.2 km further
+# east. pulling it in would drag the whole loop along for one building.
 
 # roughly 110 metres of slack around the campus edge
 BBOX_BUFFER_DEG = 0.001
@@ -23,20 +41,32 @@ RAW_DIR = pathlib.Path(__file__).resolve().parent / "raw"
 
 
 def campus_bounds() -> dict:
-    """Asks openstreetmap where campus actually is instead of guessing."""
+    """Asks openstreetmap where campus actually is instead of guessing.
+
+    Two relations now, east and west, so the box is the union of both
+    and the corridor between them comes along with it.
+    """
+    parts = ";".join(f"rel({r})" for r in CAMPUS_RELATIONS)
     query = f"""[out:json][timeout:120];
-rel({CAMPUS_RELATION});
+({parts};);
 out tags bb;"""
     payload = overpass.run("campus_bounds", query)
 
-    elements = payload.get("elements", [])
-    if not elements or "bounds" not in elements[0]:
-        raise RuntimeError("could not read campus bounds from overpass")
+    found = [e for e in payload.get("elements", []) if "bounds" in e]
+    if len(found) != len(CAMPUS_RELATIONS):
+        raise RuntimeError(
+            f"wanted bounds for {len(CAMPUS_RELATIONS)} campus relations, got {len(found)}"
+        )
 
-    bounds = elements[0]["bounds"]
-    name = elements[0].get("tags", {}).get("name", "unknown")
-    print(f"  campus: {name}")
-    return bounds
+    for element in found:
+        print(f"  campus: {element.get('tags', {}).get('name', 'unknown')}")
+
+    return {
+        "minlat": min(e["bounds"]["minlat"] for e in found),
+        "minlon": min(e["bounds"]["minlon"] for e in found),
+        "maxlat": max(e["bounds"]["maxlat"] for e in found),
+        "maxlon": max(e["bounds"]["maxlon"] for e in found),
+    }
 
 
 def buffered_box(bounds: dict) -> tuple:
@@ -60,16 +90,28 @@ out skel qt;"""
 
 
 def fetch_buildings(refresh: bool) -> dict:
-    """Buildings inside the campus polygon only.
+    """Buildings inside either campus polygon, plus the named strays.
 
-    Using the polygon and not a box is what keeps Greyhound Terminal
-    and the local Walgreens out of the search box.
+    Using polygons and not a box is what keeps Greyhound Terminal and
+    the local Walgreens out of the search box.
     """
+    areas = "\n".join(
+        f"  rel({rel}); map_to_area -> .a{i};"
+        for i, rel in enumerate(CAMPUS_RELATIONS)
+    )
+    inside = "\n".join(
+        f'  way["building"](area.a{i});\n  relation["building"](area.a{i});'
+        for i, _ in enumerate(CAMPUS_RELATIONS)
+    )
+    strays = "\n".join(f"  {kind}({osm_id});" for kind, osm_id in EXTRA_BUILDINGS)
+
     query = f"""[out:json][timeout:300];
-rel({CAMPUS_RELATION}); map_to_area -> .campus;
 (
-  way["building"](area.campus);
-  relation["building"](area.campus);
+{areas}
+);
+(
+{inside}
+{strays}
 );
 out tags center;"""
     return overpass.run("buildings", query, refresh)
@@ -100,7 +142,7 @@ def main() -> int:
 
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     bundle = {
-        "campus_relation": CAMPUS_RELATION,
+        "campus_relations": CAMPUS_RELATIONS,
         "campus_bounds": bounds,
         "query_box": list(box),
         "ways": ways,

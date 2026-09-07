@@ -24,13 +24,14 @@ const CAMPUS_CENTER: [number, number] = [41.8708, -87.6505];
 
 /// How far the map may be dragged, roughly the graph plus a quarter.
 ///
-/// The graph runs 41.86062 to 41.88176 and -87.66568 to -87.63907, so
-/// this is that with room to see what is just past the edge. Panning off
+/// Both campuses since round 18, so the graph now runs 41.85906 to
+/// 41.88176 and -87.68623 to -87.63907, which is 2.52 km by 3.91 km.
+/// This is that with room to see what is just past the edge. Panning off
 /// to another neighbourhood only shows streets nothing can route along.
 /// Update this if the pipeline ever pulls a different area.
 const CAMPUS_MAX_BOUNDS: [[number, number], [number, number]] = [
-  [41.8553, -87.6723],
-  [41.8871, -87.6324],
+  [41.8534, -87.6980],
+  [41.8874, -87.6273],
 ];
 
 // how many reachable buildings keep a label on the map. they arrive
@@ -138,11 +139,11 @@ export default function MapPane({
         zoom={16}
         className="map-canvas"
         scrollWheelZoom
-        // the graph is campus and about a hundred metres past it, so
-        // zooming out further only shows city we cannot route across.
-        // fourteen is roughly twice the campus, which still fits on a
-        // narrow screen where the map is short.
-        minZoom={14}
+        // the graph is both campuses and a bit past them, so zooming out
+        // further only shows city we cannot route across. the rule is
+        // about twice the graph, and the graph is 3.91 km wide now, so
+        // this went from 14 to 13.5 when west campus arrived.
+        minZoom={13.5}
         // and it cannot be dragged off the campus either. zoomed in
         // there is room to move about inside the box, zoomed out the box
         // is smaller than the screen so it simply holds still.

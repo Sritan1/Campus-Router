@@ -7,7 +7,7 @@ def raw_bundle():
     Two joined footways, one stray path off on its own, and a building.
     """
     return {
-        "campus_relation": 1,
+        "campus_relations": [1],
         "campus_bounds": {},
         "query_box": [],
         "ways": {

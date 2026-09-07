@@ -389,10 +389,10 @@ export default function Lab() {
               selected={state.selected}
               onSelect={(algorithm) => dispatch({ type: "selectLane", algorithm })}
             />
-            {/* the panels turn leaflet's own attribution off, so the
-                credit for whoever drew the tiles has to live here */}
+            {/* the panels turn leaflet's own attribution off, so both
+                credits have to live here instead */}
             <p className="grid-credit">
-              Map data ©{" "}
+              <a href="https://leafletjs.com">Leaflet</a> · Map data ©{" "}
               <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>{" "}
               contributors · All four share one frame
             </p>

@@ -11,10 +11,11 @@ namespace campus {
 
 namespace {
 
-// the whole campus graph settles at most a few thousand nodes, so this
-// is high enough that nothing gets thinned in practice. it is a guard
-// against a pathological graph, not a normal part of the flow.
-constexpr size_t DEFAULT_TRACE_LIMIT = 8000;
+// no search can settle more nodes than the graph has, about 16k across
+// both campuses, so this sits above that and nothing is ever thinned.
+// eight thousand used to clear it and stopped when west campus doubled
+// the graph, which quietly cost bfs three quarters of its edges.
+constexpr size_t DEFAULT_TRACE_LIMIT = 20000;
 constexpr size_t MAX_TRACE_LIMIT = 50000;
 
 const Algorithm DEFAULT_ORDER[] = {

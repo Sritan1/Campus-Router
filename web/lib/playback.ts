@@ -36,13 +36,17 @@ export function clamp(value: number): number {
   return value;
 }
 
-/// Bar length is nodes explored against whoever explored the most, so
-/// the shortest bar is the algorithm that did the least work.
+/// Bar length is measured engine time against whoever took the longest,
+/// so the shortest bar is the algorithm that finished first.
+///
+/// It used to be nodes explored, which hid the more interesting result.
+/// On a cross campus race bfs settles the most nodes of anyone and is
+/// still the fastest, because a plain queue is cheaper than a heap.
 export function barFraction(
   result: AlgorithmResult,
   results: AlgorithmResult[],
   progress: number,
 ): number {
-  const busiest = Math.max(...results.map((r) => r.nodesVisited), 1);
-  return clamp((result.nodesVisited * clamp(progress)) / busiest);
+  const slowest = Math.max(...results.map((r) => r.runtimeUs), 1);
+  return clamp((result.runtimeUs * clamp(progress)) / slowest);
 }

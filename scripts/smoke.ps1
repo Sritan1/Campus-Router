@@ -32,7 +32,7 @@ $health = Invoke-RestMethod "$Api/api/health"
 Check "gateway and engine both up" ($health.ok -and $health.engine -eq "up") $health.engine
 
 $meta = Invoke-RestMethod "$Api/api/graph/meta"
-Check "graph looks like campus" ($meta.counts.nodes -gt 8000 -and $meta.counts.buildings -eq 59) `
+Check "graph looks like campus" ($meta.counts.nodes -gt 16000 -and $meta.counts.buildings -eq 113) `
     "$($meta.counts.nodes) nodes, $($meta.counts.buildings) buildings"
 
 Write-Host "`ntraces arrive whole" -ForegroundColor Cyan

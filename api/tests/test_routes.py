@@ -75,8 +75,9 @@ def test_buildings_search_with_no_hits_is_empty_not_an_error(client):
 
 def test_graph_meta_reports_real_counts(client):
     body = client.get("/api/graph/meta").json()
-    assert body["counts"]["nodes"] > 8000
-    assert body["counts"]["buildings"] == 59
+    # both campuses since round 18, so roughly double what it was
+    assert body["counts"]["nodes"] > 16000
+    assert body["counts"]["buildings"] == 113
 
 
 def test_route_rejects_a_bad_mode(client):

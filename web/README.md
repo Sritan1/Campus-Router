@@ -63,7 +63,7 @@ stale, weather refetches every ten minutes.
 ## Search
 
 The prototype listed every building no matter what you typed. This is a real input.
-Matching happens on the client because the list is only 59 buildings and typing should
+Matching happens on the client because the list is only 113 buildings and typing should
 not wait on the network. An exact building code wins, then names starting with what you
 typed, then names containing it. Ampersands, hyphens and accents are folded, so "science
 and engineering" finds "Science & Engineering Offices". Arrow keys move, enter picks,
@@ -113,9 +113,15 @@ The canvas runs its own `requestAnimationFrame` loop off a shared start timestam
 stays smooth at sixty frames without React re-rendering the map. React only ticks twenty
 times a second, and only to move the sidebar bars, which is plenty for a bar.
 
-All four lanes share one clock, so the bars are comparable. Bar length is nodes explored
-against whoever explored the most, which means the shortest bar is the algorithm that did
-the least work. That is the whole point of the panel.
+All four lanes share one clock, so the bars are comparable. Bar length is **measured engine
+time** against whoever took the longest, so the shortest bar is the algorithm that finished
+first. That is the whole point of the panel.
+
+It was nodes explored until Round 18, and switching it revealed something the old bar hid.
+On a cross campus race BFS settles **more** nodes than Dijkstra and is still about three
+times **faster**, because a plain queue costs less per node than a heap. Sizing the bar by
+work made BFS look like the loser of a race it wins. The node count is still printed beside
+each bar, so both numbers are there, they just are not the same number.
 
 ### Playback length is presentation
 

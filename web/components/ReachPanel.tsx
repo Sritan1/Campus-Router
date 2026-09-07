@@ -16,7 +16,10 @@ type Props = {
   onClear: () => void;
 };
 
-const CHOICES = [3, 5, 10, 15];
+// four on purpose, the pill track is an even four up. these went up with
+// round 18, since the campuses are about 25 minutes apart and the old top
+// of 15 could never show you the other one.
+const CHOICES = [5, 10, 20, 30];
 
 // never collapse below this, otherwise a short window leaves a list too
 // stubby to be worth reading

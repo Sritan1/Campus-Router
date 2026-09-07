@@ -8,7 +8,7 @@
   --accent-soft: #eaf2fd;
   --danger: #b4442e;
   --radius: 8px;
-  --sidebar: 440px;
+  --sidebar: 420px;
 }
 
 * {
@@ -893,6 +893,7 @@ button {
   align-items: center;
   gap: 9px;
   color: var(--muted);
+  flex-shrink: 0;
 }
 
 .summary-dot {
@@ -902,8 +903,15 @@ button {
   background: var(--ink);
 }
 
+/* ten buildings have no code, so this shows a full name instead and the
+   longest is fifty characters. without a clamp it wrapped the row into
+   three lines. */
 .summary-value {
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* weather's sentence runs to two lines where the other two fit on one,
@@ -1473,9 +1481,12 @@ button {
 
 /* code, then the full name, then how long it takes. the code column is
    fixed so the names all start in the same place. */
+/* the code column gives back a few pixels to the name, which is the
+   thing that runs out of room first. cuppah is the longest code at six
+   characters and still fits. */
 .reach-row {
   display: grid;
-  grid-template-columns: 62px 1fr auto;
+  grid-template-columns: 58px 1fr auto;
   align-items: baseline;
   gap: 10px;
   font-size: 13.5px;
