@@ -115,24 +115,43 @@ bool Reader::readString(std::string &out) {
 
 bool Reader::readNumber(Json &out) {
   const size_t began = this->at;
-  if (this->at < this->source.size() &&
-      (this->source[this->at] == '-' || this->source[this->at] == '+')) {
+
+  // taking any run of digits, dots and signs let 1.2.3 and 5e5e5 through,
+  // because strtod reads the front of it and stops without complaining.
+  // this follows the actual shape a json number is allowed to have.
+  auto digits = [&]() {
+    const size_t from = this->at;
+    while (this->at < this->source.size() && this->source[this->at] >= '0' &&
+           this->source[this->at] <= '9') {
+      this->at++;
+    }
+    return this->at > from;
+  };
+
+  if (this->at < this->source.size() && this->source[this->at] == '-') {
     this->at++;
   }
-  bool anyDigits = false;
-  while (this->at < this->source.size()) {
-    const char c = this->source[this->at];
-    if ((c >= '0' && c <= '9')) {
-      anyDigits = true;
-      this->at++;
-    } else if (c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-') {
-      this->at++;
-    } else {
-      break;
+  if (!digits()) {
+    return this->fail("expected a number");
+  }
+
+  if (this->at < this->source.size() && this->source[this->at] == '.') {
+    this->at++;
+    if (!digits()) {
+      return this->fail("expected digits after the decimal point");
     }
   }
-  if (!anyDigits) {
-    return this->fail("expected a number");
+
+  if (this->at < this->source.size() &&
+      (this->source[this->at] == 'e' || this->source[this->at] == 'E')) {
+    this->at++;
+    if (this->at < this->source.size() &&
+        (this->source[this->at] == '+' || this->source[this->at] == '-')) {
+      this->at++;
+    }
+    if (!digits()) {
+      return this->fail("expected digits in the exponent");
+    }
   }
 
   const std::string piece = this->source.substr(began, this->at - began);

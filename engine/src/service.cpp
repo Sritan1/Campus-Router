@@ -1,5 +1,6 @@
 #include "campus/service.hpp"
 
+#include <algorithm>
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -24,6 +25,10 @@ const Algorithm DEFAULT_ORDER[] = {
     Algorithm::Bfs,
     Algorithm::BidirectionalDijkstra,
 };
+
+// there are only four, so a longer list is either a mistake or somebody
+// trying to buy a lot of graph searches with one small request
+constexpr size_t MAX_ALGORITHMS = sizeof(DEFAULT_ORDER) / sizeof(DEFAULT_ORDER[0]);
 
 /// @brief Read the cost model out of the request.
 ///
@@ -170,16 +175,26 @@ Reply Service::route(const std::string &body) const {
     return {404, errorBody("target node is not in the graph")};
   }
 
-  // which algorithms to run, all four unless asked otherwise
+  // which algorithms to run, all four unless asked otherwise.
+  //
+  // the gateway caps and dedupes this too, but the engine answers one
+  // request at a time and must not take a long list on trust from it.
   std::vector<Algorithm> wanted;
   if (request.at("algorithms").isArray() &&
       !request.at("algorithms").items().empty()) {
-    for (const Json &entry : request.at("algorithms").items()) {
+    const std::vector<Json> &asked = request.at("algorithms").items();
+    if (asked.size() > MAX_ALGORITHMS) {
+      return {400, errorBody("too many algorithms")};
+    }
+    for (const Json &entry : asked) {
       Algorithm algorithm;
       if (!algorithmFromName(entry.asString(), algorithm)) {
         return {400, errorBody("unknown algorithm " + entry.asString())};
       }
-      wanted.push_back(algorithm);
+      // asking for the same one twice is the same search twice
+      if (std::find(wanted.begin(), wanted.end(), algorithm) == wanted.end()) {
+        wanted.push_back(algorithm);
+      }
     }
   } else {
     for (Algorithm algorithm : DEFAULT_ORDER) {

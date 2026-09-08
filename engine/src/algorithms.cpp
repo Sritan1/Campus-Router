@@ -101,12 +101,19 @@ RouteResult searchWeighted(const Graph &graph, const CostModel &cost, int start,
     }
 
     for (const Adjacency &edge : graph.neighbors(current.node)) {
-      if (cost.isBlocked(edge.classId) || settled[edge.to]) {
+      if (cost.isBlocked(edge.classId)) {
+        continue;
+      }
+
+      // counted here, before the settled check, so this means the same
+      // thing in all four searches. it used to be attempts in two of them
+      // and successes in another, which made the numbers incomparable.
+      result.edgesRelaxed++;
+      if (settled[edge.to]) {
         continue;
       }
 
       const double relaxed = best[current.node] + cost.weightOf(edge);
-      result.edgesRelaxed++;
       if (relaxed < best[edge.to]) {
         best[edge.to] = relaxed;
         came[edge.to] = current.node;
@@ -164,10 +171,13 @@ RouteResult searchBfs(const Graph &graph, const CostModel &cost, int start,
     }
 
     for (const Adjacency &edge : graph.neighbors(current)) {
-      if (cost.isBlocked(edge.classId) || seen[edge.to]) {
+      if (cost.isBlocked(edge.classId)) {
         continue;
       }
       result.edgesRelaxed++;
+      if (seen[edge.to]) {
+        continue;
+      }
       seen[edge.to] = 1;
       came[edge.to] = current;
       queue.push_back(edge.to);

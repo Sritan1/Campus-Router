@@ -50,7 +50,11 @@ struct CostModel {
   /// could return a path that is not the cheapest.
   double smallestMultiplier() const {
     double smallest = this->defaultMultiplier;
-    for (size_t i = 0; i < this->multipliers.size(); i++) {
+    // the two lists are built to the same length, but this is the only
+    // place that reads one of them by the other one's size, so hold it to
+    // the shorter of the two the way the lookups above bounds check
+    const size_t count = std::min(this->multipliers.size(), this->blocked.size());
+    for (size_t i = 0; i < count; i++) {
       if (this->blocked[i] == 0) {
         smallest = std::min(smallest, this->multipliers[i]);
       }

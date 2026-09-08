@@ -1,6 +1,7 @@
 // The routing service. Binds loopback only, because the python gateway
 // is the only thing that ever talks to it.
 
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -17,6 +18,7 @@ typedef int socklen_t;
 #else
 #include <arpa/inet.h>
 #include <csignal>
+#include <ctime>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -46,6 +48,18 @@ void closeSocket(SOCKET s) {
   closesocket(s);
 #else
   close(s);
+#endif
+}
+
+/// @brief Wait a moment, without pulling in a threading library for it.
+void pauseMs(int ms) {
+#ifdef _WIN32
+  Sleep(static_cast<DWORD>(ms));
+#else
+  timespec how_long;
+  how_long.tv_sec = ms / 1000;
+  how_long.tv_nsec = static_cast<long>(ms % 1000) * 1000000L;
+  nanosleep(&how_long, nullptr);
 #endif
 }
 
@@ -273,6 +287,10 @@ int main(int argc, char **argv) {
     socklen_t peerLength = sizeof(peer);
     SOCKET conn = accept(listener, reinterpret_cast<sockaddr *>(&peer), &peerLength);
     if (conn == INVALID_SOCKET) {
+      // accept can fail for a reason that is not going away, running out
+      // of descriptors say, and looping straight back on that spins a core
+      // flat out. waiting a moment costs nothing when it is a one off.
+      pauseMs(20);
       continue;
     }
 
