@@ -26,6 +26,31 @@ class WeatherUnavailable(RuntimeError):
     pass
 
 
+def redact(text: str) -> str:
+    """Takes the api key out of anything before it is written down.
+
+    httpx puts the whole request url in its error messages and ours
+    carries the key as a query parameter, so raw text is never safe.
+    """
+    key = settings.openweather_api_key
+    return text.replace(key, "REDACTED") if key else text
+
+
+def public_reason(exc: Exception) -> str:
+    """What a stranger is allowed to be told about a failure.
+
+    Fixed strings only. Never the exception text, which is how the key
+    would get out through the weather endpoint.
+    """
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"weather service returned {exc.response.status_code}"
+    if isinstance(exc, httpx.TimeoutException):
+        return "weather service timed out"
+    if isinstance(exc, httpx.HTTPError):
+        return "could not reach the weather service"
+    return "weather is unavailable"
+
+
 class WeatherCache:
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -49,7 +74,10 @@ class WeatherCache:
             # a non json 200 is a real failure mode, not something to swallow
             payload = reply.json()
         except (httpx.HTTPError, ValueError) as exc:
-            raise WeatherUnavailable(str(exc)) from exc
+            # the detail goes to the log with the key taken out, and the
+            # caller only ever gets a fixed string
+            log.warning("weather fetch failed: %s", redact(str(exc)))
+            raise WeatherUnavailable(public_reason(exc)) from exc
 
         weather_list = payload.get("weather") or [{}]
         return {
@@ -71,13 +99,17 @@ class WeatherCache:
         try:
             value = self._fetch()
         except WeatherUnavailable as exc:
+            # safe by construction, WeatherUnavailable only ever carries a
+            # fixed string, but redact anyway so a future raiser cannot
+            # quietly put the key back in
+            reason = redact(str(exc))
             with self._lock:
-                self._last_error = str(exc)
+                self._last_error = reason
                 if self._value is not None:
                     # a stale reading beats no reading, but say that it is stale
-                    log.warning("weather fetch failed, serving stale value: %s", exc)
+                    log.warning("weather failed, serving stale value: %s", reason)
                     return dict(self._value, cached=True, stale=True)
-            log.warning("weather unavailable: %s", exc)
+            log.warning("weather unavailable: %s", reason)
             raise
 
         with self._lock:

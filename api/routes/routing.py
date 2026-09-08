@@ -18,21 +18,31 @@ MODES = ["shortest", "accessible", "weather"]
 
 
 class RouteRequest(BaseModel):
-    start: str = Field(description="building id, code or node id")
-    target: str = Field(description="building id, code or node id")
-    mode: str = "shortest"
-    algorithms: list[str] = Field(default_factory=lambda: list(ALGORITHMS))
+    # a building code is a handful of characters and a node id is a
+    # number, so anything long is somebody poking at us
+    start: str = Field(description="building id, code or node id", max_length=120)
+    target: str = Field(description="building id, code or node id", max_length=120)
+    mode: str = Field(default="shortest", max_length=40)
+
+    # capped and deduplicated below. there are only four, and asking for
+    # the same one five thousand times is five thousand graph searches
+    # on an engine that answers one request at a time.
+    algorithms: list[str] = Field(
+        default_factory=lambda: list(ALGORITHMS), max_length=len(ALGORITHMS)
+    )
     trace: bool = False
 
     # left unset on purpose. thinning drops points, and a path needs both
     # of its ends, so a limit here quietly shreds the search into pieces.
     # the engine has a sane cap of its own for absurd cases.
-    maxTraceSamples: Optional[int] = None
+    maxTraceSamples: Optional[int] = Field(default=None, ge=0, le=200_000)
 
 
 @router.get("/buildings")
 def buildings(
-    q: str = Query(default="", description="search text"),
+    # folding and substring matching run over every building, so a very
+    # long query is just work with no answer at the end of it
+    q: str = Query(default="", description="search text", max_length=120),
     limit: int = Query(default=200, ge=1, le=500),
 ):
     """Everything the search box needs."""
@@ -62,8 +72,8 @@ def weather():
 
 
 class IsochroneRequest(BaseModel):
-    start: str = Field(description="building id, code or node id")
-    mode: str = "shortest"
+    start: str = Field(description="building id, code or node id", max_length=120)
+    mode: str = Field(default="shortest", max_length=40)
     minutes: float = Field(default=10.0, gt=0, le=60)
 
 
@@ -142,6 +152,10 @@ def route(request: RouteRequest):
     if not request.algorithms:
         raise HTTPException(400, "pick at least one algorithm")
 
+    # asking for the same algorithm twice is work we would do twice, so
+    # keep the first of each and hold the order the caller asked for
+    wanted = list(dict.fromkeys(request.algorithms))
+
     start = graph_data.resolve(request.start)
     target = graph_data.resolve(request.target)
     if start is None:
@@ -160,7 +174,7 @@ def route(request: RouteRequest):
         engine_reply = engine_client.route(
             start.node_id,
             target.node_id,
-            request.algorithms,
+            wanted,
             cost,
             trace=request.trace,
             max_trace_samples=request.maxTraceSamples,

@@ -28,6 +28,11 @@ venv/
 .ruff_cache/
 *.egg-info/
 
+
+
+
+
+
 # node
 node_modules/
 .next/

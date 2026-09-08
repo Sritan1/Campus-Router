@@ -12,6 +12,11 @@ const Json NULL_VALUE;
 const std::vector<Json> NO_ELEMENTS;
 const std::map<std::string, Json> NO_MEMBERS;
 
+// arrays and objects read each other, so a document of nothing but open
+// brackets recurses once per bracket and runs the stack out. a megabyte
+// of them is plenty to crash on, so cap the nesting well below that.
+constexpr int MAX_DEPTH = 200;
+
 /// @brief Walks the input text and builds values out of it.
 class Reader {
  public:
@@ -24,6 +29,7 @@ class Reader {
  private:
   const std::string &source;
   size_t at = 0;
+  int depth = 0;
   std::string error;
 
   void skipSpace();
@@ -227,11 +233,14 @@ bool Reader::readValue(Json &out) {
   }
 
   const char c = this->source[this->at];
-  if (c == '{') {
-    return this->readObject(out);
-  }
-  if (c == '[') {
-    return this->readArray(out);
+  if (c == '{' || c == '[') {
+    if (this->depth >= MAX_DEPTH) {
+      return this->fail("nested too deeply");
+    }
+    this->depth++;
+    const bool ok = c == '{' ? this->readObject(out) : this->readArray(out);
+    this->depth--;
+    return ok;
   }
   if (c == '"') {
     std::string value;

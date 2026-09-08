@@ -1,4 +1,5 @@
-import pytest
+﻿import pytest
+from fastapi import APIRouter
 from fastapi.testclient import TestClient
 
 from api.routes import routing
@@ -146,6 +147,207 @@ def test_shortest_is_unaffected(client, monkeypatch):
     body = client.post("/api/route", json={"start": "ARC", "target": "SES"}).json()
     speed = body["cost"]["walkingSpeedMps"]
     assert body["results"][0]["estSeconds"] == round(800.0 / speed)
+
+
+def test_weather_failure_never_shows_the_api_key(client, monkeypatch):
+    """The one that could actually lose something.
+
+    httpx puts the whole request url in its error text and ours carries
+    the key, so the public reason has to be a fixed string.
+    """
+    import httpx
+
+    from api.services import weather as weather_module
+
+    secret = "SUPERSECRETKEY1234567890abcdef"
+    monkeypatch.setattr(weather_module.settings, "openweather_api_key", secret)
+
+    # let httpx build the error itself, since the leak is that its own
+    # message carries the whole url. constructing one by hand would test
+    # nothing.
+    request = httpx.Request("GET", f"https://api.openweathermap.org/x?appid={secret}")
+    response = httpx.Response(401, request=request)
+    try:
+        response.raise_for_status()
+        raise AssertionError("401 should have raised")
+    except httpx.HTTPStatusError as raised:
+        boom = raised
+    assert secret in str(boom), "the leak this test guards against is gone"
+
+    def explode(*args, **kwargs):
+        raise boom
+
+    monkeypatch.setattr(weather_module.httpx, "get", explode)
+    fresh = weather_module.WeatherCache()
+    monkeypatch.setattr(weather_module, "weather_cache", fresh)
+    monkeypatch.setattr(routing, "weather_cache", fresh)
+
+    body = client.get("/api/weather").json()
+    assert body["available"] is False
+    assert secret not in str(body)
+    assert body["reason"] == "weather service returned 401"
+
+
+def test_redact_takes_the_key_out_of_anything():
+    from api.services import weather as weather_module
+
+    weather_module.settings.openweather_api_key = "abc123"
+    assert weather_module.redact("url?appid=abc123&x=1") == "url?appid=REDACTED&x=1"
+
+
+def test_route_caps_the_algorithm_list(client):
+    """Five thousand searches in one request used to be allowed."""
+    reply = client.post(
+        "/api/route",
+        json={"start": "ARC", "target": "SES", "algorithms": ["bfs"] * 5000},
+    )
+    assert reply.status_code == 422
+
+
+def test_route_runs_a_repeated_algorithm_once(client, monkeypatch):
+    seen = {}
+
+    def capture(start, target, algorithms, cost, trace=False, max_trace_samples=None):
+        seen["algorithms"] = algorithms
+        return fake_engine_reply()
+
+    monkeypatch.setattr(engine_client, "route", capture)
+    client.post(
+        "/api/route",
+        json={"start": "ARC", "target": "SES", "algorithms": ["bfs", "bfs", "astar", "bfs"]},
+    )
+    assert seen["algorithms"] == ["bfs", "astar"]
+
+
+def test_route_rejects_an_absurd_trace_cap(client):
+    reply = client.post(
+        "/api/route",
+        json={"start": "ARC", "target": "SES", "maxTraceSamples": 10 ** 18},
+    )
+    assert reply.status_code == 422
+
+
+def guarded_app():
+    """The shared fixture is a bare app, so mount the guard on its own."""
+    from fastapi import FastAPI
+
+    from api.main import MAX_BODY_BYTES, BodySizeLimit
+
+    app = FastAPI()
+    app.add_middleware(BodySizeLimit, max_bytes=MAX_BODY_BYTES)
+
+    @app.post("/echo")
+    def echo():
+        return {"ok": True}
+
+    return TestClient(app), MAX_BODY_BYTES
+
+
+def test_a_huge_body_is_refused():
+    client, cap = guarded_app()
+    big = client.post(
+        "/echo", content=b"x" * (cap + 100), headers={"Content-Type": "application/json"}
+    )
+    assert big.status_code == 413
+    assert client.post("/echo", json={}).status_code == 200
+
+
+def test_a_body_that_hides_its_size_is_also_refused():
+    """Chunked sends no content-length, and used to walk straight past."""
+    client, cap = guarded_app()
+
+    def chunks():
+        for _ in range((cap // 1024) + 4):
+            yield b"x" * 1024
+
+    reply = client.post(
+        "/echo", content=chunks(), headers={"Content-Type": "application/json"}
+    )
+    assert reply.status_code == 413
+
+
+def test_a_lying_content_length_is_refused():
+    client, _ = guarded_app()
+    reply = client.post(
+        "/echo", content=b"{}", headers={"Content-Length": "not a number"}
+    )
+    assert reply.status_code in (400, 422)
+
+
+def test_search_refuses_an_enormous_query(client):
+    assert client.get("/api/buildings", params={"q": "a" * 5000}).status_code == 422
+
+
+def test_the_rate_limiter_actually_limits():
+    """It never did, on any route added by include_router.
+
+    Fastapi wraps those in a router object with no endpoint attribute, so
+    slowapi's route lookup found nothing and called every request exempt.
+    """
+    from fastapi import FastAPI
+
+    from api.main import RateLimit
+
+    app = FastAPI()
+    app.add_middleware(RateLimit, limit=5, window_s=60.0)
+    router_side = APIRouter(prefix="/api")
+
+    @router_side.get("/thing")
+    def thing():
+        return {"ok": True}
+
+    # added the same way the real routes are, since that is what broke
+    app.include_router(router_side)
+
+    client = TestClient(app)
+    codes = [client.get("/api/thing").status_code for _ in range(9)]
+    assert codes.count(200) == 5, f"expected five through, got {codes}"
+    assert codes.count(429) == 4
+
+
+def test_the_window_reopens():
+    from api.main import RateLimit
+
+    guard = RateLimit(None, limit=2, window_s=10.0)
+    assert guard.allow("a", 100.0) and guard.allow("a", 100.1)
+    assert not guard.allow("a", 100.2)
+    # a different caller has their own allowance
+    assert guard.allow("b", 100.2)
+    # and the window comes round again
+    assert guard.allow("a", 111.0)
+
+
+def test_forwarded_for_uses_the_entry_our_proxy_added():
+    """The first entry is whatever the caller typed, so keying on it would
+    hand a fresh allowance to anyone who sends the header."""
+    from api import main
+
+    def scope(value):
+        return {"headers": [(b"x-forwarded-for", value.encode())],
+                "client": ("10.0.0.1", 1234)}
+
+    main.settings.trust_proxy_headers = True
+    try:
+        assert main.client_address(scope("1.2.3.4, 9.9.9.9")) == "9.9.9.9"
+        assert main.client_address(scope("9.9.9.9")) == "9.9.9.9"
+    finally:
+        main.settings.trust_proxy_headers = False
+    # and without a proxy in front we ignore the header entirely
+    assert main.client_address(scope("1.2.3.4")) == "10.0.0.1"
+
+
+def test_rate_strings_are_read_properly():
+    from api.main import parse_rate
+
+    assert parse_rate("60/minute") == (60, 60.0)
+    assert parse_rate("5/second") == (5, 1.0)
+    assert parse_rate("100/hour") == (100, 3600.0)
+    for bad in ("60", "60/fortnight", "many/minute"):
+        try:
+            parse_rate(bad)
+            raise AssertionError(f"{bad} should not parse")
+        except ValueError:
+            pass
 
 
 def test_route_rejects_a_bad_mode(client):

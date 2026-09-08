@@ -132,8 +132,10 @@ class EngineProcess:
                 else:
                     self.last_error = "engine restarted but never answered"
             except OSError as exc:
-                self.last_error = f"could not restart engine: {exc}"
-                log.error(self.last_error)
+                # health is public, and an OSError carries the path it
+                # failed on, so the detail stays in the log
+                self.last_error = "could not restart the engine"
+                log.error("could not restart engine: %s", exc)
 
     def stop(self) -> None:
         self._stopping = True

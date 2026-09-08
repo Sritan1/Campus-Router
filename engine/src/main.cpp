@@ -16,11 +16,20 @@
 typedef int socklen_t;
 #else
 #include <arpa/inet.h>
+#include <csignal>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 typedef int SOCKET;
 static const SOCKET INVALID_SOCKET = -1;
+#endif
+
+// writing to a socket the caller has closed raises SIGPIPE on linux and
+// the default action is to kill us. the gateway gives up after five
+// seconds, so without this any slow request takes the engine down.
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
 #endif
 
 namespace {
@@ -28,11 +37,48 @@ namespace {
 // a request bigger than this is not one of ours
 constexpr size_t MAX_REQUEST_BYTES = 1 << 20;
 
+// a caller that opens a connection and then says nothing must not be
+// able to hold the whole engine, which serves one request at a time
+constexpr int SOCKET_TIMEOUT_S = 15;
+
 void closeSocket(SOCKET s) {
 #ifdef _WIN32
   closesocket(s);
 #else
   close(s);
+#endif
+}
+
+/// @brief Send everything, and do not die if the caller has gone.
+///
+/// send can write less than it was given, so this keeps going until the
+/// whole reply is out or the connection is clearly finished.
+void sendAll(SOCKET conn, const std::string &data) {
+  size_t sent = 0;
+  while (sent < data.size()) {
+    const int wrote = static_cast<int>(
+        send(conn, data.data() + sent, static_cast<int>(data.size() - sent),
+             MSG_NOSIGNAL));
+    if (wrote <= 0) {
+      return;
+    }
+    sent += static_cast<size_t>(wrote);
+  }
+}
+
+/// @brief Stop a silent caller from holding the only worker forever.
+void setTimeouts(SOCKET conn) {
+#ifdef _WIN32
+  DWORD ms = SOCKET_TIMEOUT_S * 1000;
+  setsockopt(conn, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char *>(&ms),
+             sizeof(ms));
+  setsockopt(conn, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char *>(&ms),
+             sizeof(ms));
+#else
+  timeval tv{};
+  tv.tv_sec = SOCKET_TIMEOUT_S;
+  setsockopt(conn, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  setsockopt(conn, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 #endif
 }
 
@@ -158,6 +204,12 @@ bool readRequest(SOCKET conn, std::string &raw) {
 }  // namespace
 
 int main(int argc, char **argv) {
+#ifndef _WIN32
+  // belt and braces with MSG_NOSIGNAL, since one unguarded send would
+  // otherwise be enough to kill the process
+  std::signal(SIGPIPE, SIG_IGN);
+#endif
+
   const std::string host = envOr("ENGINE_BIND_HOST", "127.0.0.1");
   const int port = std::atoi(envOr("ENGINE_PORT", "8081").c_str());
 
@@ -224,11 +276,12 @@ int main(int argc, char **argv) {
       continue;
     }
 
+    setTimeouts(conn);
+
     std::string raw;
     if (!readRequest(conn, raw)) {
-      const std::string reply =
-          httpReply(413, campus::errorBody("request was too large or incomplete"));
-      send(conn, reply.c_str(), static_cast<int>(reply.size()), 0);
+      sendAll(conn,
+              httpReply(413, campus::errorBody("request was too large or incomplete")));
       closeSocket(conn);
       continue;
     }
@@ -237,14 +290,24 @@ int main(int argc, char **argv) {
     std::string path;
     std::string body;
     campus::Reply result;
-    if (!parseRequest(raw, method, path, body)) {
-      result = {400, campus::errorBody("could not read the request line")};
-    } else {
-      result = service.handle(method, path, body);
+
+    // one bad request must not take the whole engine with it. anything
+    // thrown in here used to reach main and end the process.
+    try {
+      if (!parseRequest(raw, method, path, body)) {
+        result = {400, campus::errorBody("could not read the request line")};
+      } else {
+        result = service.handle(method, path, body);
+      }
+    } catch (const std::exception &problem) {
+      std::fprintf(stderr, "engine: request failed, %s\n", problem.what());
+      result = {500, campus::errorBody("the engine could not answer that")};
+    } catch (...) {
+      std::fprintf(stderr, "engine: request failed for an unknown reason\n");
+      result = {500, campus::errorBody("the engine could not answer that")};
     }
 
-    const std::string reply = httpReply(result.status, result.body);
-    send(conn, reply.c_str(), static_cast<int>(reply.size()), 0);
+    sendAll(conn, httpReply(result.status, result.body));
     closeSocket(conn);
   }
 

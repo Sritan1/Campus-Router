@@ -144,3 +144,34 @@ TEST(deeplyNestedInputStillParses) {
   std::string error;
   CHECK(Json::parse(text, out, error));
 }
+
+TEST(absurdNestingIsRefusedRatherThanCrashing) {
+  // a megabyte of open brackets used to recurse once per bracket and
+  // run the stack out, which killed the process rather than answering
+  std::string text;
+  for (int i = 0; i < 100000; i++) {
+    text += "[";
+  }
+
+  Json out;
+  std::string error;
+  CHECK(!Json::parse(text, out, error));
+  CHECK(!error.empty());
+}
+
+TEST(nestingWeActuallyUseStillParses) {
+  // the real requests are three or four deep, so the guard must not be
+  // anywhere near them
+  std::string text;
+  for (int i = 0; i < 60; i++) {
+    text += "[";
+  }
+  text += "1";
+  for (int i = 0; i < 60; i++) {
+    text += "]";
+  }
+
+  Json out;
+  std::string error;
+  CHECK(Json::parse(text, out, error));
+}

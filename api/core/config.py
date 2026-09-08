@@ -49,6 +49,15 @@ class Settings:
 
         self.rate_limit = _env("RATE_LIMIT", "60/minute")
 
+        # only turn this on when something trustworthy really is in front
+        # of us, like railway. anyone can send x forwarded for, so trusting
+        # it without a proxy hands out a free way past the rate limit.
+        self.trust_proxy_headers = _env("TRUST_PROXY_HEADERS", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+
         # comma separated, or a star while developing
         self.allowed_origins = [
             origin.strip()
