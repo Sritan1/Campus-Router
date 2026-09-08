@@ -10,6 +10,7 @@ import json
 import pathlib
 
 from pipeline import overpass
+from pipeline.transform import WALKABLE
 
 # east campus and west campus, as mapped in openstreetmap. west is the
 # health sciences half and it was missing entirely until round 18.
@@ -35,7 +36,10 @@ EXTRA_BUILDINGS = [
 # roughly 110 metres of slack around the campus edge
 BBOX_BUFFER_DEG = 0.001
 
-WALKABLE = "footway|path|steps|pedestrian|corridor|living_street|service|residential"
+# the same list transform keeps, turned into what overpass wants. these
+# used to be written out twice, and adding a value to one of them alone
+# either downloads ways nothing reads or reads ways nothing downloaded.
+WALKABLE_PATTERN = "|".join(sorted(WALKABLE))
 
 RAW_DIR = pathlib.Path(__file__).resolve().parent / "raw"
 
@@ -82,7 +86,7 @@ def fetch_ways(box: tuple, refresh: bool) -> dict:
     """Walkable ways plus every node they reference."""
     s, w, n, e = box
     query = f"""[out:json][timeout:300];
-way["highway"~"^({WALKABLE})$"]["access"!~"^(private|no)$"]({s},{w},{n},{e});
+way["highway"~"^({WALKABLE_PATTERN})$"]["access"!~"^(private|no)$"]({s},{w},{n},{e});
 out body;
 >;
 out skel qt;"""

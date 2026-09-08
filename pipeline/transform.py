@@ -173,7 +173,8 @@ def crossing_name(element: dict, road_names: dict):
 def build_edges(raw: dict, nodes: dict) -> list:
     """Splits each way into one edge per pair of consecutive nodes."""
     edges = []
-    seen = set()
+    seen = {}
+    contested = []
     road_names = road_names_by_node(raw)
 
     for element in raw["ways"]["elements"]:
@@ -200,11 +201,16 @@ def build_edges(raw: dict, nodes: dict) -> list:
             if u == v or u not in nodes or v not in nodes:
                 continue
 
-            # a way pair can repeat across overlapping ways, keep one
+            # a way pair can repeat across overlapping ways, keep one.
+            # which one wins is whichever overpass listed first, so say
+            # something when the loser was a different class. a dropped
+            # steps claim would quietly unblock a staircase.
             pair = (u, v) if u < v else (v, u)
             if pair in seen:
+                if seen[pair] != key:
+                    contested.append((pair, seen[pair], key))
                 continue
-            seen.add(pair)
+            seen[pair] = key
 
             length = haversine_m(*nodes[u], *nodes[v])
             if length <= 0:
@@ -221,6 +227,11 @@ def build_edges(raw: dict, nodes: dict) -> list:
                     "class_key": key,
                 }
             )
+
+    if contested:
+        print(f"segments claimed by two classes: {len(contested)}, kept the first")
+        for pair, kept, dropped in contested[:5]:
+            print(f"  {pair[0]} to {pair[1]}: kept {kept}, dropped {dropped}")
 
     return edges
 

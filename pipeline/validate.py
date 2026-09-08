@@ -9,6 +9,7 @@ import json
 import pathlib
 
 GRAPH_PATH = pathlib.Path(__file__).resolve().parents[1] / "api" / "data" / "graph.json"
+ENGINE_PATH = pathlib.Path(__file__).resolve().parents[1] / "api" / "data" / "graph.campus"
 
 # buildings the prototype uses, so we know search will work
 EXPECTED = [
@@ -24,6 +25,49 @@ EXPECTED = [
 def loose(text: str) -> str:
     """Openstreetmap writes both and and ampersand, so treat them the same."""
     return text.lower().replace("&", "and").replace("  ", " ")
+
+
+def read_engine_graph(path: pathlib.Path):
+    """Reads the compact file the engine loads.
+
+    It has its own writer and its own class numbering, and until now
+    nothing checked it, even though it is the one the router reads.
+    """
+    words = path.read_text(encoding="utf-8").split()
+    at = 0
+
+    def take() -> str:
+        nonlocal at
+        value = words[at]
+        at += 1
+        return value
+
+    def section(name: str) -> int:
+        if take() != name:
+            raise ValueError(f"expected a {name} section")
+        return int(take())
+
+    if take() != "campus-graph":
+        raise ValueError("not a campus graph file")
+    if take() != "1":
+        raise ValueError("unsupported graph version")
+
+    classes = {}
+    for _ in range(section("classes")):
+        class_id = int(take())
+        classes[class_id] = take()
+
+    nodes = set()
+    for _ in range(section("nodes")):
+        nodes.add(int(take()))
+        take()
+        take()
+
+    edges = []
+    for _ in range(section("edges")):
+        edges.append((int(take()), int(take()), float(take()), int(take())))
+
+    return classes, nodes, edges
 
 
 def reachable_from(adjacency: dict, start) -> set:
@@ -129,6 +173,50 @@ def main() -> int:
         print(f"  {mark} {wanted}" + (f"  -> {hit[0]}" if hit else ""))
         if not hit:
             warnings.append(f"prototype building not found: {wanted}")
+
+    print("\n=== the engine graph ===")
+    if not ENGINE_PATH.exists():
+        failures.append("no graph.campus, so the engine has nothing to load")
+    else:
+        try:
+            engine_classes, engine_nodes, engine_edges = read_engine_graph(ENGINE_PATH)
+        except (ValueError, IndexError) as exc:
+            failures.append(f"graph.campus does not parse, {exc}")
+        else:
+            print(f"nodes     {len(engine_nodes)}")
+            print(f"edges     {len(engine_edges)}")
+            print(f"classes   {len(engine_classes)}")
+
+            # buildings ride along as nodes with a negative id, and each of
+            # their links is an edge, so the two files count differently
+            want_nodes = len(nodes) + len(buildings)
+            if len(engine_nodes) != want_nodes:
+                failures.append(
+                    f"graph.campus has {len(engine_nodes)} nodes, the json implies {want_nodes}"
+                )
+
+            want_edges = len(edges) + sum(len(b["links"]) for b in buildings)
+            if len(engine_edges) != want_edges:
+                failures.append(
+                    f"graph.campus has {len(engine_edges)} edges, the json implies {want_edges}"
+                )
+
+            adrift = [
+                e for e in engine_edges
+                if e[0] not in engine_nodes or e[1] not in engine_nodes
+            ]
+            if adrift:
+                failures.append(f"{len(adrift)} engine edges name a node the file never declares")
+
+            # an unknown class is never blocked and never weighted, so a
+            # bad number here would quietly route somebody up a staircase
+            unknown = [e for e in engine_edges if e[3] not in engine_classes]
+            if unknown:
+                failures.append(f"{len(unknown)} engine edges name a class that does not exist")
+
+            short = [e for e in engine_edges if e[2] <= 0]
+            if short:
+                failures.append(f"{len(short)} engine edges have length <= 0")
 
     print("\n=== edge classes ===")
     for entry in sorted(graph["classes"], key=lambda c: -c["edge_count"])[:12]:
