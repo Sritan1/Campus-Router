@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 
@@ -177,7 +177,9 @@ def test_weather_failure_never_shows_the_api_key(client, monkeypatch):
     def explode(*args, **kwargs):
         raise boom
 
-    monkeypatch.setattr(weather_module.httpx, "get", explode)
+    # the module holds one client now, so patching httpx.get globally no
+    # longer intercepts anything and the patch has to go on the client
+    monkeypatch.setattr(weather_module._client, "get", explode)
     fresh = weather_module.WeatherCache()
     monkeypatch.setattr(weather_module, "weather_cache", fresh)
     monkeypatch.setattr(routing, "weather_cache", fresh)
@@ -188,11 +190,105 @@ def test_weather_failure_never_shows_the_api_key(client, monkeypatch):
     assert body["reason"] == "weather service returned 401"
 
 
-def test_redact_takes_the_key_out_of_anything():
+def test_redact_takes_the_key_out_of_anything(monkeypatch):
     from api.services import weather as weather_module
 
-    weather_module.settings.openweather_api_key = "abc123"
+    # settings is the one the whole app shares, so setting it directly
+    # leaves the fake key in place for every test that runs after this
+    monkeypatch.setattr(weather_module.settings, "openweather_api_key", "abc123")
     assert weather_module.redact("url?appid=abc123&x=1") == "url?appid=REDACTED&x=1"
+
+
+def test_a_failing_weather_service_is_not_asked_again_straight_away():
+    """Every weather request waits out the whole timeout before giving up,
+    so asking again on each one turns a dead service into a slow site."""
+    from api.services import weather as weather_module
+
+    cache = weather_module.WeatherCache()
+    calls = []
+
+    def fail():
+        calls.append(1)
+        raise weather_module.WeatherUnavailable("weather service returned 500")
+
+    cache._fetch = fail
+    assert cache.get_or_none() is None
+    assert cache.get_or_none() is None
+    assert cache.get_or_none() is None
+    assert len(calls) == 1, "a known bad service was asked more than once"
+
+
+def test_the_hold_after_a_failure_lets_go_again():
+    """The other half of the test above, and the half that matters more.
+
+    A hold that never expires is weather being dead until somebody
+    restarts the gateway, and the test above would not notice.
+    """
+    from api.services import weather as weather_module
+
+    cache = weather_module.WeatherCache()
+    calls = []
+    working = [False]
+
+    def fetch():
+        calls.append(1)
+        if not working[0]:
+            raise weather_module.WeatherUnavailable("weather service returned 401")
+        return {"tempC": 3.0, "condition": "Clear"}
+
+    cache._fetch = fetch
+
+    assert cache.get_or_none() is None
+    assert cache.get_or_none() is None
+    assert len(calls) == 1
+
+    # wind the failure back so the hold has run out, rather than sleeping
+    cache._failed_at -= weather_module.RETRY_AFTER_S + 1
+
+    assert cache.get_or_none() is None, "it should have gone out and failed again"
+    assert len(calls) == 2, "the hold never let go"
+
+    # and it recovers on its own once the service comes back
+    working[0] = True
+    cache._failed_at -= weather_module.RETRY_AFTER_S + 1
+    reading = cache.get_or_none()
+    assert reading is not None and reading["tempC"] == 3.0
+    assert cache._failed_at == 0.0, "a good reading has to clear the failure"
+
+
+def test_only_one_caller_goes_out_when_the_cache_is_cold():
+    """A burst of requests after the cache expires used to be one call to
+    openweathermap each, which is a good way to spend the free tier."""
+    import threading
+    import time as clock
+
+    from api.services import weather as weather_module
+
+    cache = weather_module.WeatherCache()
+    calls = []
+
+    def slow():
+        calls.append(1)
+        clock.sleep(0.2)
+        return {"tempC": 1.0, "condition": "Clear"}
+
+    cache._fetch = slow
+
+    start = threading.Barrier(4)
+    answers = []
+
+    def ask():
+        start.wait()
+        answers.append(cache.get())
+
+    threads = [threading.Thread(target=ask) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(answers) == 4
+    assert len(calls) == 1, "every caller went out to the network"
 
 
 def test_route_caps_the_algorithm_list(client):
@@ -274,6 +370,85 @@ def test_a_lying_content_length_is_refused():
     assert reply.status_code in (400, 422)
 
 
+def drive_body_guard(messages):
+    """Runs the guard over a fixed list of asgi messages.
+
+    The test client cannot hang up in the middle of a body, so this talks
+    to the middleware directly the way the rate limit tests do.
+    """
+    import asyncio
+
+    from api.main import MAX_BODY_BYTES, BodySizeLimit
+
+    seen = []
+
+    async def app(scope, receive, send):
+        while True:
+            message = await receive()
+            seen.append(message["type"])
+            if message["type"] == "http.disconnect":
+                return
+            if not message.get("more_body", False):
+                return
+
+    queued = list(messages)
+
+    async def receive():
+        return queued.pop(0) if queued else {"type": "http.disconnect"}
+
+    async def send(message):
+        pass
+
+    scope = {"type": "http", "headers": [], "client": ("1.2.3.4", 1234)}
+    asyncio.run(BodySizeLimit(app, MAX_BODY_BYTES)(scope, receive, send))
+    return seen
+
+
+def test_a_caller_that_hangs_up_stays_hung_up():
+    """Half a body used to be replayed as if it were the whole thing.
+
+    That sent us off doing a full search for somebody who had already
+    gone, because nothing downstream could tell the difference.
+    """
+    seen = drive_body_guard(
+        [
+            {"type": "http.request", "body": b"x" * 100, "more_body": True},
+            {"type": "http.disconnect"},
+        ]
+    )
+    assert seen == ["http.disconnect"]
+
+
+def test_a_whole_body_still_arrives_whole():
+    seen = drive_body_guard(
+        [
+            {"type": "http.request", "body": b"hello ", "more_body": True},
+            {"type": "http.request", "body": b"world", "more_body": False},
+        ]
+    )
+    assert seen == ["http.request"]
+
+
+def test_closing_a_client_leaves_a_usable_one():
+    """Closing an httpx client is permanent, so close puts a fresh one back.
+
+    Without this the app can only be started once per process, which the
+    tests break the moment they start it twice.
+    """
+    from api.services import engine_client, engine_process, weather
+
+    for module in (engine_client, engine_process, weather):
+        first = module._client
+        module.close()
+        assert module._client is not first
+        assert first.is_closed
+        assert not module._client.is_closed
+
+        # and doing it twice must not blow up either
+        module.close()
+        assert not module._client.is_closed
+
+
 def test_search_refuses_an_enormous_query(client):
     assert client.get("/api/buildings", params={"q": "a" * 5000}).status_code == 422
 
@@ -336,18 +511,65 @@ def test_forwarded_for_uses_the_entry_our_proxy_added():
     assert main.client_address(scope("1.2.3.4")) == "10.0.0.1"
 
 
+def test_forwarded_for_reads_every_line_of_the_header():
+    """A caller who sends their own gets a second header line, not a longer
+    one, and reading only the first line handed them a fresh allowance."""
+    from api import main
+
+    forged = {
+        "headers": [
+            (b"x-forwarded-for", b"1.1.1.1"),
+            (b"x-forwarded-for", b"2.2.2.2"),
+            (b"x-forwarded-for", b"203.0.113.7"),
+        ],
+        "client": ("10.0.0.1", 1234),
+    }
+
+    main.settings.trust_proxy_headers = True
+    try:
+        assert main.client_address(forged) == "203.0.113.7"
+    finally:
+        main.settings.trust_proxy_headers = False
+
+
+def test_the_rate_limit_table_cannot_grow_without_end():
+    """Expiring old entries alone never shrinks a table where everyone is
+    current, which is what an attacker with many addresses produces."""
+    from api.main import MAX_TRACKED, RateLimit
+
+    guard = RateLimit(None, limit=20, window_s=60.0)
+    now = 1000.0
+    for i in range(MAX_TRACKED * 3):
+        guard.allow(f"caller-{i}", now)
+        now += 0.001
+
+    assert len(guard.seen) <= MAX_TRACKED
+
+
 def test_rate_strings_are_read_properly():
     from api.main import parse_rate
 
     assert parse_rate("60/minute") == (60, 60.0)
     assert parse_rate("5/second") == (5, 1.0)
     assert parse_rate("100/hour") == (100, 3600.0)
-    for bad in ("60", "60/fortnight", "many/minute"):
-        try:
-            parse_rate(bad)
-            raise AssertionError(f"{bad} should not parse")
-        except ValueError:
-            pass
+
+
+def test_rate_strings_slowapi_took_still_work():
+    """These all came out of slowapi, so a carried over value keeps working."""
+    from api.main import parse_rate
+
+    assert parse_rate("100 per hour") == (100, 3600.0)
+    assert parse_rate("60/1minute") == (60, 60.0)
+    assert parse_rate("60/minute;1000/day") == (60, 60.0)
+    assert parse_rate("30/SECONDS") == (30, 1.0)
+
+
+def test_a_bad_rate_string_falls_back_instead_of_crashing():
+    """This is read at import, so raising here would be a boot loop."""
+    from api.main import DEFAULT_RATE, parse_rate
+
+    for bad in ("60", "60/fortnight", "many/minute", ""):
+        assert parse_rate(bad) == DEFAULT_RATE
 
 
 def test_route_rejects_a_bad_mode(client):

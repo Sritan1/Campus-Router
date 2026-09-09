@@ -43,8 +43,14 @@ _client = httpx.Client(timeout=settings.engine_timeout_s)
 
 
 def close() -> None:
-    """Let go of the connection pool on shutdown."""
+    """Let go of the connection pool on shutdown.
+
+    Puts a fresh client back, because closing one is permanent and the
+    tests start the app more than once in a single process.
+    """
+    global _client
     _client.close()
+    _client = httpx.Client(timeout=settings.engine_timeout_s)
 
 
 def _post(path: str, payload: dict) -> dict:

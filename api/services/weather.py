@@ -21,9 +21,30 @@ CAMPUS_LON = -87.6505
 
 URL = "https://api.openweathermap.org/data/2.5/weather"
 
+# One client for the life of the process. Building a fresh one per call
+# costs hundreds of milliseconds, which is the same thing that made every
+# route slow before engine_client started holding onto one.
+_client = httpx.Client()
+
+# How long to sit still after a failure. Without this, every request in
+# weather mode waits out the whole timeout again while the service is
+# down, and each one of those is a request we already know will fail.
+RETRY_AFTER_S = 60.0
+
 
 class WeatherUnavailable(RuntimeError):
     pass
+
+
+def close() -> None:
+    """Let go of the connection pool on shutdown.
+
+    Puts a fresh client back, because closing one is permanent and the
+    tests start the app more than once in a single process.
+    """
+    global _client
+    _client.close()
+    _client = httpx.Client()
 
 
 def redact(text: str) -> str:
@@ -54,8 +75,11 @@ def public_reason(exc: Exception) -> str:
 class WeatherCache:
     def __init__(self) -> None:
         self._lock = threading.Lock()
+        # held across the network call so only one caller goes out to ask
+        self._fetching = threading.Lock()
         self._value: Optional[dict] = None
         self._fetched_at = 0.0
+        self._failed_at = 0.0
         self._last_error: Optional[str] = None
 
     def _fetch(self) -> dict:
@@ -69,7 +93,7 @@ class WeatherCache:
             "units": "metric",
         }
         try:
-            reply = httpx.get(URL, params=params, timeout=settings.weather_timeout_s)
+            reply = _client.get(URL, params=params, timeout=settings.weather_timeout_s)
             reply.raise_for_status()
             # a non json 200 is a real failure mode, not something to swallow
             payload = reply.json()
@@ -89,34 +113,61 @@ class WeatherCache:
             "observedAt": payload.get("dt"),
         }
 
+    def _answer_now(self, now: float) -> Optional[dict]:
+        """What we can say without asking, or nothing if we have to go out.
+
+        Callers hold the lock. Raises when the service is known to be down
+        and we have never had a reading to fall back on.
+        """
+        if self._value is not None and now - self._fetched_at < settings.weather_ttl_s:
+            return dict(self._value, cached=True)
+
+        if now - self._failed_at < RETRY_AFTER_S:
+            if self._value is not None:
+                # a stale reading beats no reading, but say that it is stale
+                return dict(self._value, cached=True, stale=True)
+            raise WeatherUnavailable(self._last_error or "weather is unavailable")
+
+        return None
+
     def get(self) -> dict:
         """Current weather, from cache when it is fresh enough."""
         with self._lock:
-            fresh = time.time() - self._fetched_at < settings.weather_ttl_s
-            if self._value is not None and fresh:
-                return dict(self._value, cached=True)
+            answer = self._answer_now(time.time())
+        if answer is not None:
+            return answer
 
-        try:
-            value = self._fetch()
-        except WeatherUnavailable as exc:
-            # safe by construction, WeatherUnavailable only ever carries a
-            # fixed string, but redact anyway so a future raiser cannot
-            # quietly put the key back in
-            reason = redact(str(exc))
+        # one caller goes out to the network and the rest wait here, so a
+        # burst of requests after the cache expires is one call and not one
+        # each. whoever gets through leaves the answer behind for them.
+        with self._fetching:
             with self._lock:
-                self._last_error = reason
-                if self._value is not None:
-                    # a stale reading beats no reading, but say that it is stale
-                    log.warning("weather failed, serving stale value: %s", reason)
-                    return dict(self._value, cached=True, stale=True)
-            log.warning("weather unavailable: %s", reason)
-            raise
+                answer = self._answer_now(time.time())
+            if answer is not None:
+                return answer
 
-        with self._lock:
-            self._value = value
-            self._fetched_at = time.time()
-            self._last_error = None
-        return dict(value, cached=False)
+            try:
+                value = self._fetch()
+            except WeatherUnavailable as exc:
+                # safe by construction, WeatherUnavailable only ever carries a
+                # fixed string, but redact anyway so a future raiser cannot
+                # quietly put the key back in
+                reason = redact(str(exc))
+                with self._lock:
+                    self._last_error = reason
+                    self._failed_at = time.time()
+                    if self._value is not None:
+                        log.warning("weather failed, serving stale value: %s", reason)
+                        return dict(self._value, cached=True, stale=True)
+                log.warning("weather unavailable: %s", reason)
+                raise
+
+            with self._lock:
+                self._value = value
+                self._fetched_at = time.time()
+                self._failed_at = 0.0
+                self._last_error = None
+            return dict(value, cached=False)
 
     def get_or_none(self) -> Optional[dict]:
         """Same, but for callers that can carry on without weather."""
