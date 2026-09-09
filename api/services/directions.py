@@ -126,7 +126,7 @@ def _fold_short(runs: list) -> list:
 
 
 def _merge_same(steps: list) -> list:
-    """Two lines in a row saying the same thing read as a mistake.
+    """Two walking lines in a row saying the same thing read as a mistake.
 
     A path can bend away and bend back, which lands on the same compass
     word twice. Being told to keep going south twice helps nobody.
@@ -134,14 +134,16 @@ def _merge_same(steps: list) -> list:
     out = []
     for step in steps:
         last = out[-1] if out else None
-        same_text = last is not None and last["text"] == step["text"]
+        # walking only. two crossings in a row are two roads with a short
+        # walk between them that got folded away, and merging those made
+        # the crossings count disagree with the list under it.
         same_way = (
             last is not None
             and last["kind"] == "walk"
             and step["kind"] == "walk"
             and last["text"].split()[-1] == step["text"].split()[-1]
         )
-        if same_text or same_way:
+        if same_way:
             out[-1]["metres"] += step["metres"]
             continue
         out.append(step)

@@ -7,6 +7,7 @@ routing target is just a sign flip.
 
 import json
 import logging
+import re
 import threading
 import unicodedata
 from typing import Optional
@@ -16,15 +17,25 @@ from api.core.config import settings
 log = logging.getLogger("graph")
 
 
+def _pair(a: int, b: int) -> tuple:
+    """Two node ids in a fixed order, so either way round finds the edge."""
+    return (a, b) if a < b else (b, a)
+
+
 def _fold(text: str) -> str:
     """Lowercases and flattens text so search is forgiving.
 
     Openstreetmap writes both and and ampersand, and accents show up in
-    a few names.
+    a few names. web/lib/search.ts does the same thing for the client,
+    so a change here belongs there too.
     """
     stripped = unicodedata.normalize("NFKD", text)
     stripped = "".join(c for c in stripped if not unicodedata.combining(c))
-    return stripped.lower().replace("&", "and").replace("-", " ").replace("  ", " ").strip()
+    stripped = stripped.lower().replace("&", "and").replace("-", " ")
+    # any run of spaces, not just a pair of them. the client collapsed all
+    # of them and this collapsed two, so the same name folded differently
+    # on either side.
+    return re.sub(r"\s+", " ", stripped).strip()
 
 
 class Building:
@@ -91,21 +102,47 @@ class GraphData:
             self.nodes = {n["id"]: (n["lat"], n["lon"]) for n in raw["nodes"]}
             self.edges = {}
             for edge in raw["edges"]:
-                pair = (edge["u"], edge["v"]) if edge["u"] < edge["v"] else (edge["v"], edge["u"])
+                pair = _pair(edge["u"], edge["v"])
+                # two ways can share a segment, so keep the first and say
+                # so rather than letting the second quietly replace it
+                if pair in self.edges:
+                    log.warning("two edges join %s and %s, keeping the first", *pair)
+                    continue
                 self.edges[pair] = edge
+
+            # the engine walks these too, but they hang off the building
+            # rather than sitting in the edge list, so directions never saw
+            # them and every step list came up short by both of its ends
+            links = 0
+            for building in raw["buildings"]:
+                node_id = -int(building["id"])
+                for link in building["links"]:
+                    pair = _pair(node_id, link["node_id"])
+                    if pair in self.edges:
+                        continue
+                    self.edges[pair] = {
+                        "u": pair[0],
+                        "v": pair[1],
+                        "length_m": link["distance_m"],
+                        # no highway on purpose. a link is how you get on
+                        # the network, not a path anyone is told to walk.
+                        "tags": {},
+                    }
+                    links += 1
 
             self._loaded = True
 
             log.info(
-                "graph ready, %d buildings and %d classes and %d edges",
+                "graph ready, %d buildings and %d classes and %d edges plus %d links",
                 len(self.buildings),
                 len(self.classes),
-                len(self.edges),
+                len(self.edges) - links,
+                links,
             )
 
     def edge_between(self, a: int, b: int) -> Optional[dict]:
         """The edge joining two nodes, whichever way round they came."""
-        return self.edges.get((a, b) if a < b else (b, a))
+        return self.edges.get(_pair(a, b))
 
     def search(self, query: str, limit: int = 10) -> list[Building]:
         """Finds buildings by name, code or alias.
