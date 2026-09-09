@@ -20,9 +20,9 @@ ENV ENGINE_BINARY=/app/engine/build/campus_engine
 ENV ENGINE_BIND_HOST=127.0.0.1
 ENV ENGINE_PORT=8081
 
-# there is a proxy in front of us here, so the rate limiter should count
-# the real caller rather than counting everybody as the proxy
-ENV TRUST_PROXY_HEADERS=true
+# TRUST_PROXY_HEADERS is deliberately not set here. whether something
+# trustworthy is in front of us is a fact about the deployment, not about
+# the image, so railway sets it and a plain docker run does not.
 
 # nothing here needs root, and a container that runs as root turns any
 # problem in the app into a root problem inside the container
@@ -33,5 +33,9 @@ USER campus
 EXPOSE 8000
 
 # railway hands us the port through PORT so we expand it at runtime.
-# proxy-headers lets uvicorn work out the real client address too.
-CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+#
+# no proxy-headers on purpose. uvicorn would rewrite the client address
+# from the first entry of x forwarded for, which is the part the caller
+# writes, and that is the end we deliberately do not trust. the gateway
+# reads the header itself and takes the entry our own proxy appended.
+CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

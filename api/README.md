@@ -92,3 +92,30 @@ engine fails its health check instead of looking fine.
 
 Copy `.env.example` to `.env`. Nothing in it is required to run locally. Without an
 OpenWeatherMap key, weather mode routes as shortest distance and says so in the reply.
+
+### Deploying: set `TRUST_PROXY_HEADERS=true` on the service
+
+This one is not in the Dockerfile on purpose, and both directions of getting it wrong are
+real, so it is worth a minute.
+
+The rate limiter counts requests per caller. Behind a proxy every connection arrives from
+the proxy, so the socket address is the same for everybody and one visitor could use up the
+allowance for the whole site. `X-Forwarded-For` carries the real caller, but anyone can send
+that header themselves, so it is only worth reading when something trustworthy is in front
+rewriting it. `TRUST_PROXY_HEADERS` is that switch, and it defaults to off.
+
+Whether a proxy is in front is a fact about **where the container runs**, not about the
+image, which is why baking it in was wrong: the same image run locally or on a plain host
+would trust a header nobody was rewriting, and a caller could rotate the value for a fresh
+allowance every request.
+
+So **set `TRUST_PROXY_HEADERS=true` in the Railway service variables**, alongside
+`OPENWEATHER_API_KEY` and `ALLOWED_ORIGINS`. Forgetting it is not a security hole but it is
+not harmless either: every request keys to the proxy and the whole site shares one bucket,
+which shows up as visitors getting 429s for no reason. To check it is on, send two requests
+with different `X-Forwarded-For` values and confirm they are counted separately.
+
+Note that uvicorn is deliberately **not** given `--proxy-headers`. It would rewrite the
+client address from the leftmost entry of that header, which is the part the caller writes,
+and that is the end we do not trust. The gateway parses the header itself and takes the
+entry the proxy appended.

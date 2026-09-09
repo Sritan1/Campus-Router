@@ -5,29 +5,32 @@
 .git/
 .github/
 
+# patterns here match the whole path from the context root, not just a
+# file name the way gitignore does, so anything that can turn up in a
+# subfolder needs the leading star star or it only matches at the top.
+
 # dependencies and build output, all rebuilt inside the image
-node_modules/
-web/node_modules/
+**/node_modules/
 web/.next/
 web/.next-verify/
 web/out/
 .venv/
 venv/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.ruff_cache/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
 engine/build/
 engine/bin/
-*.o
-*.obj
-*.exe
+**/*.o
+**/*.obj
+**/*.exe
 
-# secrets never belong in an image layer
-.env
-.env.local
-*.env
-!.env.example
+# secrets never belong in an image layer. api/.env is a real file here
+# and a bare .env rule would sail straight past it.
+**/.env
+**/.env.*
+!**/.env.example
 
 
 
