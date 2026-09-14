@@ -7,6 +7,7 @@ through real entrances where they exist.
 
 import argparse
 import collections
+import datetime as dt
 import json
 import pathlib
 
@@ -54,6 +55,12 @@ NAMED_ROADS = {
     "residential", "living_street", "service", "unclassified",
     "tertiary", "secondary", "primary",
 }
+
+
+def raw_written_on() -> str:
+    """The day the raw dump landed, for dumps pulled before extract stamped one."""
+    stamp = RAW_PATH.stat().st_mtime
+    return dt.date.fromtimestamp(stamp).isoformat()
 
 
 def load_raw() -> dict:
@@ -467,6 +474,9 @@ def main() -> int:
             "campus_relations": raw["campus_relations"],
             "campus_bounds": raw["campus_bounds"],
             "query_box": raw["query_box"],
+            # dumps pulled before this field existed fall back to the day
+            # the file was written, which is the same thing for them
+            "extracted": raw.get("fetched") or raw_written_on(),
             "counts": {
                 "nodes": len(used),
                 "edges": len(edges),

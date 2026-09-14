@@ -6,6 +6,7 @@ itself so search does not fill up with nearby businesses.
 """
 
 import argparse
+import datetime as dt
 import json
 import pathlib
 
@@ -149,6 +150,9 @@ def main() -> int:
         "campus_relations": CAMPUS_RELATIONS,
         "campus_bounds": bounds,
         "query_box": list(box),
+        # the day the data came out of openstreetmap. the app says this on
+        # its about page, so it has to be recorded rather than remembered.
+        "fetched": dt.date.today().isoformat(),
         "ways": ways,
         "buildings": buildings,
         "entrances": entrances,

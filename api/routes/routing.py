@@ -35,7 +35,11 @@ class RouteRequest(BaseModel):
     # left unset on purpose. thinning drops points, and a path needs both
     # of its ends, so a limit here quietly shreds the search into pieces.
     # the engine has a sane cap of its own for absurd cases.
-    maxTraceSamples: Optional[int] = Field(default=None, ge=0, le=200_000)
+    #
+    # one at the low end, not zero. the engine reads zero as no limit at
+    # all, which is the opposite of what asking for zero samples looks
+    # like, so leaving it out is the way to say you have no preference.
+    maxTraceSamples: Optional[int] = Field(default=None, ge=1, le=200_000)
 
 
 @router.get("/buildings")
@@ -59,6 +63,9 @@ def graph_meta():
         "counts": graph_data.meta.get("counts", {}),
         "campusBounds": graph_data.meta.get("campus_bounds"),
         "classes": len(graph_data.classes),
+        # the about page says how old the map data is, and a date read off
+        # the graph itself cannot drift the way a typed one does
+        "extracted": graph_data.meta.get("extracted"),
     }
 
 
@@ -83,11 +90,11 @@ def isochrone(request: IsochroneRequest):
     graph_data.load()
 
     if request.mode not in MODES:
-        raise HTTPException(400, f"mode must be one of {', '.join(MODES)}")
+        raise HTTPException(400, f"Mode must be one of {', '.join(MODES)}.")
 
     start = graph_data.resolve(request.start)
     if start is None:
-        raise HTTPException(404, f"no building matching {request.start}")
+        raise HTTPException(404, f"We could not find {request.start} on campus.")
 
     current = weather_cache.get_or_none() if request.mode == "weather" else None
     cost = cost_model.build(request.mode, graph_data.classes, current)
@@ -103,12 +110,16 @@ def isochrone(request: IsochroneRequest):
         # a build problem, so the detail belongs in the log and not in
         # front of whoever is using the site
         log.error("%s. rebuild the engine and restart the gateway", exc)
-        raise HTTPException(503, "that is not available right now") from exc
+        raise HTTPException(503, "This is not available right now.") from exc
     except engine_client.EngineRejected as exc:
-        raise HTTPException(exc.status, exc.message) from exc
+        # the engine is talking to us, not to whoever is using the site.
+        # its wording is about json and node ids and it means we sent
+        # something wrong, so that belongs in the log and not on screen.
+        log.error("engine rejected the request: %s", exc.message)
+        raise HTTPException(exc.status, "We could not work that out.") from exc
     except engine_client.EngineUnavailable as exc:
         log.error("engine unavailable: %s", exc)
-        raise HTTPException(503, "the routing engine is not responding") from exc
+        raise HTTPException(503, "The routing service is not responding.") from exc
 
     # buildings are nodes too, so anything the search reached that has a
     # negative id is somewhere you could actually walk to
@@ -144,13 +155,13 @@ def route(request: RouteRequest):
     graph_data.load()
 
     if request.mode not in MODES:
-        raise HTTPException(400, f"mode must be one of {', '.join(MODES)}")
+        raise HTTPException(400, f"Mode must be one of {', '.join(MODES)}.")
 
     unknown = [a for a in request.algorithms if a not in ALGORITHMS]
     if unknown:
-        raise HTTPException(400, f"unknown algorithms {', '.join(unknown)}")
+        raise HTTPException(400, f"We do not have an algorithm called {', '.join(unknown)}.")
     if not request.algorithms:
-        raise HTTPException(400, "pick at least one algorithm")
+        raise HTTPException(400, "Pick at least one algorithm.")
 
     # asking for the same algorithm twice is work we would do twice, so
     # keep the first of each and hold the order the caller asked for
@@ -159,16 +170,18 @@ def route(request: RouteRequest):
     start = graph_data.resolve(request.start)
     target = graph_data.resolve(request.target)
     if start is None:
-        raise HTTPException(404, f"no building matching {request.start}")
+        raise HTTPException(404, f"We could not find {request.start} on campus.")
     if target is None:
-        raise HTTPException(404, f"no building matching {request.target}")
+        raise HTTPException(404, f"We could not find {request.target} on campus.")
 
     # weather mode needs weather, the others do not care
     current = weather_cache.get_or_none() if request.mode == "weather" else None
     cost = cost_model.build(request.mode, graph_data.classes, current)
 
     if request.mode == "weather" and current is None:
-        cost["notes"].append("weather is unavailable, routing as shortest distance")
+        # the panels print these word for word, and the other two live in
+        # cost_model.py, so this one has to match their voice
+        cost["notes"].append("Weather is unavailable. Routing on shortest distance instead.")
 
     try:
         engine_reply = engine_client.route(
@@ -183,12 +196,16 @@ def route(request: RouteRequest):
         # a build problem, so the detail belongs in the log and not in
         # front of whoever is using the site
         log.error("%s. rebuild the engine and restart the gateway", exc)
-        raise HTTPException(503, "that is not available right now") from exc
+        raise HTTPException(503, "This is not available right now.") from exc
     except engine_client.EngineRejected as exc:
-        raise HTTPException(exc.status, exc.message) from exc
+        # the engine is talking to us, not to whoever is using the site.
+        # its wording is about json and node ids and it means we sent
+        # something wrong, so that belongs in the log and not on screen.
+        log.error("engine rejected the request: %s", exc.message)
+        raise HTTPException(exc.status, "We could not work that route out.") from exc
     except engine_client.EngineUnavailable as exc:
         log.error("engine unavailable: %s", exc)
-        raise HTTPException(503, "the routing engine is not responding") from exc
+        raise HTTPException(503, "The routing service is not responding.") from exc
 
     speed = cost["walkingSpeedMps"]
     results = []
