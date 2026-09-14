@@ -103,6 +103,13 @@ export default function BuildingSearch({
           aria-expanded="true"
           aria-controls={`${label}-list`}
           aria-autocomplete="list"
+          aria-haspopup="listbox"
+          // focus stays in the box while the arrows move the highlight, so
+          // without this a screen reader never hears which building is
+          // picked out and the keyboard support is only there for the eye
+          aria-activedescendant={
+            matches[highlight] ? `${label}-option-${matches[highlight].id}` : undefined
+          }
         />
       ) : (
         <button
@@ -117,12 +124,20 @@ export default function BuildingSearch({
       {open ? (
         <div className="search-list" id={`${label}-list`} role="listbox">
           {matches.length === 0 ? (
-            <div className="search-none">No building matches “{query}”</div>
+            // an empty list means the buildings have not arrived yet, since
+            // campus does not shrink. saying no match while we are still
+            // fetching reads as a broken search rather than a slow one.
+            <div className="search-none">
+              {buildings.length === 0
+                ? "Loading buildings…"
+                : `No building matches “${query}”`}
+            </div>
           ) : (
             matches.map((building, index) => (
               <button
                 type="button"
                 key={building.id}
+                id={`${label}-option-${building.id}`}
                 role="option"
                 aria-selected={index === highlight}
                 className={`search-option${index === highlight ? " is-active" : ""}`}

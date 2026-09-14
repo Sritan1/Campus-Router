@@ -26,7 +26,12 @@ export function agreementFor(reply: RouteReply): Agreement | null {
 
   if (groups.length <= 1) {
     return {
-      headline: `All ${found.length} algorithms agree on this route`,
+      // all four find a route or none of them do, so one on its own should
+      // not happen. it still reads as english if it ever does.
+      headline:
+        found.length === 1
+          ? "One algorithm found this route"
+          : `All ${found.length} algorithms agree on this route`,
       invite: "See how they found it",
     };
   }

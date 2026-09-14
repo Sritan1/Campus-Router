@@ -1,9 +1,8 @@
 "use client";
 
+import { MODES } from "@/lib/api";
 import type { RouteMode } from "@/lib/api";
 import { MODE_LABEL } from "@/lib/format";
-
-const MODES: RouteMode[] = ["shortest", "accessible", "weather"];
 
 type Props = {
   mode: RouteMode;

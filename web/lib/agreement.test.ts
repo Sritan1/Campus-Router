@@ -32,6 +32,7 @@ function reply(
       blockedClasses: 0,
       adjustedClasses: 0,
       walkingSpeedMps: 1.607,
+      speedDerived: false,
     },
     weather: null,
   };
@@ -82,7 +83,10 @@ describe("what the invite is allowed to claim", () => {
   });
 
   it("handles a single algorithm without claiming agreement between many", () => {
+    // the name of this test was already right. it used to assert
+    // "All 1 algorithms agree on this route", which claims the agreement
+    // it says it should not, and does not read as english either.
     const found = agreementFor(reply([result("astar")], [["astar"]]));
-    expect(found?.headline).toBe("All 1 algorithms agree on this route");
+    expect(found?.headline).toBe("One algorithm found this route");
   });
 });

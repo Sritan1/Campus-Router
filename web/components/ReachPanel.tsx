@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { Building, Isochrone } from "@/lib/api";
+import { walkMinutes } from "@/lib/format";
 
 type Props = {
   data: Isochrone | null;
@@ -149,7 +150,15 @@ export default function ReachPanel({
           ))}
         </div>
 
-        {error ? <p className="empty-body">{error}</p> : null}
+        {/* a bare sentence with nothing above it reads as part of the
+            panel rather than as something having gone wrong, and the
+            route side already says it this way */}
+        {error ? (
+          <>
+            <p className="section-label">Something went wrong</p>
+            <p className="empty-body">{error}</p>
+          </>
+        ) : null}
 
         {drawn && found.length > 0 ? (
           <div className="reach-list" ref={listRef}>
@@ -161,9 +170,7 @@ export default function ReachPanel({
               <span className="reach-row" key={building.id}>
                 <span className="reach-code">{building.abbr ?? "—"}</span>
                 <span className="reach-name">{building.name}</span>
-                <span className="reach-time">
-                  {Math.max(1, Math.round(building.seconds / 60))} min
-                </span>
+                <span className="reach-time">{walkMinutes(building.seconds)}</span>
               </span>
             ))}
             {hidden > 0 || expanded ? (

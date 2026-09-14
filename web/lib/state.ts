@@ -1,6 +1,7 @@
 // The idle, running and results machine the prototype uses.
 // Kept separate from the components so it can be tested on its own.
 
+import { ALGORITHMS } from "./api";
 import type { AlgorithmName, RouteMode, RouteReply } from "./api";
 
 export type Phase = "idle" | "running" | "results";
@@ -43,7 +44,7 @@ export type Action =
   | { type: "swapEnds" }
   | { type: "setMode"; mode: RouteMode }
   | { type: "pickAlgorithm"; algorithm: AlgorithmName }
-  | { type: "toggleRace" }
+  | { type: "setRace"; race: boolean }
   | { type: "selectLane"; algorithm: AlgorithmName }
   | { type: "toggleTable" }
   | { type: "run" }
@@ -56,7 +57,7 @@ export type Action =
 
 /// Anything that changes what a route would be has to invalidate the one
 /// on screen, otherwise the map shows an answer to a different question.
-function staleAfterChange(state: AppState): Partial<AppState> {
+function staleAfterChange(): Partial<AppState> {
   return { phase: "idle", reply: null, error: null, showTable: false };
 }
 
@@ -74,7 +75,7 @@ export function reduce(state: AppState, action: Action): AppState {
         ...state,
         [key]: action.id,
         searchFor: null,
-        ...staleAfterChange(state),
+        ...staleAfterChange(),
       };
     }
 
@@ -83,14 +84,14 @@ export function reduce(state: AppState, action: Action): AppState {
         ...state,
         startId: state.targetId,
         targetId: state.startId,
-        ...staleAfterChange(state),
+        ...staleAfterChange(),
       };
 
     case "setMode":
       if (state.mode === action.mode) {
         return state;
       }
-      return { ...state, mode: action.mode, ...staleAfterChange(state) };
+      return { ...state, mode: action.mode, ...staleAfterChange() };
 
     case "pickAlgorithm":
       return {
@@ -98,15 +99,21 @@ export function reduce(state: AppState, action: Action): AppState {
         algorithm: action.algorithm,
         selected: action.algorithm,
         race: false,
-        ...staleAfterChange(state),
+        ...staleAfterChange(),
       };
 
-    case "toggleRace":
+    // says which way to go rather than flip. a caller that turns racing on
+    // and runs in the same click has to know what it just asked for, and a
+    // toggle leaves it guessing.
+    case "setRace":
+      if (state.race === action.race) {
+        return state;
+      }
       return {
         ...state,
-        race: !state.race,
-        selected: state.race ? state.algorithm : "astar",
-        ...staleAfterChange(state),
+        race: action.race,
+        selected: action.race ? "astar" : state.algorithm,
+        ...staleAfterChange(),
       };
 
     case "selectLane":
@@ -174,9 +181,7 @@ export function reduce(state: AppState, action: Action): AppState {
 }
 
 export function algorithmsFor(state: AppState): AlgorithmName[] {
-  return state.race
-    ? ["dijkstra", "astar", "bfs", "bidirectional"]
-    : [state.algorithm];
+  return state.race ? [...ALGORITHMS] : [state.algorithm];
 }
 
 export function canRun(state: AppState): boolean {

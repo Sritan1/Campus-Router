@@ -45,10 +45,21 @@ function Panel({
   const traces = useMemo(() => [result], [result]);
 
   return (
-    <button
-      type="button"
+    // a div rather than a button. a button may only hold text and the like,
+    // and this holds a whole leaflet map, which is not valid markup and
+    // leaves screen readers unsure what they are being offered.
+    <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={result.algorithm === selected}
       className={`panel-map${result.algorithm === selected ? " is-active" : ""}`}
       onClick={() => onSelect(result.algorithm)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(result.algorithm);
+        }
+      }}
       aria-label={`${ALGORITHM_LABELS[result.algorithm]} search`}
     >
       <span className="panel-label">
@@ -128,7 +139,7 @@ function Panel({
         ) : null}
       </MapContainer>
       </span>
-    </button>
+    </div>
   );
 }
 

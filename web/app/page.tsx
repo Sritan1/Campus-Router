@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import NavigatePanel from "@/components/NavigatePanel";
 import ReachPanel from "@/components/ReachPanel";
 import {
+  ALGORITHMS,
   API_BASE,
   ApiError,
   requestIsochrone,
@@ -21,13 +22,12 @@ import { writeUrl } from "@/lib/url";
 
 const MapPane = dynamic(() => import("@/components/MapPane"), {
   ssr: false,
-  loading: () => <div className="map-pane map-loading">loading map…</div>,
+  loading: () => <div className="map-pane map-loading">Loading the map…</div>,
 });
 
-const ALL = ["dijkstra", "astar", "bfs", "bidirectional"] as const;
 
 export default function Navigate() {
-  const { buildings, meta, list, weatherReady, weatherChip } = useCampus();
+  const { buildings, list, weatherReady, weatherChip } = useCampus();
 
   const [start, setStart] = useState<Building | null>(null);
   const [target, setTarget] = useState<Building | null>(null);
@@ -81,7 +81,7 @@ export default function Navigate() {
       setError(
         caught instanceof ApiError
           ? caught.message
-          : "Could not reach the routing service",
+          : "We could not reach the routing service. Try again in a moment.",
       );
       setReach(null);
     } finally {
@@ -105,7 +105,7 @@ export default function Navigate() {
           start: start.id,
           target: target.id,
           mode: withMode,
-          algorithms: [...ALL],
+          algorithms: [...ALGORITHMS],
           trace: false,
         });
         setReply(result);
@@ -113,7 +113,7 @@ export default function Navigate() {
         setError(
           caught instanceof ApiError
             ? caught.message
-            : "Could not reach the routing service",
+            : "We could not reach the routing service. Try again in a moment.",
         );
         setReply(null);
       } finally {
@@ -205,13 +205,19 @@ export default function Navigate() {
           <MapPane
             reply={view === "route" ? reply : null}
             selected={reply?.results.find((r) => r.status === "ok")?.algorithm ?? "astar"}
+            // no graph stats chip here on purpose. the front door carries
+            // the weather reading and nothing else, and node counts are
+            // the sort of thing the lab is for.
             meta={null}
             playing={false}
             startedAt={null}
             reducedMotion={false}
             isochrone={view === "reach" ? reach : null}
+            reachStart={view === "reach" ? start : null}
           />
-          <div className="chip chip-weather">{weatherChip}</div>
+          <div className="chip chip-weather" title="Current conditions from OpenWeather">
+            {weatherChip}
+          </div>
         </div>
 
         <aside className="sidebar">
@@ -248,9 +254,19 @@ export default function Navigate() {
               ready={Boolean(start && target && !sameBuilding)}
               labHref={labHref}
               onRun={() => void run()}
+              onClear={() => setReply(null)}
               onMode={(next) => {
-                if (next !== mode) {
-                  setMode(next);
+                if (next === mode) {
+                  return;
+                }
+                setMode(next);
+                // a route already on screen answers the mode they just
+                // left, so ask again with the new one. clearing it made
+                // them press find route again to see what changed, which
+                // is the whole point of accessible mode.
+                if (reply) {
+                  void run(next);
+                } else {
                   clear();
                 }
               }}

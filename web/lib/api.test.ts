@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { requestRoute } from "./api";
+import { ApiError, requestRoute } from "./api";
 
 function stubFetch(body: unknown = { results: [], pathGroups: [] }) {
   const fetchMock = vi.fn(async () => ({
@@ -88,14 +88,18 @@ describe("asking for a route", () => {
       })) as unknown as typeof fetch,
     );
 
-    await expect(
-      requestRoute({
-        start: "SEO",
-        target: "LCC",
-        mode: "shortest",
-        algorithms: ["astar"],
-        trace: false,
-      }),
-    ).rejects.toThrow("500");
+    // the status is carried on the error, not written into the message.
+    // a panel showing "request failed with 500" told nobody anything.
+    const failed = requestRoute({
+      start: "SEO",
+      target: "LCC",
+      mode: "shortest",
+      algorithms: ["astar"],
+      trace: false,
+    });
+
+    await expect(failed).rejects.toBeInstanceOf(ApiError);
+    await expect(failed).rejects.toMatchObject({ status: 500 });
+    await expect(failed).rejects.toThrow(/try again/i);
   });
 });

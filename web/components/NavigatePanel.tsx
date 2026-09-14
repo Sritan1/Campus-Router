@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 
 import type { Building, Directions, RouteMode, RouteReply } from "@/lib/api";
 import { agreementFor } from "@/lib/agreement";
@@ -28,6 +27,8 @@ type Props = {
   labHref: string;
   onRun: () => void;
   onMode: (mode: RouteMode) => void;
+  /// throws the route away and keeps the pair, like clear reach does
+  onClear: () => void;
 };
 
 const MODE_SUMMARY: Record<RouteMode, string> = {
@@ -113,30 +114,8 @@ function Steps({ guide }: { guide: Directions }) {
   );
 }
 
-function CopyLink() {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // clipboard can be blocked, and there is nothing useful to do
-      // about it beyond not pretending it worked
-      setCopied(false);
-    }
-  }
-
-  return (
-    <button type="button" className="secondary" onClick={copy}>
-      {copied ? "Link copied" : "Copy link"}
-    </button>
-  );
-}
-
 export default function NavigatePanel(props: Props) {
-  const { reply, start, target, mode, weatherReady, busy, error, ready, labHref, onRun, onMode } =
+  const { reply, start, target, mode, weatherReady, busy, error, ready, labHref, onRun, onMode, onClear } =
     props;
   const picker = (
     <ModePicker mode={mode} weatherReady={weatherReady} onMode={onMode} />
@@ -194,8 +173,13 @@ export default function NavigatePanel(props: Props) {
     return (
       <div className="panel">
         <h2 className="panel-title">No route found</h2>
+        {/* a step free failure is a claim about our map rather than about
+            the building, and saying it the other way round would be wrong
+            about a place somebody may actually need to get into */}
         <p className="empty-body">
-          These two buildings are not connected by the mapped path network.
+          {mode === "accessible"
+            ? "No step free route to the entrance we know about. There may still be one we have not mapped."
+            : "These two buildings are not connected by the mapped path network."}
         </p>
       </div>
     );
@@ -222,6 +206,17 @@ export default function NavigatePanel(props: Props) {
           </p>
         ))}
 
+        {/* only on the results, not the idle panel. the caption above is
+            pinned to two lines to stop the card jumping, and a note that
+            appears for one mode only would start it jumping again. */}
+        {mode === "accessible" ? (
+          <p className="caveat">
+            Accessible routing reads OpenStreetMap, which maps stairs far more
+            completely than ramps, so treat this as a good guess rather than a
+            guarantee. <Link href="/about">More on accessible routing</Link>
+          </p>
+        ) : null}
+
         {guide ? <Stats guide={guide} /> : null}
         {guide && guide.steps.length > 2 ? <Steps guide={guide} /> : null}
 
@@ -238,8 +233,13 @@ export default function NavigatePanel(props: Props) {
         ) : null}
       </div>
 
+      {/* the route goes and the two buildings stay, since this means try
+          something else on these two rather than start from an empty
+          form. clear reach does the same to an area. */}
       <div className="panel-foot">
-        <CopyLink />
+        <button type="button" className="primary" onClick={onClear}>
+          New route
+        </button>
       </div>
     </div>
   );

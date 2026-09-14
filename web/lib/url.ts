@@ -1,9 +1,7 @@
 // Keeping the route in the address bar, so a link can be shared.
 
+import { ALGORITHMS, MODES } from "./api";
 import type { AlgorithmName, Building, RouteMode } from "./api";
-
-const MODES: RouteMode[] = ["shortest", "accessible", "weather"];
-const ALGORITHMS: AlgorithmName[] = ["dijkstra", "astar", "bfs", "bidirectional"];
 
 export type UrlState = {
   from: string | null;

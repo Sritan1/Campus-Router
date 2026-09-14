@@ -15,9 +15,15 @@ export type Building = {
   lon: number;
 };
 
-export type RouteMode = "shortest" | "accessible" | "weather";
+// The four, and the three modes, named once. Both types are read back off
+// the list, so adding one here is the only edit and nothing can end up
+// holding a shorter copy of it.
+export const ALGORITHMS = ["dijkstra", "astar", "bfs", "bidirectional"] as const;
+export const MODES = ["shortest", "accessible", "weather"] as const;
 
-export type AlgorithmName = "dijkstra" | "astar" | "bfs" | "bidirectional";
+export type RouteMode = (typeof MODES)[number];
+
+export type AlgorithmName = (typeof ALGORITHMS)[number];
 
 export type AlgorithmResult = {
   algorithm: AlgorithmName;
@@ -37,6 +43,10 @@ export type AlgorithmResult = {
     edges: [number, number][];
     sampled: boolean;
     total: number;
+    // paths the engine had to drop because only one end survived thinning.
+    // the engine reports this so a caller can tell the search arrived in
+    // pieces, which is the bug that cost the most time on this project.
+    droppedEdges: number;
   };
 };
 
@@ -78,6 +88,9 @@ export type RouteReply = {
     blockedClasses: number;
     adjustedClasses: number;
     walkingSpeedMps: number;
+    // whether the time estimate was taken off the weighted walk or the
+    // plain one, which is the difference between weather mode and the rest
+    speedDerived: boolean;
   };
   weather: Weather | null;
 };
@@ -91,6 +104,8 @@ export type GraphMeta = {
     maxlon: number;
   } | null;
   classes: number;
+  /// the day the openstreetmap data was pulled, for the about page
+  extracted?: string | null;
 };
 
 export type Isochrone = {
@@ -117,21 +132,51 @@ export class ApiError extends Error {
   }
 }
 
-async function get<T>(path: string): Promise<T> {
-  const reply = await fetch(`${API_BASE}${path}`);
-  if (!reply.ok) {
-    throw new ApiError(reply.status, await readError(reply));
+// The gateway can wait six seconds on weather and five on the engine, so
+// a request that has taken this long is not coming back. Without it a
+// hung backend leaves the panel spinning with no way out of it.
+const REQUEST_TIMEOUT_MS = 20000;
+
+// Reading the body happens in here rather than in the callers, because
+// fetch resolves as soon as the headers land. Clearing the timer before
+// the body is read leaves a stalled reply with nothing to cancel it.
+async function ask<T>(path: string, init?: RequestInit): Promise<T> {
+  const giveUp = new AbortController();
+  const timer = setTimeout(() => giveUp.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const reply = await fetch(`${API_BASE}${path}`, { ...init, signal: giveUp.signal });
+    if (!reply.ok) {
+      throw new ApiError(reply.status, await readError(reply));
+    }
+    return (await reply.json()) as T;
+  } finally {
+    clearTimeout(timer);
   }
-  return reply.json() as Promise<T>;
 }
+
+async function get<T>(path: string): Promise<T> {
+  return ask<T>(path);
+}
+
+async function post<T>(path: string, input: unknown): Promise<T> {
+  return ask<T>(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+// what to say when the reply carries no reason we can show. a status code
+// on its own is not something anyone reading it can do anything with.
+const NO_REASON = "Something went wrong at our end. Try again in a moment.";
 
 async function readError(reply: Response): Promise<string> {
   try {
     const body = await reply.json();
-    return body.detail ?? body.error ?? `request failed with ${reply.status}`;
+    return body.detail ?? body.error ?? NO_REASON;
   } catch {
     // a non json error body is still an error, just a less useful one
-    return `request failed with ${reply.status}`;
+    return NO_REASON;
   }
 }
 
@@ -155,15 +200,7 @@ export async function requestIsochrone(input: {
   mode: RouteMode;
   minutes: number;
 }): Promise<Isochrone> {
-  const reply = await fetch(`${API_BASE}/api/isochrone`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  if (!reply.ok) {
-    throw new ApiError(reply.status, await readError(reply));
-  }
-  return reply.json();
+  return post<Isochrone>("/api/isochrone", input);
 }
 
 export async function requestRoute(input: {
@@ -176,13 +213,5 @@ export async function requestRoute(input: {
   // no sample limit on purpose. thinning drops points, and a path only
   // survives if both of its ends do, so asking for half the points threw
   // away three quarters of the paths and the search came out in pieces.
-  const reply = await fetch(`${API_BASE}/api/route`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  if (!reply.ok) {
-    throw new ApiError(reply.status, await readError(reply));
-  }
-  return reply.json();
+  return post<RouteReply>("/api/route", input);
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
@@ -11,14 +10,11 @@ import { raceBounds, type Bounds } from "@/lib/bounds";
 import {
   API_BASE,
   ApiError,
-  fetchBuildings,
-  fetchGraphMeta,
-  fetchWeather,
   requestRoute,
   type RouteMode,
   type RouteReply,
 } from "@/lib/api";
-import { ALGORITHM_LABELS, temperature, wind } from "@/lib/format";
+import { ALGORITHM_LABELS } from "@/lib/format";
 import { PLAYBACK_MS, clamp, prefersReducedMotion } from "@/lib/playback";
 import {
   INITIAL,
@@ -27,21 +23,21 @@ import {
   reduce,
   type AppState,
 } from "@/lib/state";
-import { findBuilding, readUrl, writeUrl } from "@/lib/url";
-import { useWriteUrl } from "@/lib/use-campus";
+import { writeUrl } from "@/lib/url";
+import { useCampus, useRestoreFromUrl, useWriteUrl } from "@/lib/use-campus";
 
 // leaflet reaches for window as soon as it loads, so it cannot render
 // on the server
 const MapPane = dynamic(() => import("@/components/MapPane"), {
   ssr: false,
-  loading: () => <div className="map-pane map-loading">loading map…</div>,
+  loading: () => <div className="map-pane map-loading">Loading the map…</div>,
 });
 
 // leaflet reaches for window on import, so the grid cannot be rendered
 // on the server either
 const RaceGrid = dynamic(() => import("@/components/RaceGrid"), {
   ssr: false,
-  loading: () => <div className="map-pane map-loading">loading maps…</div>,
+  loading: () => <div className="map-pane map-loading">Loading the maps…</div>,
 });
 
 export default function Lab() {
@@ -58,25 +54,10 @@ export default function Lab() {
     setReducedMotion(prefersReducedMotion());
   }, []);
 
-  const buildings = useQuery({
-    queryKey: ["buildings"],
-    queryFn: fetchBuildings,
-    staleTime: Infinity,
-  });
+  // both screens ask the same three questions, so they ask them in one
+  // place. the lab used to keep its own copy of all of this.
+  const { buildings, meta, list, weatherReady, weatherChip } = useCampus();
 
-  const meta = useQuery({
-    queryKey: ["graphMeta"],
-    queryFn: fetchGraphMeta,
-    staleTime: Infinity,
-  });
-
-  const weather = useQuery({
-    queryKey: ["weather"],
-    queryFn: fetchWeather,
-    refetchInterval: 10 * 60 * 1000,
-  });
-
-  const list = useMemo(() => buildings.data ?? [], [buildings.data]);
   const start = useMemo(
     () => list.find((b) => b.id === state.startId) ?? null,
     [list, state.startId],
@@ -86,28 +67,14 @@ export default function Lab() {
     [list, state.targetId],
   );
 
-  // put a shared link back together, once, after the buildings arrive
-  const restoredRef = useRef(false);
-  const [linkNotice, setLinkNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (restoredRef.current || list.length === 0) {
-      return;
-    }
-    restoredRef.current = true;
-
-    const wanted = readUrl(window.location.search);
-    const from = findBuilding(list, wanted.from);
-    const to = findBuilding(list, wanted.to);
-
-    const missing = [
-      wanted.from && !from ? wanted.from : null,
-      wanted.to && !to ? wanted.to : null,
-    ].filter(Boolean);
-    if (missing.length > 0) {
-      setLinkNotice(`Could not find ${missing.join(" or ")} on campus`);
-    }
-
+  // put a shared link back together, once, after the buildings arrive.
+  // same hook navigate uses, so an unknown building reads the same way on
+  // both screens instead of drifting apart.
+  const {
+    notice: linkNotice,
+    setNotice: setLinkNotice,
+    restored,
+  } = useRestoreFromUrl(list, ({ start: from, target: to, wanted }) => {
     dispatch({
       type: "restore",
       patch: {
@@ -120,11 +87,11 @@ export default function Lab() {
           : {}),
       },
     });
-  }, [list]);
+  });
 
   // keep the address bar current without adding history entries. same
   // hook navigate uses, so both leave other people's parameters alone.
-  useWriteUrl(restoredRef.current, {
+  useWriteUrl(restored.current, {
     from: start,
     to: target,
     mode: state.mode,
@@ -200,7 +167,7 @@ export default function Lab() {
         const message =
           error instanceof ApiError
             ? error.message
-            : "Could not reach the routing service";
+            : "We could not reach the routing service. Try again in a moment.";
         dispatch({ type: "failed", message });
       }
     },
@@ -211,7 +178,7 @@ export default function Lab() {
 
   /// Switch to racing and go, from a single algorithm result.
   const raceAll = useCallback(() => {
-    dispatch({ type: "toggleRace" });
+    dispatch({ type: "setRace", race: true });
     return runWith({ ...state, race: true, selected: "astar" });
   }, [runWith, state]);
 
@@ -235,19 +202,6 @@ export default function Lab() {
         : "";
     const others = state.reply.pathGroups.length > 1 ? " · dashed = other paths" : "";
     return `drawn: ${drawn}${shared}${others}`;
-  })();
-
-  const weatherReady = Boolean(weather.data && weather.data.available !== false);
-
-  const weatherChip = (() => {
-    if (weather.isLoading) {
-      return "Weather…";
-    }
-    if (!weatherReady) {
-      return "Weather unavailable";
-    }
-    const value = weather.data as { tempC: number | null; windMps: number | null };
-    return `${temperature(value.tempC)} · wind ${wind(value.windMps)}`;
   })();
 
   // says the same thing as a sighted user gets from the panel changing
@@ -413,7 +367,9 @@ export default function Lab() {
             className={`scrim${state.phase === "running" && state.reply ? " is-on" : ""}`}
             aria-hidden="true"
           />
-          <div className="chip chip-weather">{weatherChip}</div>
+          <div className="chip chip-weather" title="Current conditions from OpenWeather">
+            {weatherChip}
+          </div>
           {legend ? <div className="chip chip-legend">{legend}</div> : null}
         </div>
         )}
@@ -426,7 +382,7 @@ export default function Lab() {
             onPickAlgorithm={(algorithm) =>
               dispatch({ type: "pickAlgorithm", algorithm })
             }
-            onToggleRace={() => dispatch({ type: "toggleRace" })}
+            onToggleRace={() => dispatch({ type: "setRace", race: !state.race })}
             onRaceAll={raceAll}
             onSelectLane={(algorithm) => dispatch({ type: "selectLane", algorithm })}
             onRun={run}

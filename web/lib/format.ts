@@ -14,10 +14,10 @@ export const MODE_LABEL: Record<RouteMode, string> = {
 
 /// Metres up to a kilometre, miles past that.
 ///
-/// Campus walks are a few hundred metres, and two decimal places of a
-/// mile is too coarse to tell them apart. Dijkstra at 367 m and bfs at
-/// 373 m both came out as "0.23 mi", which hid the whole point of the
-/// race.
+/// Two decimal places of a mile cannot tell a campus walk apart, so
+/// dijkstra at 367 m and bfs at 373 m both read "0.23 mi" and hid the
+/// point of the race. Since round 18 a cross campus walk is about 2 km,
+/// so both units really do show up in one column. That is on purpose.
 export function distance(metres: number | undefined): string {
   if (metres === undefined) {
     return "—";
@@ -37,6 +37,15 @@ export function duration(seconds: number | undefined): string {
     return "under a minute";
   }
   return `${minutes} min`;
+}
+
+/// Walking time in whole minutes, never zero.
+///
+/// The reach list and the map markers both want this rather than duration,
+/// since a building you can walk to is not an under a minute walk. Written
+/// out by hand in both places until they were pulled together here.
+export function walkMinutes(seconds: number): string {
+  return `${Math.max(1, Math.round(seconds / 60))} min`;
 }
 
 export function count(value: number | undefined): string {

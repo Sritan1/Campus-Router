@@ -10,6 +10,7 @@ import {
   fetchBuildings,
   fetchGraphMeta,
   fetchWeather,
+  type AlgorithmName,
   type Building,
   type RouteMode,
 } from "./api";
@@ -105,7 +106,7 @@ export function useWriteUrl(
     to: Building | null;
     mode: RouteMode;
     race: boolean;
-    algorithm: "dijkstra" | "astar" | "bfs" | "bidirectional";
+    algorithm: AlgorithmName;
   },
 ) {
   const { from, to, mode, race, algorithm } = input;

@@ -1,5 +1,6 @@
 "use client";
 
+import { ALGORITHMS } from "@/lib/api";
 import type {
   AlgorithmName,
   AlgorithmResult,
@@ -19,7 +20,7 @@ import {
 import { barFraction } from "@/lib/playback";
 import type { AppState } from "@/lib/state";
 
-const ALL: AlgorithmName[] = ["dijkstra", "astar", "bfs", "bidirectional"];
+const ALL: readonly AlgorithmName[] = ALGORITHMS;
 
 // the same three modes navigate offers, named for what they mean here.
 // in the lab this is not how you would like to get somewhere, it is

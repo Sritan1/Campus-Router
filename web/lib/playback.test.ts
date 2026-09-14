@@ -20,6 +20,7 @@ function result(
       edges: Array.from({ length: Math.max(0, tracePoints - 1) }, (_, i) => [i, i + 1] as [number, number]),
       sampled: false,
       total: tracePoints,
+      droppedEdges: 0,
     },
   };
 }

@@ -24,6 +24,7 @@ function fakeReply(): RouteReply {
       blockedClasses: 0,
       adjustedClasses: 0,
       walkingSpeedMps: 1.607,
+      speedDerived: false,
     },
     weather: null,
   };
@@ -218,6 +219,11 @@ describe("which algorithms get asked for", () => {
 
   it("race can be turned back on from the results view", () => {
     const single = withEnds({ race: false, algorithm: "bfs", phase: "results" });
-    expect(reduce(single, { type: "toggleRace" }).race).toBe(true);
+    expect(reduce(single, { type: "setRace", race: true }).race).toBe(true);
+  });
+
+  it("asking for the race state it is already in changes nothing", () => {
+    const racing = withEnds({ race: true, phase: "results" });
+    expect(reduce(racing, { type: "setRace", race: true })).toBe(racing);
   });
 });

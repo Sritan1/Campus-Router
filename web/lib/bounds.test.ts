@@ -33,6 +33,7 @@ function result(
       edges: trace.slice(1).map((_, i) => [i, i + 1] as [number, number]),
       sampled: false,
       total: trace.length,
+      droppedEdges: 0,
     },
   };
 }
@@ -51,6 +52,7 @@ function reply(results: AlgorithmResult[]): RouteReply {
       blockedClasses: 0,
       adjustedClasses: 0,
       walkingSpeedMps: 1.607,
+      speedDerived: false,
     },
     weather: null,
   };

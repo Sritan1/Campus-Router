@@ -87,6 +87,29 @@ try {
   console.log(`       invite reads: "${invite}"`);
   await page.screenshot({ path: `${shots}/navigate.png` });
 
+  // the step list has to account for the whole walk. it used to drop both
+  // building links, which is 86 m of a 218 m route on erf to ses, and it
+  // only shows up if you add the numbers on screen up.
+  const stepSum = await page.evaluate(() =>
+    [...document.querySelectorAll(".step-metres")]
+      .reduce((total, el) => total + parseInt(el.textContent, 10), 0));
+  const headline = parseInt((await page.locator(".headline-distance").innerText()), 10);
+  check("the steps add up to the route",
+        Math.abs(stepSum - headline) <= 2, `steps ${stepSum} m against ${headline} m`);
+
+  // and the crossings count has to match the crossing lines under it.
+  // it used to say four while listing two, because merging the list
+  // changed a number that was describing the route.
+  const crossingStat = await page.evaluate(() => {
+    const stat = [...document.querySelectorAll(".stat")]
+      .find((el) => el.textContent.includes("crossings"));
+    return stat ? parseInt(stat.textContent, 10) : -1;
+  });
+  const crossingLines = await page.locator("li.step.is-crossing").count();
+  check("the crossings count matches the lines under it",
+        crossingStat === crossingLines, `stat ${crossingStat}, lines ${crossingLines}`);
+
+
   console.log("\nthe lab");
   await page.locator(".invite").click();
   await page.waitForURL("**/lab**");
@@ -121,6 +144,24 @@ try {
   check("racing from one result runs in a single click",
         await page.locator(".lane").count() === 4,
         `${await page.locator(".lane").count()} lanes`);
+
+  // changing mode reroutes on its own. clearing the route instead meant
+  // pressing find route again to see what accessible actually changed,
+  // which is the one thing that mode is there to show. erf to ses because
+  // step free really is longer there, 218 m against 424 m.
+  console.log("\nchanging mode");
+  await page.goto(`${base}/?from=ERF&to=SES`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "Find route" }).first().click();
+  await page.waitForSelector(".headline-distance", { timeout: 15000 });
+  const shortest = await page.locator(".headline-distance").innerText();
+
+  await page.getByRole("button", { name: "Accessible", exact: true }).click();
+  await page.waitForSelector(".headline-distance", { timeout: 15000 });
+  await page.waitForTimeout(800);
+  const stepFree = await page.locator(".headline-distance").innerText();
+  check("changing mode reroutes without asking again",
+        stepFree !== shortest, `${shortest} then ${stepFree}`);
 
   console.log("\nbackend down");
   await page.route("**/api/**", (r) => r.abort());

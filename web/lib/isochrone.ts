@@ -125,11 +125,17 @@ function thin(points: Ring, tolerance: number): Ring {
   return [...left.slice(0, -1), ...right];
 }
 
+/// How far a corner may be cut, in grid cells. A little over one square,
+/// enough to lose the staircase and not enough to take the corner off a
+/// whole block. The default and the caller used to disagree, so the tests
+/// were measuring a tolerance the app never used.
+export const SIMPLIFY_CELLS = 1.2;
+
 /// Turns a staircase loop into a polygon with real corners.
 ///
 /// The loop is cut in two before thinning, because the ends of a closed
 /// ring are both anchors and thinning it whole leaves a flat spot there.
-export function simplify(ring: Ring, tolerance = 1.6): Ring {
+export function simplify(ring: Ring, tolerance = SIMPLIFY_CELLS): Ring {
   if (ring.length < 4) {
     return ring;
   }

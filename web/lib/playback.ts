@@ -16,8 +16,9 @@ export function prefersReducedMotion(): boolean {
 
 /// How much of its own exploration an algorithm has drawn at time p.
 ///
-/// Everything plays on one shared clock so the panel really is showing
-/// who explores less, not who happens to have a shorter list.
+/// Each one is scaled by its own total, so all four finish together and
+/// what you are watching is how widely each searched rather than a race.
+/// Speed is the runtime column and the bars, not this.
 export function edgesShown(result: AlgorithmResult, progress: number): number {
   const total = result.trace?.edges.length ?? 0;
   if (total === 0) {

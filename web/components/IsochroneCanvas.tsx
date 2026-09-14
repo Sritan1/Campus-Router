@@ -96,9 +96,7 @@ export default function IsochroneCanvas({ data }: Props) {
 
       context!.beginPath();
       for (const ring of rings) {
-        // a little over one square. enough to lose the staircase, not
-        // enough to cut the corner off a whole block.
-        const shape = simplify(ring, 1.2);
+        const shape = simplify(ring);
         context!.moveTo(shape[0][0] * cell, shape[0][1] * cell);
         for (let i = 1; i < shape.length; i++) {
           context!.lineTo(shape[i][0] * cell, shape[i][1] * cell);

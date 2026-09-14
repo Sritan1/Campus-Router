@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   CircleMarker,
   MapContainer,
@@ -14,11 +14,11 @@ import "leaflet/dist/leaflet.css";
 
 import IsochroneCanvas from "@/components/IsochroneCanvas";
 import TraceCanvas from "@/components/TraceCanvas";
-import type { AlgorithmResult, GraphMeta, Isochrone, RouteReply } from "@/lib/api";
+import type { AlgorithmResult, Building, GraphMeta, Isochrone, RouteReply } from "@/lib/api";
 import { boundsAround, raceBounds } from "@/lib/bounds";
 import { REGION_COLOUR } from "@/lib/isochrone";
 import { TILE_ATTRIBUTION, TILE_MAX_ZOOM, TILE_URL } from "@/lib/tiles";
-import { ALGORITHM_COLORS, LINE } from "@/lib/format";
+import { ALGORITHM_COLORS, LINE, walkMinutes } from "@/lib/format";
 
 const CAMPUS_CENTER: [number, number] = [41.8708, -87.6505];
 
@@ -46,6 +46,8 @@ type Props = {
   startedAt: number | null;
   reducedMotion: boolean;
   isochrone?: Isochrone | null;
+  /// the building reach will measure from, before anything has been drawn
+  reachStart?: Building | null;
 };
 
 /// Keeps the whole route on screen when a new one arrives.
@@ -68,6 +70,48 @@ function FitToRoute({ points }: { points: [number, number][] }) {
   return null;
 }
 
+// how close to sit when the map moves to a reach start. about a
+// kilometre across on a normal window, so the building has campus around
+// it instead of filling the screen.
+const REACH_START_ZOOM = 16;
+
+/// Moves the map to the building reach measures from. Not while an area
+/// is drawn, since that frames itself and two things moving the map would
+/// fight each other.
+function CenterOnStart({
+  lat,
+  lon,
+  hasArea,
+}: {
+  lat: number;
+  lon: number;
+  hasArea: boolean;
+}) {
+  const map = useMap();
+  const areaRef = useRef(hasArea);
+
+  // this is a ref and not a dependency on purpose. as a dependency,
+  // clearing an area would read as a reason to move the map, and
+  // clearing is not one.
+  useEffect(() => {
+    areaRef.current = hasArea;
+  });
+
+  useEffect(() => {
+    if (areaRef.current || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return;
+    }
+    // it never zooms out. picking a building should show where it sits,
+    // not throw away a closer look somebody chose.
+    // animation stays off for the same reason the route fit has it off.
+    map.setView([lat, lon], Math.max(map.getZoom(), REACH_START_ZOOM), {
+      animate: false,
+    });
+  }, [map, lat, lon]);
+
+  return null;
+}
+
 function drawableResults(reply: RouteReply | null): AlgorithmResult[] {
   if (!reply) {
     return [];
@@ -83,9 +127,19 @@ export default function MapPane({
   startedAt,
   reducedMotion,
   isochrone = null,
+  reachStart = null,
 }: Props) {
-  const results = drawableResults(reply);
-  const chosen = results.find((r) => r.algorithm === selected) ?? results[0];
+  // the same dot before and after the search. once there is an area the
+  // area owns the start, otherwise it is whatever has been picked, so
+  // choosing a building puts it on the map straight away.
+  const reachFrom = isochrone?.start ?? reachStart;
+  // both of these feed memos below, and rebuilding them every render made
+  // those memos miss every time and restringify the whole route
+  const results = useMemo(() => drawableResults(reply), [reply]);
+  const chosen = useMemo(
+    () => results.find((r) => r.algorithm === selected) ?? results[0],
+    [results, selected],
+  );
 
   // while the exploration plays, the finished route would give the
   // answer away, so the lines wait until it is done
@@ -174,9 +228,9 @@ export default function MapPane({
             the reachable list, since you cannot walk to where you already
             are, so without this it has no marker at all. bigger, and the
             colour of the area rather than the dark of a destination. */}
-        {isochrone ? (
+        {reachFrom ? (
           <CircleMarker
-            center={[isochrone.start.lat, isochrone.start.lon]}
+            center={[reachFrom.lat, reachFrom.lon]}
             radius={11}
             pathOptions={{
               color: "#ffffff",
@@ -191,12 +245,14 @@ export default function MapPane({
               offset={[12, 0]}
               className="reach-tag is-start"
             >
-              {isochrone.start.abbr ?? isochrone.start.name}
+              {reachFrom.abbr ?? reachFrom.name}
             </Tooltip>
             <Popup>
-              <strong>{isochrone.start.name}</strong>
+              <strong>{reachFrom.name}</strong>
               <br />
-              Everywhere below is within {isochrone.minutes} min
+              {isochrone
+                ? `Everywhere below is within ${isochrone.minutes} min`
+                : "Search from here"}
             </Popup>
           </CircleMarker>
         ) : null}
@@ -234,7 +290,7 @@ export default function MapPane({
             <Popup>
               <strong>{building.name}</strong>
               <br />
-              {Math.max(1, Math.round(building.seconds / 60))} min walk
+              {walkMinutes(building.seconds)} walk
             </Popup>
           </CircleMarker>
         ))}
@@ -280,6 +336,14 @@ export default function MapPane({
               pathOptions={{ color: "#2a78d6", fillColor: "#2a78d6", fillOpacity: 1 }}
             />
           </>
+        ) : null}
+
+        {reachStart ? (
+          <CenterOnStart
+            lat={reachStart.lat}
+            lon={reachStart.lon}
+            hasArea={Boolean(isochrone)}
+          />
         ) : null}
 
         <FitToRoute points={fitPoints} />
