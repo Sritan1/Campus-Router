@@ -25,10 +25,32 @@ export default function Header(props: Props) {
   return (
     <header className="topbar">
       <div className="brand">
-        Campus Router
-        <Link className="mode-link" href={props.otherMode.href}>
-          {props.otherMode.label}
-        </Link>
+        <span className="brand-mark" aria-hidden="true">
+          <i />
+          <b />
+          <s />
+        </span>
+        <span className="brand-stack">
+          <span className="brand-word">
+            <span>Campus</span>
+            <span> Router</span>
+          </span>
+          {/* both links sit on one row so the brand stays two lines tall.
+              a third line here would push the search fields down. */}
+          <span className="brand-links">
+            <Link className="mode-link" href={props.otherMode.href}>
+              {props.otherMode.label}
+            </Link>
+            {/* its own element rather than a ::before on the link, or it
+                sits inside the link and lights up with it on hover */}
+            <span className="brand-sep" aria-hidden="true">
+              ·
+            </span>
+            <Link className="mode-link" href="/about">
+              About
+            </Link>
+          </span>
+        </span>
       </div>
 
       <div className="ends">

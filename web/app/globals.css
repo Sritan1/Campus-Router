@@ -48,22 +48,104 @@ button {
   background: var(--surface);
   border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
+  /* the search fields give this its height on the two routing pages. the
+     about page has none, so without a floor its brand would sit 9px higher
+     and the mark would jump as you moved between pages. the fields
+     actually make it 78.3, and that last third of a pixel is left alone
+     rather than copied here, where it would quietly go stale. */
+  min-height: 78px;
 }
 
+/* centred in the bar rather than sat on its floor, so it lands in the same
+   place on every page whatever sits beside it */
 .brand {
-  font-size: 18px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  padding-bottom: 6px;
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 11px;
   white-space: nowrap;
 }
 
+/* the mark and the wordmark are the brand, so they are defined once here
+   and the about page uses the same two classes rather than its own copy */
+/* every piece is a share of --mark, so the size is one number and the
+   needle still meets the dot and the ring at any size */
+.brand-mark {
+  --mark: 30px;
+  flex: none;
+  position: relative;
+  width: var(--mark);
+  height: var(--mark);
+  border: 1px solid #dcdee2;
+  border-radius: calc(var(--mark) * 0.2857);
+  background: #fff;
+}
+
+/* the needle, then the two ends of it */
+.brand-mark i {
+  position: absolute;
+  left: calc(var(--mark) * 0.2857);
+  top: calc(var(--mark) * 0.6786);
+  width: calc(var(--mark) * 0.5);
+  height: 1px;
+  background: #c3c7cf;
+  transform-origin: left center;
+  transform: rotate(-45deg);
+}
+
+.brand-mark b {
+  position: absolute;
+  left: calc(var(--mark) * 0.1964);
+  top: calc(var(--mark) * 0.5893);
+  width: calc(var(--mark) * 0.1786);
+  height: calc(var(--mark) * 0.1786);
+  border-radius: 50%;
+  background: #14161a;
+}
+
+.brand-mark s {
+  position: absolute;
+  left: calc(var(--mark) * 0.5893);
+  top: calc(var(--mark) * 0.1964);
+  width: calc(var(--mark) * 0.1786);
+  height: calc(var(--mark) * 0.1786);
+  border-radius: 50%;
+  border: 1.5px solid #34557f;
+  background: #fff;
+}
+
+/* a tight line box so the links hug the wordmark and the mark spans both */
+.brand-word {
+  font-family: var(--brand-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14.5px;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+
+.brand-word span:first-child {
+  font-weight: 400;
+  color: #5b6270;
+}
+
+.brand-word span:last-child {
+  font-weight: 600;
+  color: #14161a;
+}
+
+/* a hairline splits the brand from the search and runs the full height of
+   the bar. the negative margins reach over the bar padding, and the
+   matching padding puts the fields back exactly where they were. */
 .ends {
   flex: 1;
   min-width: 320px;
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  align-self: stretch;
+  margin: -12px 0 -12px 4px;
+  padding: 12px 0 12px 16px;
+  border-left: 1px solid #e6e7ea;
 }
 
 .swap {
@@ -750,13 +832,39 @@ button {
 
 /* the quiet link between the two modes */
 
+/* wordmark on top, links under it, sitting beside the mark */
+.brand-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+/* the two header links share a row, split by a dot, so the brand block
+   stays two lines tall however many links end up in it */
+.brand-links {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.brand-sep {
+  color: #9aa2ae;
+  font-size: 9.5px;
+  line-height: 1;
+  user-select: none;
+}
+
+/* small caps mono in the brand's own blue, which is quieter than the
+   app accent and stops two links reading as loudly as the wordmark */
 .mode-link {
   display: block;
-  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--brand-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
   font-weight: 400;
-  color: var(--accent);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #34557f;
   text-decoration: none;
-  margin-top: 2px;
 }
 
 .mode-link:hover {
@@ -1348,9 +1456,14 @@ button {
     align-items: stretch;
   }
 
+  /* at this width the find route button moves in between the brand and
+     the search, so a line on the search would split the wrong pair */
   .ends {
     order: 2;
     width: 100%;
+    margin: 0;
+    padding: 0;
+    border-left: 0;
   }
 }
 
@@ -1550,4 +1663,408 @@ button {
   background: var(--accent);
   font-size: 12px;
   padding: 3px 8px;
+}
+
+/* the accessibility caveat under a step free route. it is the one claim
+   in the app about the physical world, so it does not read as a footnote */
+.caveat {
+  margin: 0;
+  padding: 9px 11px;
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.caveat a {
+  color: var(--accent);
+}
+
+/* ---- the about page ---------------------------------------------------
+   Its own palette and type, from the design mock. It is the one screen
+   that is read rather than used, so it does not share the app shell. */
+
+.about-page {
+  --a-ink: #14161a;
+  --a-body: #3a3f47;
+  --a-muted: #5f6673;
+  --a-muted-2: #5b6270;
+  --a-card: #ffffff;
+  --a-edge: #e6e7ea;
+  --a-rule: #eceef1;
+  --a-rule-2: #f2f3f5;
+  --a-ground: #f6f6f7;
+  --a-head: #fafafb;
+  --a-blue: #34557f;
+  --a-chip: #dcdee2;
+
+  min-height: 100vh;
+  background: var(--a-ground);
+  color: var(--a-ink);
+  font-family: var(--brand-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.about-page ::selection {
+  background: #dbe4f0;
+}
+
+.about-page a {
+  color: var(--a-blue);
+  text-decoration: none;
+  border-bottom: 1px solid #b9c4d2;
+}
+
+.about-page a:hover {
+  color: var(--a-ink);
+  border-bottom-color: var(--a-ink);
+}
+
+.about-mono {
+  font-family: var(--brand-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* the header is the shared .topbar, so nothing is defined here. the one
+   thing to undo is the underline this page puts on every link, which the
+   brand link should not have. */
+.about-page .topbar .mode-link {
+  border-bottom: 0;
+}
+
+/* the grid */
+
+.about-body {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 24px 70px;
+}
+
+.bento {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  padding-top: 34px;
+}
+
+.bento > .c3,
+.bento > .c4,
+.bento > .c5,
+.bento > .c6 {
+  grid-column: span 1;
+}
+
+@media (min-width: 760px) {
+  .bento {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .bento > .c3 { grid-column: span 3; }
+  .bento > .c4 { grid-column: span 4; }
+  .bento > .c5 { grid-column: span 5; }
+  .bento > .c6 { grid-column: span 6; }
+}
+
+.about-card {
+  background: var(--a-card);
+  border: 1px solid var(--a-edge);
+  border-radius: 11px;
+  overflow: hidden;
+}
+
+/* the masthead card */
+
+.about-hero {
+  padding: 30px 30px 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.about-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--a-muted);
+}
+
+.about-hero h1 {
+  margin: 14px 0 0;
+  font-size: 42px;
+  font-weight: 600;
+  letter-spacing: -0.032em;
+  line-height: 1.05;
+  text-wrap: pretty;
+}
+
+.about-hero-lede {
+  margin: 18px 0 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--a-body);
+  max-width: 520px;
+  text-wrap: pretty;
+}
+
+.about-affil {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--a-rule);
+}
+
+.about-affil > span:first-child {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--a-ink);
+  padding-top: 2px;
+}
+
+.about-affil > span:last-child {
+  flex: 1 1 260px;
+  min-width: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--a-muted-2);
+  text-wrap: pretty;
+}
+
+/* section rules */
+
+.about-rule {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 22px 2px 2px;
+}
+
+.about-rule-num {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--a-muted);
+}
+
+.about-rule h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+}
+
+.about-rule-line {
+  flex: 1;
+  height: 1px;
+  background: var(--a-chip);
+}
+
+
+/* card headers */
+
+.about-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--a-edge);
+  background: var(--a-head);
+}
+
+.about-card-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+
+.about-label-head {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--a-rule);
+  background: var(--a-head);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--a-muted);
+}
+
+/* the three modes */
+
+.about-mode {
+  display: flex;
+  gap: 14px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--a-rule);
+}
+
+.about-mode:last-child {
+  border-bottom: 0;
+}
+
+/* uppercase is done here so the label itself can come from MODE_LABEL */
+.about-mode-key {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--a-ink);
+}
+
+.about-mode p {
+  margin: 7px 0 0;
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--a-body);
+  text-wrap: pretty;
+}
+
+.about-swatch {
+  flex: none;
+  width: 20px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--a-ink);
+  margin-top: 7px;
+}
+
+.about-swatch.is-stepfree {
+  background: repeating-linear-gradient(90deg, #34557f 0 5px, transparent 5px 9px);
+}
+
+.about-swatch.is-winter {
+  height: 8px;
+  background: repeating-linear-gradient(135deg, #8fa6bd 0 2px, transparent 2px 5px);
+  border: 1px solid #8fa6bd;
+  margin-top: 5px;
+}
+
+.about-key-reach {
+  width: 20px;
+  height: 10px;
+  border: 1px dashed var(--a-blue);
+  background: rgba(52, 85, 127, 0.1);
+}
+
+.about-key-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5px;
+  width: 20px;
+}
+
+.about-key-lanes span {
+  height: 2px;
+  border-radius: 1px;
+}
+
+/* body copy inside a card */
+
+.about-copy {
+  margin: 0;
+  padding: 16px 18px;
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--a-body);
+  text-wrap: pretty;
+}
+
+/* definition rows, used by sources and licensing */
+
+.about-rows {
+  padding: 4px 18px 14px;
+}
+
+.about-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 18px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--a-rule-2);
+}
+
+.about-row:last-child {
+  border-bottom: 0;
+}
+
+.about-row-key {
+  flex: 0 0 96px;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  color: var(--a-muted);
+  padding-top: 4px;
+}
+
+.about-row-value {
+  flex: 1 1 220px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.58;
+  color: var(--a-body);
+  text-wrap: pretty;
+}
+
+.about-privacy-body {
+  padding: 16px 18px 18px;
+}
+
+.about-privacy-body p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--a-body);
+}
+
+.about-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* whatever comes last in a column fills it, so both columns end level.
+   that is the lab card in one and the warranty card in the other. */
+.about-stack > :last-child {
+  flex: 1;
+}
+
+/* the closing notice */
+
+/* when it stretches to fill its column the label and text stay together at
+   the top, and the extra room goes underneath instead of between them */
+.about-warranty {
+  background: var(--a-card);
+  border: 1px solid var(--a-edge);
+  border-radius: 11px;
+  padding: 22px 26px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  align-content: flex-start;
+  gap: 14px 24px;
+}
+
+.about-warranty-key {
+  flex: 0 0 auto;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--a-muted);
+  padding-top: 4px;
+}
+
+.about-warranty-body {
+  flex: 1 1 400px;
+  min-width: 0;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--a-body);
+  text-wrap: pretty;
+}
+
+@media (max-width: 759px) {
+  .about-hero h1 {
+    font-size: 32px;
+  }
+  .about-hero {
+    padding: 22px 20px 24px;
+  }
 }
