@@ -103,3 +103,22 @@ sunken courtyard. The building did not become inaccessible, our idea of its fron
   instead.
 - Building codes like SEO and BSB live in the `ref` tag, not `short_name`. Some buildings
   list several separated by semicolons, and the extras become search aliases.
+
+## What comes out, and under what licence
+
+`pipeline.transform` writes two files into `api/data/`:
+
+| File | For |
+|---|---|
+| `graph.json` | the Python gateway, which needs the edge tags for directions |
+| `graph.campus` | the C++ engine, a compact text format with no JSON library needed |
+
+Both are **derived from OpenStreetMap and are a Derivative Database under the ODbL**, not
+merely a rendering of it, because they restructure and re-tag OSM's own data. They ship
+under the Open Database License with attribution to © OpenStreetMap contributors, while the
+code in this repository is MIT. See `LICENSE-DATA` in the repository root.
+
+`meta.extracted` in `graph.json` records the day the Overpass download was taken. It is
+stamped by `pipeline.extract` at pull time and surfaced on the app's About page, so the
+date a visitor reads is generated rather than typed and cannot drift. A dump pulled before
+that field existed falls back to the file's own timestamp.

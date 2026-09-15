@@ -1,0 +1,42 @@
+# Data license
+
+The campus graph shipped in this repository is derived from OpenStreetMap.
+
+    © OpenStreetMap contributors
+    Licensed under the Open Database License (ODbL) v1.0
+    https://opendatacommons.org/licenses/odbl/1-0/
+    https://www.openstreetmap.org/copyright
+
+## Which files this covers
+
+| File | What it is |
+|---|---|
+| `api/data/graph.json` | the full graph, for the Python gateway |
+| `api/data/graph.campus` | the same graph in the compact format the C++ engine loads |
+
+Both are produced by `pipeline/extract.py` and `pipeline/transform.py` from an
+Overpass API download. They are a **Derivative Database** under the ODbL, not
+merely a Produced Work, because they restructure and re-tag OpenStreetMap's own
+data rather than only rendering a picture of it. That is why they carry the
+ODbL rather than the MIT license the source code uses.
+
+If you modify these files and distribute the result, the ODbL asks you to
+publish the modified database under the ODbL as well.
+
+## One local correction
+
+`pipeline/patches.json` declares a small number of hand-checked corrections that
+are applied on top of the OpenStreetMap download. Today that is a single 15.8 m
+footway at Student Center East Tower, connecting an entrance node to a footpath
+node, both of which already exist in OpenStreetMap. No geometry was traced or
+invented, and a patch skips itself automatically if OpenStreetMap ever gains the
+connection. See the README for why it is there.
+
+## Everything else
+
+Source code is MIT licensed, see LICENSE.
+
+Map tiles are served by the OpenStreetMap Foundation and are not redistributed
+here. Bundled dependencies keep their own licenses: most are MIT or BSD,
+react-leaflet is Hippocratic 2.1, and the IBM Plex fonts are SIL OFL 1.1. See the
+README for the list.
