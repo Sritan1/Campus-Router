@@ -1,5 +1,4 @@
-// The routing service. Binds loopback only, because the python gateway
-// is the only thing that ever talks to it.
+// http front for the engine. loopback only, the gateway is the only caller
 
 #include <cctype>
 #include <cstdio>
@@ -27,9 +26,8 @@ typedef int SOCKET;
 static const SOCKET INVALID_SOCKET = -1;
 #endif
 
-// writing to a socket the caller has closed raises SIGPIPE on linux and
-// the default action is to kill us. the gateway gives up after five
-// seconds, so without this any slow request takes the engine down.
+// writing to a socket the caller closed raises SIGPIPE on linux and kills us.
+// the gateway gives up after five seconds, so any slow request would do it
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
@@ -39,8 +37,7 @@ namespace {
 // a request bigger than this is not one of ours
 constexpr size_t MAX_REQUEST_BYTES = 1 << 20;
 
-// a caller that opens a connection and then says nothing must not be
-// able to hold the whole engine, which serves one request at a time
+// one request at a time, so a silent caller must not hold the engine forever
 constexpr int SOCKET_TIMEOUT_S = 15;
 
 void closeSocket(SOCKET s) {
@@ -51,7 +48,7 @@ void closeSocket(SOCKET s) {
 #endif
 }
 
-/// @brief Wait a moment, without pulling in a threading library for it.
+// sleep without pulling in a threading library
 void pauseMs(int ms) {
 #ifdef _WIN32
   Sleep(static_cast<DWORD>(ms));
@@ -63,10 +60,7 @@ void pauseMs(int ms) {
 #endif
 }
 
-/// @brief Send everything, and do not die if the caller has gone.
-///
-/// send can write less than it was given, so this keeps going until the
-/// whole reply is out or the connection is clearly finished.
+// send can write less than it was given, so loop until it is all out
 void sendAll(SOCKET conn, const std::string &data) {
   size_t sent = 0;
   while (sent < data.size()) {
@@ -80,7 +74,6 @@ void sendAll(SOCKET conn, const std::string &data) {
   }
 }
 
-/// @brief Stop a silent caller from holding the only worker forever.
 void setTimeouts(SOCKET conn) {
 #ifdef _WIN32
   DWORD ms = SOCKET_TIMEOUT_S * 1000;
@@ -138,9 +131,7 @@ std::string httpReply(int status, const std::string &body) {
   return head + body;
 }
 
-/// @brief Pull the method, path and body out of a raw request.
-///
-/// Only what we need. The client is our own gateway, not a browser.
+// bare minimum, the only client is the gateway
 bool parseRequest(const std::string &raw, std::string &method, std::string &path,
                   std::string &body) {
   const size_t firstBreak = raw.find("\r\n");
@@ -158,7 +149,7 @@ bool parseRequest(const std::string &raw, std::string &method, std::string &path
   method = line.substr(0, firstSpace);
   path = line.substr(firstSpace + 1, secondSpace - firstSpace - 1);
 
-  // drop a query string, none of our endpoints use one
+  // no endpoint takes a query string
   const size_t question = path.find('?');
   if (question != std::string::npos) {
     path = path.substr(0, question);
@@ -169,10 +160,7 @@ bool parseRequest(const std::string &raw, std::string &method, std::string &path
   return true;
 }
 
-/// @brief Read one whole request off the socket.
-///
-/// Keeps reading until the body is as long as Content-Length says, since
-/// a large post does not arrive in one piece.
+// a big post arrives in pieces, so read until the body matches content length
 bool readRequest(SOCKET conn, std::string &raw) {
   char buffer[8192];
   size_t expectedBody = 0;
@@ -196,7 +184,7 @@ bool readRequest(SOCKET conn, std::string &raw) {
       }
       haveHeaders = true;
 
-      // content-length can be written any which way, so match loosely
+      // header names are case insensitive
       std::string headers = raw.substr(0, headerEnd);
       for (char &c : headers) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -219,8 +207,7 @@ bool readRequest(SOCKET conn, std::string &raw) {
 
 int main(int argc, char **argv) {
 #ifndef _WIN32
-  // belt and braces with MSG_NOSIGNAL, since one unguarded send would
-  // otherwise be enough to kill the process
+  // belt and braces with MSG_NOSIGNAL
   std::signal(SIGPIPE, SIG_IGN);
 #endif
 
@@ -278,7 +265,6 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // the gateway waits for this before it starts serving
   std::printf("engine: listening on %s:%d\n", host.c_str(), port);
   std::fflush(stdout);
 
@@ -287,9 +273,7 @@ int main(int argc, char **argv) {
     socklen_t peerLength = sizeof(peer);
     SOCKET conn = accept(listener, reinterpret_cast<sockaddr *>(&peer), &peerLength);
     if (conn == INVALID_SOCKET) {
-      // accept can fail for a reason that is not going away, running out
-      // of descriptors say, and looping straight back on that spins a core
-      // flat out. waiting a moment costs nothing when it is a one off.
+      // accept can keep failing, and retrying straight away spins a core
       pauseMs(20);
       continue;
     }
@@ -309,8 +293,7 @@ int main(int argc, char **argv) {
     std::string body;
     campus::Reply result;
 
-    // one bad request must not take the whole engine with it. anything
-    // thrown in here used to reach main and end the process.
+    // an exception in here used to end the whole process
     try {
       if (!parseRequest(raw, method, path, body)) {
         result = {400, campus::errorBody("could not read the request line")};

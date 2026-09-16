@@ -12,14 +12,12 @@ namespace {
 
 constexpr double INF = std::numeric_limits<double>::infinity();
 
-/// @brief Entry in the search frontier. Ordered by priority, smallest first.
 struct Candidate {
   int node = 0;
   double priority = 0.0;
 };
 
-/// @brief Makes the priority queue hand back the cheapest instead of the
-///        largest, and breaks ties on node index so runs are repeatable.
+// cheapest first, ties broken on node index so runs repeat exactly
 struct Prioritize {
   bool operator()(const Candidate &a, const Candidate &b) const {
     if (a.priority != b.priority) {
@@ -31,7 +29,6 @@ struct Prioritize {
 
 using Frontier = std::priority_queue<Candidate, std::vector<Candidate>, Prioritize>;
 
-/// @brief Walk predecessors back from the target to build the path.
 std::vector<int> unwind(const std::vector<int> &came, int start, int target) {
   std::vector<int> reversed;
   int current = target;
@@ -50,16 +47,11 @@ std::vector<int> unwind(const std::vector<int> &came, int start, int target) {
   return reversed;
 }
 
-/// @brief Straight line distance, scaled so it can never overshoot.
 double heuristic(const Graph &graph, int from, int target, double scale) {
   return distanceBetween(graph.coordinatesAt(from), graph.coordinatesAt(target)) *
          scale;
 }
 
-/// @brief Dijkstra, and A star when a heuristic scale is supplied.
-///
-/// The two differ only in what goes into the priority, so they share a body
-/// rather than being copy pasted.
 RouteResult searchWeighted(const Graph &graph, const CostModel &cost, int start,
                            int target, bool trace, bool useHeuristic) {
   RouteResult result;
@@ -69,6 +61,8 @@ RouteResult searchWeighted(const Graph &graph, const CostModel &cost, int start,
   std::vector<int> came(count, -1);
   std::vector<char> settled(count, 0);
 
+  // scaled by the smallest multiplier so the guess never overshoots a real
+  // path. without it a star quietly returns routes that are too long
   const double scale = useHeuristic ? cost.smallestMultiplier() : 0.0;
 
   best[start] = 0.0;
@@ -87,8 +81,7 @@ RouteResult searchWeighted(const Graph &graph, const CostModel &cost, int start,
     result.nodesVisited++;
     if (trace) {
       result.visitOrder.push_back(current.node);
-      // every path from here to somewhere we have already been. each one
-      // gets recorded once, when its second end is reached.
+      // each edge gets recorded once, when its second end is settled
       for (const Adjacency &edge : graph.neighbors(current.node)) {
         if (!cost.isBlocked(edge.classId) && settled[edge.to]) {
           result.visitEdges.push_back({edge.to, current.node});
@@ -105,9 +98,7 @@ RouteResult searchWeighted(const Graph &graph, const CostModel &cost, int start,
         continue;
       }
 
-      // counted here, before the settled check, so this means the same
-      // thing in all four searches. it used to be attempts in two of them
-      // and successes in another, which made the numbers incomparable.
+      // counted before the settled check so it means the same in all four searches
       result.edgesRelaxed++;
       if (settled[edge.to]) {
         continue;
@@ -134,7 +125,7 @@ RouteResult searchWeighted(const Graph &graph, const CostModel &cost, int start,
   return result;
 }
 
-/// @brief Breadth first search. Finds the fewest hops, not the shortest walk.
+// fewest hops, not the shortest walk
 RouteResult searchBfs(const Graph &graph, const CostModel &cost, int start,
                       int target, bool trace) {
   RouteResult result;
@@ -143,8 +134,7 @@ RouteResult searchBfs(const Graph &graph, const CostModel &cost, int start,
   std::vector<int> came(count, -1);
   std::vector<char> seen(count, 0);
 
-  // seen means queued, done means actually reached. an edge is only
-  // real to draw once both of its ends have been reached.
+  // seen means queued, done means popped. traces only draw edges between done nodes
   std::vector<char> done(count, 0);
 
   std::deque<int> queue;
@@ -203,11 +193,6 @@ RouteResult searchBfs(const Graph &graph, const CostModel &cost, int start,
   return result;
 }
 
-/// @brief Dijkstra from both ends at once.
-///
-/// The searches meeting is not the finish line. A cheaper path can still
-/// close later, so we keep going until the two frontiers can no longer
-/// combine into anything better than the best we have.
 RouteResult searchBidirectional(const Graph &graph, const CostModel &cost,
                                 int start, int target, bool trace) {
   RouteResult result;
@@ -220,8 +205,7 @@ RouteResult searchBidirectional(const Graph &graph, const CostModel &cost,
   std::vector<char> settledForward(count, 0);
   std::vector<char> settledBackward(count, 0);
 
-  // a node can be reached by both searches, and for drawing we only
-  // care that it was reached at all
+  // either side counts, so the trace shows each node once
   std::vector<char> reached(count, 0);
 
   bestForward[start] = 0.0;
@@ -236,8 +220,8 @@ RouteResult searchBidirectional(const Graph &graph, const CostModel &cost,
   int meeting = -1;
 
   while (!forward.empty() && !backward.empty()) {
-    // once the two cheapest remaining reaches sum past what we already
-    // have, nothing left can beat it
+    // stop once the two cheapest frontiers sum past the best found. the first
+    // shared node is not always on the shortest path
     if (forward.top().priority + backward.top().priority >= bestTotal) {
       break;
     }
@@ -308,8 +292,7 @@ RouteResult searchBidirectional(const Graph &graph, const CostModel &cost,
     return result;
   }
 
-  // the backward half comes out target first, so it joins on reversed
-  // and without repeating the meeting node
+  // the back half runs target to meeting, so flip it and skip the shared node
   std::reverse(back.begin(), back.end());
   front.insert(front.end(), back.begin() + 1, back.end());
 
@@ -387,8 +370,7 @@ ReachResult reachable(const Graph &graph, const CostModel &cost, int start,
       continue;
     }
 
-    // the queue hands them back cheapest first, so once one is past the
-    // limit everything behind it is too
+    // cheapest first, so everything after this is over the limit too
     if (best[current.node] > limit) {
       break;
     }
@@ -402,8 +384,7 @@ ReachResult reachable(const Graph &graph, const CostModel &cost, int start,
         continue;
       }
 
-      // a path is walkable once both of its ends are, and it costs
-      // whichever end was dearer to arrive at
+      // an edge is in reach once both ends are, at the cost of the dearer end
       if (settled[edge.to]) {
         result.edges.push_back({edge.to, current.node});
         result.edgeCosts.push_back(std::max(best[edge.to], best[current.node]));

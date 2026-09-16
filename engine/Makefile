@@ -1,4 +1,4 @@
-# plain makefile on purpose. cmake is not installed on this machine.
+# plain makefile on purpose, so nothing beyond make and a compiler is needed
 
 CXX      ?= g++
 CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Wpedantic -Iinclude

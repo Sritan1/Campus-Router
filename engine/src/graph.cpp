@@ -31,7 +31,7 @@ void Graph::addEdge(int from, int to, double lengthM, int classId) {
 void Graph::build() {
   const size_t nodeCount = this->ids.size();
 
-  // count both directions first so we know how much room each node needs
+  // count both directions first so each node gets the right amount of room
   std::vector<int> degree(nodeCount, 0);
   for (const PendingEdge &edge : this->pending) {
     degree[edge.from]++;
@@ -45,7 +45,6 @@ void Graph::build() {
 
   this->adjacency.assign(this->offsets[nodeCount], Adjacency{});
 
-  // cursor walks each node's slice as we fill it
   std::vector<int> cursor(this->offsets.begin(), this->offsets.end() - 1);
   for (const PendingEdge &edge : this->pending) {
     this->adjacency[cursor[edge.from]++] = {edge.to, edge.lengthM, edge.classId};

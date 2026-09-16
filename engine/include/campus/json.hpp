@@ -6,11 +6,7 @@
 
 namespace campus {
 
-/// @brief A small json value.
-///
-/// Only what the engine needs to talk to the gateway. Not a general
-/// purpose library, and deliberately not one, because the request and
-/// reply shapes here are fixed and small.
+// just enough json to talk to the gateway, not a general library
 class Json {
  public:
   enum class Kind { Null, Bool, Number, String, Array, Object };
@@ -33,39 +29,29 @@ class Json {
   bool isNumber() const { return this->valueKind == Kind::Number; }
   bool isString() const { return this->valueKind == Kind::String; }
 
-  /// @brief Read a bool, or the fallback when this is not one.
+  // the wrong type gives the fallback, or an empty list, instead of failing
   bool asBool(bool fallback = false) const;
 
-  /// @brief Read a number, or the fallback when this is not one.
   double asNumber(double fallback = 0.0) const;
 
-  /// @brief Read a whole number, or the fallback when this is not one.
   long long asInteger(long long fallback = 0) const;
 
-  /// @brief Read a string, or the fallback when this is not one.
   std::string asString(const std::string &fallback = "") const;
 
-  /// @brief Elements of an array. Empty when this is not an array.
   const std::vector<Json> &items() const;
 
-  /// @brief Members of an object. Empty when this is not an object.
   const std::map<std::string, Json> &fields() const;
 
-  /// @brief Look up a key. Gives a null value when it is not there.
+  // null when the key is missing
   const Json &at(const std::string &key) const;
   bool has(const std::string &key) const;
 
   void push(Json value);
   void set(const std::string &key, Json value);
 
-  /// @brief Render back to json text.
   std::string dump() const;
 
-  /// @brief Parse json text.
-  /// @param text the input
-  /// @param out the parsed value, by reference
-  /// @param error what went wrong, when this returns false
-  /// @return true when the whole input parsed
+  // false means the text was not valid json, and error says why
   static bool parse(const std::string &text, Json &out, std::string &error);
 
  private:

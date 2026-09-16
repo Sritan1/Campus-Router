@@ -15,19 +15,15 @@ enum class Algorithm {
   BidirectionalDijkstra,
 };
 
-/// @brief Name used on the wire and in the cli.
 std::string nameOf(Algorithm algorithm);
 
-/// @brief Parse a name back. Returns false when it is not one of ours.
 bool algorithmFromName(const std::string &name, Algorithm &out);
 
-/// @brief One path the search walked down, by node index.
 struct TraceEdge {
   int from = 0;
   int to = 0;
 };
 
-/// @brief What one run of one algorithm produced.
 struct RouteResult {
   bool found = false;
   std::vector<int> path;
@@ -37,50 +33,32 @@ struct RouteResult {
   long long edgesRelaxed = 0;
   long long runtimeUs = 0;
 
-  // the order nodes were settled in, for the exploration animation
+  // settle order, for the animation
   std::vector<int> visitOrder;
 
-  // every path between two settled nodes, in the order the second end
-  // of each was reached.
-  //
-  // this is the explored network, not the tree of best routes. drawing
-  // only the tree left visible gaps wherever two branches ran down
-  // neighbouring paths, because the path joining them is one the search
-  // really did look at but is not part of anyone's best route.
+  // the explored network, not just the tree of best routes. drawing only the
+  // tree left gaps where two branches ran down neighbouring paths
   std::vector<TraceEdge> visitEdges;
 };
 
-/// @brief Run one algorithm over the graph.
-/// @param algorithm which one
-/// @param graph the network
-/// @param cost how edges are weighted and what is blocked
-/// @param start starting node index
-/// @param target ending node index
-/// @param trace whether to record the visit order
-/// @return the path and its statistics, with found false when there is none
 RouteResult runAlgorithm(Algorithm algorithm, const Graph &graph,
                          const CostModel &cost, int start, int target,
                          bool trace);
 
-/// @brief Add up the real world length of a path, ignoring multipliers.
+// real metres, multipliers ignored
 double pathDistance(const Graph &graph, const std::vector<int> &path);
 
-/// @brief Everywhere you can get to, and what it cost to get there.
 struct ReachResult {
   std::vector<int> nodes;
   std::vector<double> costs;
   std::vector<TraceEdge> edges;
 
-  // the cost at which each edge became reachable, which is the higher
-  // of its two ends
+  // the dearer of the two ends
   std::vector<double> edgeCosts;
   long long runtimeUs = 0;
 };
 
-/// @brief Dijkstra with a ceiling instead of a target.
-///
-/// Same search, asked a different question. Stops once everything left
-/// costs more than the limit.
+// dijkstra with a cost ceiling instead of a target
 ReachResult reachable(const Graph &graph, const CostModel &cost, int start,
                       double limit);
 

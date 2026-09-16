@@ -9,58 +9,39 @@
 
 namespace campus {
 
-/// @brief One outgoing edge. Neighbours are stored by index, not by osm id,
-///        so walking them costs no lookups.
+// neighbours by index, not osm id, so walking them needs no lookups
 struct Adjacency {
   int to = 0;
   double lengthM = 0.0;
   int classId = 0;
 };
 
-/// @brief The campus walking network.
-///
-/// The graph is loaded once and never changed, so edges live in one flat
-/// array with an offset per node rather than a map of maps. Neighbours of a
-/// node are then a contiguous slice, which is what the search loops want.
+// loaded once and never changed, so edges sit in one flat array with an
+// offset per node, and the neighbours of a node are one contiguous slice
 class Graph {
  public:
-  /// @brief Add a node, or return the index of one already added.
-  /// @param id openstreetmap id, negative for buildings
-  /// @param at where it is
-  /// @return the index this node will be known by
+  // negative ids are buildings. adding the same id twice gives the same index
   int addNode(long long id, Coordinates at);
 
-  /// @brief Record an undirected edge between two nodes.
-  /// @param from index of one end
-  /// @param to index of the other end
-  /// @param lengthM real world length in metres
-  /// @param classId which cost class this edge belongs to
   void addEdge(int from, int to, double lengthM, int classId);
 
-  /// @brief Pack the edges into their final layout.
-  ///        Must be called once, after every edge is added.
+  // call once, after the last edge
   void build();
 
-  /// @brief Neighbours of a node, as a slice of the flat edge array.
-  /// @param index node index
   std::span<const Adjacency> neighbors(int index) const;
 
-  /// @brief Find a node by its openstreetmap id.
-  /// @return the index, or -1 when we do not have it
+  // minus one when the id is not in the graph
   int indexOf(long long id) const;
 
-  /// @brief The openstreetmap id of a node index.
   long long idAt(int index) const { return this->ids[index]; }
 
-  /// @brief Where a node index sits.
   Coordinates coordinatesAt(int index) const { return this->points[index]; }
 
   size_t numNodes() const { return this->ids.size(); }
 
-  /// @brief Number of undirected edges. Each one is stored twice internally.
+  // undirected, the packed array holds each one twice
   size_t numEdges() const { return this->edgeCount; }
 
-  /// @brief How many cost classes the loaded graph refers to.
   size_t numClasses() const { return this->classNames.size(); }
 
   const std::string &classNameAt(int classId) const {
@@ -78,7 +59,6 @@ class Graph {
   std::vector<Coordinates> points;
   std::unordered_map<long long, int> lookup;
 
-  // edges as added, before build packs them
   struct PendingEdge {
     int from = 0;
     int to = 0;
@@ -87,7 +67,7 @@ class Graph {
   };
   std::vector<PendingEdge> pending;
 
-  // the packed layout. offsets has one entry per node plus a final total.
+  // offsets has one entry per node and a final total
   std::vector<int> offsets;
   std::vector<Adjacency> adjacency;
 

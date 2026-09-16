@@ -1,5 +1,4 @@
-// Offline harness for the routing engine. No http, no server.
-// Handy for checking a real route by hand.
+// runs routes straight off the graph file with no server, for checking by hand
 
 #include <cstdlib>
 #include <iomanip>
@@ -19,10 +18,8 @@ void usage() {
             << "       route_cli <graph file> --scan <class name>\n";
 }
 
-/// @brief Try every building pair and report where blocking a class
-///        actually changes the route.
-///
-/// Buildings are the negative ids, so they are easy to pick out.
+// every building pair, with and without the class blocked.
+// buildings are the negative ids
 int scan(const campus::Graph &graph, const std::string &wanted) {
   campus::CostModel open = campus::CostModel::plain(graph.numClasses());
   campus::CostModel closed = open;

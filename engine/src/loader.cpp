@@ -7,7 +7,7 @@ namespace campus {
 
 namespace {
 
-/// @brief Read a header line like "nodes 8162" and hand back the count.
+// section headers are a label then a count, like nodes 16149
 bool readSection(std::istream &in, const std::string &expected, long long &count,
                  std::string &error) {
   std::string label;

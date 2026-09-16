@@ -12,10 +12,8 @@ namespace campus {
 
 namespace {
 
-// no search can settle more nodes than the graph has, about 16k across
-// both campuses, so this sits above that and nothing is ever thinned.
-// eight thousand used to clear it and stopped when west campus doubled
-// the graph, which quietly cost bfs three quarters of its edges.
+// above the whole graph (about 16k nodes), so traces never get thinned.
+// 8000 was enough until west campus doubled the graph and bfs lost most edges
 constexpr size_t DEFAULT_TRACE_LIMIT = 20000;
 constexpr size_t MAX_TRACE_LIMIT = 50000;
 
@@ -26,18 +24,13 @@ const Algorithm DEFAULT_ORDER[] = {
     Algorithm::BidirectionalDijkstra,
 };
 
-// there are only four, so a longer list is either a mistake or somebody
-// trying to buy a lot of graph searches with one small request
+// only four exist, so a longer list is a mistake or abuse
 constexpr size_t MAX_ALGORITHMS = sizeof(DEFAULT_ORDER) / sizeof(DEFAULT_ORDER[0]);
 
-/// @brief Read the cost model out of the request.
-///
-/// Multipliers arrive keyed by class name because the gateway thinks in
-/// names, while the engine works with the small integer ids.
+// the gateway sends class names, the engine wants ids
 CostModel readCostModel(const Graph &graph, const Json &spec) {
   CostModel cost = CostModel::plain(graph.numClasses());
 
-  // names to ids, once, so the loops below stay cheap
   std::map<std::string, int> byName;
   for (size_t i = 0; i < graph.numClasses(); i++) {
     byName[graph.classNameAt(static_cast<int>(i))] = static_cast<int>(i);
@@ -68,7 +61,6 @@ CostModel readCostModel(const Graph &graph, const Json &spec) {
   return cost;
 }
 
-/// @brief Turn a path of node indices into the ids the gateway knows.
 Json pathIds(const Graph &graph, const std::vector<int> &path) {
   Json out = Json::array();
   for (int index : path) {
@@ -77,8 +69,6 @@ Json pathIds(const Graph &graph, const std::vector<int> &path) {
   return out;
 }
 
-/// @brief Coordinates for drawing, so the client does not have to look
-///        every node up itself.
 Json pathPoints(const Graph &graph, const std::vector<int> &path) {
   Json out = Json::array();
   for (int index : path) {
@@ -91,7 +81,6 @@ Json pathPoints(const Graph &graph, const std::vector<int> &path) {
   return out;
 }
 
-/// @brief A signature so identical paths can be grouped.
 std::string signatureOf(const std::vector<int> &path) {
   std::string key;
   key.reserve(path.size() * 7);
@@ -175,10 +164,7 @@ Reply Service::route(const std::string &body) const {
     return {404, errorBody("target node is not in the graph")};
   }
 
-  // which algorithms to run, all four unless asked otherwise.
-  //
-  // the gateway caps and dedupes this too, but the engine answers one
-  // request at a time and must not take a long list on trust from it.
+  // the gateway caps and dedupes this too, but the engine should not trust it
   std::vector<Algorithm> wanted;
   if (request.at("algorithms").isArray() &&
       !request.at("algorithms").items().empty()) {
@@ -191,7 +177,6 @@ Reply Service::route(const std::string &body) const {
       if (!algorithmFromName(entry.asString(), algorithm)) {
         return {400, errorBody("unknown algorithm " + entry.asString())};
       }
-      // asking for the same one twice is the same search twice
       if (std::find(wanted.begin(), wanted.end(), algorithm) == wanted.end()) {
         wanted.push_back(algorithm);
       }
@@ -243,8 +228,7 @@ Reply Service::route(const std::string &body) const {
       const std::vector<size_t> keep =
           thinIndices(result.visitOrder.size(), traceLimit);
 
-      // where each settled node ended up in what we are sending, so a
-      // parent can be named by its position rather than repeating coords
+      // edges point at positions in this list instead of repeating coords
       std::unordered_map<int, int> placeOf;
       placeOf.reserve(keep.size() * 2);
       for (size_t out = 0; out < keep.size(); out++) {
@@ -261,13 +245,8 @@ Reply Service::route(const std::string &body) const {
         order.push(std::move(pair));
       }
 
-      // paths between two points we are sending, by position.
-      //
-      // when a trace is thinned this loses more than it looks like it
-      // should. a path needs both of its ends to survive, so keeping
-      // half the points keeps only about a quarter of the paths and the
-      // search arrives in pieces. the count is reported below so a
-      // caller can tell that happened.
+      // thinning loses more edges than points, since an edge needs both ends.
+      // droppedEdges says when that happened
       Json edges = Json::array();
       long long dropped = 0;
       for (const TraceEdge &edge : result.visitEdges) {
@@ -295,8 +274,7 @@ Reply Service::route(const std::string &body) const {
     results.push(std::move(entry));
   }
 
-  // algorithms that landed on the same path, so the client can draw one
-  // line instead of four on top of each other
+  // so the client draws one line per distinct path, not four stacked ones
   Json pathGroups = Json::array();
   for (const auto &group : groups) {
     Json names = Json::array();
@@ -350,8 +328,7 @@ Reply Service::isochrone(const std::string &body) const {
     pair.push(Json::of(where.lon));
     points.push(std::move(pair));
 
-    // the gateway needs these to tell which buildings got covered,
-    // since buildings are nodes too
+    // buildings are nodes too, so the gateway finds them by id
     ids.push(Json::of(this->graph.idAt(index)));
   }
 
@@ -366,9 +343,7 @@ Reply Service::isochrone(const std::string &body) const {
     costs.push(Json::of(value));
   }
 
-  // the walkable paths, each with the cost of reaching it. drawing the
-  // network itself is the honest picture. a filled shape would claim
-  // you can cut through buildings.
+  // each walkable edge with the cost of reaching it
   Json edges = Json::array();
   Json edgeCosts = Json::array();
   for (size_t i = 0; i < reach.edges.size(); i++) {
