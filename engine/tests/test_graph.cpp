@@ -94,7 +94,6 @@ TEST(distanceDoesNotCareAboutOrder) {
 }
 
 TEST(distanceOnCampusLooksRight) {
-  // about a hundred metres apart
   const double metres = campus::distanceBetween(Coordinates(41.8708, -87.6505),
                                                 Coordinates(41.8717, -87.6505));
   CHECK(metres > 95.0);

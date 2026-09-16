@@ -1,7 +1,6 @@
 #pragma once
 
-// A very small test runner. We only need registration, a couple of
-// assertions and a count at the end.
+// tiny test runner, just registration, a couple of checks and a count
 
 #include <cmath>
 #include <functional>

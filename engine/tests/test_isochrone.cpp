@@ -11,7 +11,7 @@ using campus::Service;
 
 namespace {
 
-/// @brief A line of five nodes, ten metres apart.
+// five nodes in a line, ten metres apart
 Graph line() {
   Graph graph;
   for (int i = 0; i < 5; i++) {
@@ -59,8 +59,7 @@ TEST(reachHandsBackCostsInOrder) {
   CostModel cost = CostModel::plain(1);
   campus::ReachResult reach = campus::reachable(graph, cost, 0, 100.0);
 
-  // dijkstra settles cheapest first, so the client can colour by band
-  // without sorting anything
+  // cheapest first, so the client can colour by band without sorting
   for (size_t i = 1; i < reach.costs.size(); i++) {
     CHECK(reach.costs[i] >= reach.costs[i - 1]);
   }
@@ -76,8 +75,6 @@ TEST(reachEdgesJoinTwoPlacesItGotTo) {
   CHECK(reach.edges.size() == 4);
   CHECK(reach.edgeCosts.size() == reach.edges.size());
 
-  // a path only counts once both of its ends are walkable, so its cost
-  // is whichever end was dearer
   for (double value : reach.edgeCosts) {
     CHECK(value <= 100.0);
   }
@@ -88,7 +85,7 @@ TEST(reachRespectsBlockedClasses) {
   CostModel cost = CostModel::plain(1);
   cost.blocked[0] = 1;
 
-  // nothing is walkable, so only where we started
+  // nothing walkable, so just the start
   campus::ReachResult reach = campus::reachable(graph, cost, 0, 100.0);
   CHECK(reach.nodes.size() == 1);
   CHECK(reach.edges.empty());

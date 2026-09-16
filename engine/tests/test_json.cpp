@@ -72,25 +72,22 @@ TEST(rejectsBrokenInput) {
   CHECK(rejects(R"({"a":})"));
   CHECK(rejects("tru"));
   CHECK(rejects("\"unterminated"));
-  // trailing junk is not acceptable either
   CHECK(rejects("{} extra"));
   CHECK(rejects("1 2"));
 }
 
 TEST(writesWholeNumbersWithoutADecimalPoint) {
-  // node ids must not come out as 1.51961e+08
+  // node ids must not come out in exponent form
   CHECK(Json::of(static_cast<long long>(151960667)).dump() == "151960667");
   CHECK(Json::of(static_cast<long long>(-151960667)).dump() == "-151960667");
   CHECK(Json::of(0).dump() == "0");
 }
 
 TEST(coordinatesKeepEnoughDigitsToBeUseful) {
-  // six significant digits rounds a latitude to about eleven metres,
-  // and the paths on this graph are seven metres apart
+  // six digits rounds a latitude to about eleven metres, paths are seven apart
   CHECK(Json::of(41.8708305).dump() == "41.8708305");
   CHECK(Json::of(-87.6504556).dump() == "-87.6504556");
 
-  // two nearby nodes must not collapse onto the same value
   CHECK(Json::of(41.8708305).dump() != Json::of(41.8708405).dump());
 }
 
@@ -146,8 +143,7 @@ TEST(deeplyNestedInputStillParses) {
 }
 
 TEST(absurdNestingIsRefusedRatherThanCrashing) {
-  // a megabyte of open brackets used to recurse once per bracket and
-  // run the stack out, which killed the process rather than answering
+  // this used to recurse once per bracket and crash the process
   std::string text;
   for (int i = 0; i < 100000; i++) {
     text += "[";
@@ -159,9 +155,23 @@ TEST(absurdNestingIsRefusedRatherThanCrashing) {
   CHECK(!error.empty());
 }
 
+TEST(absurdNestingIsWrittenOutRatherThanCrashing) {
+  // the writer has to stop where the reader does
+  Json deep = Json::of(1);
+  for (int i = 0; i < 400; i++) {
+    Json around = Json::array();
+    around.push(std::move(deep));
+    deep = std::move(around);
+  }
+
+  const std::string text = deep.dump();
+  CHECK(!text.empty());
+  CHECK(text.find("null") != std::string::npos);
+  CHECK(text.find("1") == std::string::npos);
+}
+
 TEST(nestingWeActuallyUseStillParses) {
-  // the real requests are three or four deep, so the guard must not be
-  // anywhere near them
+  // real requests are three or four deep, far below the cap
   std::string text;
   for (int i = 0; i < 60; i++) {
     text += "[";

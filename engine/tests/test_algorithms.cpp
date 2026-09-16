@@ -20,18 +20,14 @@ const Algorithm ALL[] = {
     Algorithm::BidirectionalDijkstra,
 };
 
-// the three that are supposed to agree. bfs is left out because it
-// counts hops rather than distance.
+// bfs counts hops, so it is left out
 const Algorithm EXACT[] = {
     Algorithm::Dijkstra,
     Algorithm::AStar,
     Algorithm::BidirectionalDijkstra,
 };
 
-/// @brief A diamond where the short way round is also the fewest hops.
-///
-///   0 --100-- 1 --100-- 3
-///   0 --10--- 2 --10--- 3
+// the cheap side through node 2 is also the fewest hops
 Graph diamond() {
   Graph graph;
   graph.addNode(0, Coordinates(41.8700, -87.6500));
@@ -46,9 +42,7 @@ Graph diamond() {
   return graph;
 }
 
-/// @brief A long cheap way round against a single expensive hop.
-///
-/// One hop from 0 to 4 costs 500. Going the long way is four hops of 10.
+// one 500 m hop against four hops of 10
 Graph shortcutTrap() {
   Graph graph;
   for (int i = 0; i < 5; i++) {
@@ -83,7 +77,6 @@ TEST(bfsTakesTheFewestHopsEvenWhenItCostsMore) {
 
   RouteResult bfs = runAlgorithm(Algorithm::Bfs, graph, cost, 0, 4, false);
   CHECK(bfs.found);
-  // one hop, the expensive way
   CHECK(bfs.path.size() == 2);
   CHECK_NEAR(bfs.cost, 500.0, 1e-6);
 
@@ -98,7 +91,6 @@ TEST(bfsReportsWhatItsOwnPathReallyCosts) {
   CostModel cost = CostModel::plain(1);
   RouteResult bfs = runAlgorithm(Algorithm::Bfs, graph, cost, 0, 4, false);
 
-  // the cost has to describe the path bfs returned, not the best one
   CHECK_NEAR(bfs.cost, 500.0, 1e-6);
   CHECK_NEAR(bfs.distanceM, 500.0, 1e-6);
 }
@@ -136,7 +128,7 @@ TEST(noPathWhenTheGraphIsInTwoPieces) {
 TEST(blockedClassesAreNeverWalked) {
   Graph graph = diamond();
 
-  // block the cheap side, everyone should take the long way
+  // block the cheap side
   CostModel cost = CostModel::plain(2);
   cost.blocked[1] = 1;
 
@@ -164,7 +156,6 @@ TEST(multipliersChangeWhichWayIsCheapest) {
   Graph graph = diamond();
   CostModel cost = CostModel::plain(2);
 
-  // make the short side twenty times more expensive to walk
   cost.multipliers[1] = 20.0;
 
   RouteResult result = runAlgorithm(Algorithm::Dijkstra, graph, cost, 0, 3, false);
@@ -210,9 +201,8 @@ TEST(outOfRangeNodesAreRejected) {
   CHECK(!runAlgorithm(Algorithm::Dijkstra, graph, cost, 0, 99, false).found);
 }
 
-// This is the important one. A star and bidirectional are both easy to get
-// subtly wrong in ways that still look plausible, so they are checked
-// against plain dijkstra on a lot of random graphs.
+// the important one. a star and bidirectional go subtly wrong in ways that
+// still look plausible, so check them against dijkstra on random graphs
 TEST(theThreeExactAlgorithmsAlwaysAgree) {
   std::mt19937 rng(12345);
   std::uniform_real_distribution<double> jitter(-0.004, 0.004);
@@ -252,7 +242,6 @@ TEST(theThreeExactAlgorithmsAlwaysAgree) {
     for (int c = 0; c < 4; c++) {
       cost.multipliers[c] = multiplier(rng);
     }
-    // sometimes shut a class off entirely
     if (rng() % 4 == 0) {
       cost.blocked[rng() % 4] = 1;
     }
@@ -321,7 +310,6 @@ TEST(bfsIsNeverLongerInHopsThanDijkstra) {
     CHECK(bfs.found == dijkstra.found);
     if (bfs.found) {
       CHECK(bfs.path.size() <= dijkstra.path.size());
-      // and dijkstra can never be beaten on cost
       CHECK(dijkstra.cost <= bfs.cost + 1e-6);
     }
   }

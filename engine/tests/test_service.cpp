@@ -11,8 +11,7 @@ using campus::Service;
 
 namespace {
 
-/// @brief A small graph with a cheap side and an expensive side, plus a
-///        stray node nothing connects to.
+// a cheap side, an expensive side and one stray node
 Graph testGraph() {
   Graph graph;
   graph.addNode(10, Coordinates(41.8700, -87.6500));
@@ -74,7 +73,7 @@ TEST(rightPathWrongMethodSaysSo) {
 TEST(queryStringsDoNotBreakRouting) {
   Graph graph = testGraph();
   Service service(graph);
-  // the server strips these before we see them, so a bare path is fine
+  // main.cpp strips query strings first, so the service only sees bare paths
   CHECK(service.handle("GET", "/healthz", "").status == 200);
 }
 
@@ -92,7 +91,6 @@ TEST(missingStartAndTargetIsRejected) {
   Service service(graph);
   CHECK(service.handle("POST", "/route", "{}").status == 400);
   CHECK(service.handle("POST", "/route", R"({"start":10})").status == 400);
-  // a json array is not a request
   CHECK(service.handle("POST", "/route", "[1,2]").status == 400);
 }
 
@@ -125,7 +123,6 @@ TEST(routingReturnsAllFourByDefault) {
     CHECK(entry.at("status").asString() == "ok");
     CHECK(entry.at("path").items().front().asInteger() == 10);
     CHECK(entry.at("path").items().back().asInteger() == 13);
-    // points come back for drawing, one per path node
     CHECK(entry.at("points").items().size() == entry.at("path").items().size());
   }
 }
@@ -145,8 +142,7 @@ TEST(identicalPathsGetGroupedTogether) {
   Service service(graph);
   Json body = replyJson(service.handle("POST", "/route", R"({"start":10,"target":13})"));
 
-  // both sides of the diamond are two hops, so bfs takes the expensive
-  // one while the other three take the cheap one. that is two groups.
+  // both sides are two hops and bfs takes the expensive one, so two groups
   CHECK(body.at("pathGroups").items().size() == 2);
 
   size_t total = 0;
@@ -171,7 +167,6 @@ TEST(oneAlgorithmMakesOneGroup) {
 }
 
 TEST(theThreeExactOnesShareAGroupWhenTheTieIsBroken) {
-  // give the cheap side a clear hop advantage so bfs agrees too
   Graph graph;
   graph.addNode(10, Coordinates(41.8700, -87.6500));
   graph.addNode(11, Coordinates(41.8702, -87.6510));
@@ -262,9 +257,7 @@ TEST(thinningAPointsTraceShredsThePathsBetweenThem) {
   Graph graph = testGraph();
   Service service(graph);
 
-  // asking for very few points is not a mild loss. a path needs both of
-  // its ends kept, so this is roughly a squared loss, and it is what
-  // made dijkstra arrive on screen in pieces.
+  // an edge needs both ends kept, so thinning points loses edges roughly squared
   Json thin = replyJson(service.handle(
       "POST", "/route",
       R"({"start":10,"target":13,"algorithms":["dijkstra"],
@@ -280,7 +273,7 @@ TEST(thinningAPointsTraceShredsThePathsBetweenThem) {
   CHECK(!full.at("sampled").asBool());
   CHECK(small.at("edges").items().size() < full.at("edges").items().size());
 
-  // and it has to own up to it rather than looking complete
+  // and it has to say so
   CHECK(small.at("droppedEdges").asInteger() > 0);
   CHECK(full.at("droppedEdges").asInteger() == 0);
 }
@@ -289,8 +282,7 @@ TEST(theDefaultLimitLeavesARealSearchAlone) {
   Graph graph = testGraph();
   Service service(graph);
 
-  // the whole campus settles a few thousand nodes, so nothing should be
-  // thinned unless a caller asks for it
+  // nothing is thinned unless a caller asks for it
   Json body = replyJson(service.handle(
       "POST", "/route", R"({"start":10,"target":13,"trace":true})"));
 
@@ -312,10 +304,8 @@ TEST(thinningKeepsTheEndsAndTheCount) {
   std::vector<size_t> few = campus::thinIndices(1000, 10);
   CHECK(few.size() == 10);
   CHECK(few.front() == 0);
-  // evenly spread, so it still covers the whole search
   CHECK(few[5] == 500);
 
-  // a limit above the input leaves it alone
   CHECK(campus::thinIndices(1000, 5000).size() == 1000);
   CHECK(campus::thinIndices(1000, 0).size() == 1000);
   CHECK(campus::thinIndices(0, 10).empty());
@@ -336,7 +326,7 @@ TEST(traceCarriesThePathsTheSearchWalked) {
   CHECK(points > 0);
   CHECK(edges > 0);
 
-  // both ends of every edge have to be points we actually sent
+  // every edge end must be a point in the reply
   for (const Json &edge : trace.at("edges").items()) {
     CHECK(edge.items().size() == 2);
     for (const Json &end : edge.items()) {
@@ -350,19 +340,19 @@ TEST(theExploredNetworkHasMoreThanJustTheBestRoutes) {
   Graph graph = testGraph();
   Service service(graph);
 
+  // going to 11 settles the whole loop, so the search walks an edge that no
+  // best route uses
   Json body = replyJson(service.handle(
       "POST", "/route",
-      R"({"start":10,"target":13,"algorithms":["dijkstra"],"trace":true})"));
+      R"({"start":10,"target":11,"algorithms":["dijkstra"],"trace":true})"));
 
   const Json &trace = body.at("results").items()[0].at("trace");
   const size_t points = trace.at("points").items().size();
   const size_t edges = trace.at("edges").items().size();
 
-  // a tree of best routes would give exactly one edge less than points.
-  // this graph has a loop in it, so the search really walked more paths
-  // than that, and drawing only the tree left gaps.
-  CHECK(edges >= points - 1);
-  CHECK(edges > 0);
+  // a tree of best routes has exactly one edge fewer than points
+  CHECK(points == 4);
+  CHECK(edges > points - 1);
 }
 
 TEST(everyEdgeJoinsTwoPlacesAlreadyOnScreen) {
@@ -372,15 +362,19 @@ TEST(everyEdgeJoinsTwoPlacesAlreadyOnScreen) {
   Json body = replyJson(service.handle(
       "POST", "/route", R"({"start":10,"target":13,"trace":true})"));
 
-  // the animation reveals points in order and draws edges as it goes,
-  // so an edge reaching a point that has not appeared yet would draw
-  // from nowhere
+  // the canvas draws edges in list order, so each has to join an earlier point
+  // to the newest one or it would start somewhere not reached yet
+  size_t checked = 0;
   for (const Json &entry : body.at("results").items()) {
-    const Json &edges = entry.at("trace").at("edges");
-    for (size_t i = 0; i < edges.items().size(); i++) {
-      const long long a = edges.items()[i].items()[0].asInteger();
-      const long long b = edges.items()[i].items()[1].asInteger();
-      CHECK(a != b);
+    long long newest = 0;
+    for (const Json &edge : entry.at("trace").at("edges").items()) {
+      const long long a = edge.items()[0].asInteger();
+      const long long b = edge.items()[1].asInteger();
+      CHECK(a < b);
+      CHECK(b >= newest);
+      newest = b;
+      checked++;
     }
   }
+  CHECK(checked > 0);
 }

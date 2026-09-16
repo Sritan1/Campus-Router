@@ -12,12 +12,9 @@ const Json NULL_VALUE;
 const std::vector<Json> NO_ELEMENTS;
 const std::map<std::string, Json> NO_MEMBERS;
 
-// arrays and objects read each other, so a document of nothing but open
-// brackets recurses once per bracket and runs the stack out. a megabyte
-// of them is plenty to crash on, so cap the nesting well below that.
+// each open bracket recurses once, so a long run of them overflows the stack
 constexpr int MAX_DEPTH = 200;
 
-/// @brief Walks the input text and builds values out of it.
 class Reader {
  public:
   Reader(const std::string &source) : source(source) {}
@@ -98,7 +95,7 @@ bool Reader::readString(std::string &out) {
       case 'r': out.push_back('\r'); break;
       case 't': out.push_back('\t'); break;
       case 'u': {
-        // we do not need real unicode here, so keep the escape as written
+        // no real unicode needed, keep the escape as written
         if (this->at + 4 > this->source.size()) {
           return this->fail("short unicode escape");
         }
@@ -116,9 +113,7 @@ bool Reader::readString(std::string &out) {
 bool Reader::readNumber(Json &out) {
   const size_t began = this->at;
 
-  // taking any run of digits, dots and signs let 1.2.3 and 5e5e5 through,
-  // because strtod reads the front of it and stops without complaining.
-  // this follows the actual shape a json number is allowed to have.
+  // follows the real json number shape. strtod alone let 1.2.3 and 5e5e5 in
   auto digits = [&]() {
     const size_t from = this->at;
     while (this->at < this->source.size() && this->source[this->at] >= '0' &&
@@ -334,7 +329,13 @@ void writeNumber(double value, std::string &into) {
   into += buffer;
 }
 
-void writeValue(const Json &value, std::string &into) {
+// same cap as the reader, so a value built in a loop cannot overflow the stack
+void writeValue(const Json &value, std::string &into, int depth) {
+  if (depth >= MAX_DEPTH) {
+    into += "null";
+    return;
+  }
+
   switch (value.kind()) {
     case Json::Kind::Null:
       into += "null";
@@ -356,7 +357,7 @@ void writeValue(const Json &value, std::string &into) {
           into.push_back(',');
         }
         first = false;
-        writeValue(element, into);
+        writeValue(element, into, depth + 1);
       }
       into.push_back(']');
       return;
@@ -371,7 +372,7 @@ void writeValue(const Json &value, std::string &into) {
         first = false;
         writeEscaped(entry.first, into);
         into.push_back(':');
-        writeValue(entry.second, into);
+        writeValue(entry.second, into, depth + 1);
       }
       into.push_back('}');
       return;
@@ -473,7 +474,7 @@ void Json::set(const std::string &key, Json value) {
 
 std::string Json::dump() const {
   std::string out;
-  writeValue(*this, out);
+  writeValue(*this, out, 0);
   return out;
 }
 
