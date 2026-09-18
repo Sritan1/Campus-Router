@@ -1,8 +1,4 @@
-"""Current conditions from OpenWeatherMap, cached for a while.
-
-Weather is optional. If it is missing or the key is not set, routing
-still works, it just cannot do the weather mode properly.
-"""
+"""Current conditions from OpenWeatherMap, cached. Routing works without it."""
 
 import logging
 import threading
@@ -15,54 +11,33 @@ from api.core.config import settings
 
 log = logging.getLogger("weather")
 
-# roughly the middle of campus
 CAMPUS_LAT = 41.8708
 CAMPUS_LON = -87.6505
 
 URL = "https://api.openweathermap.org/data/2.5/weather"
 
-# One client for the life of the process. Building a fresh one per call
-# costs hundreds of milliseconds, which is the same thing that made every
-# route slow before engine_client started holding onto one.
+# one client for the process, a fresh one per call costs hundreds of ms
 _client = httpx.Client()
-
-# How long to sit still after a failure. Without this, every request in
-# weather mode waits out the whole timeout again while the service is
-# down, and each one of those is a request we already know will fail.
-RETRY_AFTER_S = 60.0
-
 
 class WeatherUnavailable(RuntimeError):
     pass
 
 
 def close() -> None:
-    """Let go of the connection pool on shutdown.
-
-    Puts a fresh client back, because closing one is permanent and the
-    tests start the app more than once in a single process.
-    """
+    # a closed client is dead for good, and tests start the app twice in one process
     global _client
     _client.close()
     _client = httpx.Client()
 
 
 def redact(text: str) -> str:
-    """Takes the api key out of anything before it is written down.
-
-    httpx puts the whole request url in its error messages and ours
-    carries the key as a query parameter, so raw text is never safe.
-    """
+    # httpx error messages include the url, and the url carries the key
     key = settings.openweather_api_key
     return text.replace(key, "REDACTED") if key else text
 
 
 def public_reason(exc: Exception) -> str:
-    """What a stranger is allowed to be told about a failure.
-
-    Fixed strings only. Never the exception text, which is how the key
-    would get out through the weather endpoint.
-    """
+    # fixed strings only, since the exception text can carry the key
     if isinstance(exc, httpx.HTTPStatusError):
         return f"weather service returned {exc.response.status_code}"
     if isinstance(exc, httpx.TimeoutException):
@@ -95,11 +70,10 @@ class WeatherCache:
         try:
             reply = _client.get(URL, params=params, timeout=settings.weather_timeout_s)
             reply.raise_for_status()
-            # a non json 200 is a real failure mode, not something to swallow
+            # a 200 that is not json still counts as a failure
             payload = reply.json()
         except (httpx.HTTPError, ValueError) as exc:
-            # the detail goes to the log with the key taken out, and the
-            # caller only ever gets a fixed string
+            # redacted detail for the log, a fixed string for the caller
             log.warning("weather fetch failed: %s", redact(str(exc)))
             raise WeatherUnavailable(public_reason(exc)) from exc
 
@@ -114,15 +88,14 @@ class WeatherCache:
         }
 
     def _answer_now(self, now: float) -> Optional[dict]:
-        """What we can say without asking, or nothing if we have to go out.
-
-        Callers hold the lock. Raises when the service is known to be down
-        and we have never had a reading to fall back on.
-        """
+        # callers hold the lock. None means go and ask, and it raises when the
+        # service is down with no old reading to fall back on
         if self._value is not None and now - self._fetched_at < settings.weather_ttl_s:
             return dict(self._value, cached=True)
 
-        if now - self._failed_at < RETRY_AFTER_S:
+        # after a failure, sit still so an outage costs one timeout a minute, not one
+        # per visitor. it lets go by itself once retry_after passes
+        if now - self._failed_at < settings.weather_retry_after_s:
             if self._value is not None:
                 # a stale reading beats no reading, but say that it is stale
                 return dict(self._value, cached=True, stale=True)
@@ -131,15 +104,12 @@ class WeatherCache:
         return None
 
     def get(self) -> dict:
-        """Current weather, from cache when it is fresh enough."""
         with self._lock:
             answer = self._answer_now(time.time())
         if answer is not None:
             return answer
 
-        # one caller goes out to the network and the rest wait here, so a
-        # burst of requests after the cache expires is one call and not one
-        # each. whoever gets through leaves the answer behind for them.
+        # one caller goes out and the rest wait here, so a burst is a single call
         with self._fetching:
             with self._lock:
                 answer = self._answer_now(time.time())
@@ -149,9 +119,7 @@ class WeatherCache:
             try:
                 value = self._fetch()
             except WeatherUnavailable as exc:
-                # safe by construction, WeatherUnavailable only ever carries a
-                # fixed string, but redact anyway so a future raiser cannot
-                # quietly put the key back in
+                # always a fixed string today, redacted anyway in case that changes
                 reason = redact(str(exc))
                 with self._lock:
                     self._last_error = reason
@@ -170,7 +138,6 @@ class WeatherCache:
             return dict(value, cached=False)
 
     def get_or_none(self) -> Optional[dict]:
-        """Same, but for callers that can carry on without weather."""
         try:
             return self.get()
         except WeatherUnavailable:

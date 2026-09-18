@@ -18,53 +18,39 @@ MODES = ["shortest", "accessible", "weather"]
 
 
 class RouteRequest(BaseModel):
-    # a building code is a handful of characters and a node id is a
-    # number, so anything long is somebody poking at us
+    # anything longer than this is somebody poking at the api
     start: str = Field(description="building id, code or node id", max_length=120)
     target: str = Field(description="building id, code or node id", max_length=120)
     mode: str = Field(default="shortest", max_length=40)
 
-    # capped and deduplicated below. there are only four, and asking for
-    # the same one five thousand times is five thousand graph searches
-    # on an engine that answers one request at a time.
+    # capped here and deduplicated below, or one request buys thousands of searches
     algorithms: list[str] = Field(
         default_factory=lambda: list(ALGORITHMS), max_length=len(ALGORITHMS)
     )
     trace: bool = False
 
-    # left unset on purpose. thinning drops points, and a path needs both
-    # of its ends, so a limit here quietly shreds the search into pieces.
-    # the engine has a sane cap of its own for absurd cases.
-    #
-    # one at the low end, not zero. the engine reads zero as no limit at
-    # all, which is the opposite of what asking for zero samples looks
-    # like, so leaving it out is the way to say you have no preference.
+    # unset on purpose, since thinning shreds the search. the floor is one because
+    # the engine reads zero as no limit at all
     maxTraceSamples: Optional[int] = Field(default=None, ge=1, le=200_000)
 
 
 @router.get("/buildings")
-def buildings(
-    # folding and substring matching run over every building, so a very
-    # long query is just work with no answer at the end of it
-    q: str = Query(default="", description="search text", max_length=120),
-    limit: int = Query(default=200, ge=1, le=500),
-):
-    """Everything the search box needs."""
+def buildings(limit: int = Query(default=200, ge=1, le=500)):
+    """The whole building list, filtered in the browser."""
     graph_data.load()
-    found = graph_data.search(q, limit) if q else graph_data.buildings[:limit]
+    found = graph_data.buildings[:limit]
     return {"count": len(found), "buildings": [b.as_dict() for b in found]}
 
 
 @router.get("/graph/meta")
 def graph_meta():
-    """Real counts for the map chip, not numbers typed into a mock."""
+    """Graph counts, bounds and the date the map data was downloaded."""
     graph_data.load()
     return {
         "counts": graph_data.meta.get("counts", {}),
         "campusBounds": graph_data.meta.get("campus_bounds"),
         "classes": len(graph_data.classes),
-        # the about page says how old the map data is, and a date read off
-        # the graph itself cannot drift the way a typed one does
+        # read off the graph, so the about page date cannot drift
         "extracted": graph_data.meta.get("extracted"),
     }
 
@@ -99,36 +85,30 @@ def isochrone(request: IsochroneRequest):
     current = weather_cache.get_or_none() if request.mode == "weather" else None
     cost = cost_model.build(request.mode, graph_data.classes, current)
 
-    # the engine works in weighted metres, so a time budget becomes a
-    # distance one through the walking speed the cost model already uses
+    # the engine works in metres, so turn the time budget into a distance
     speed = cost["walkingSpeedMps"]
     limit_m = request.minutes * 60.0 * speed
 
     try:
         reply = engine_client.isochrone(start.node_id, limit_m, cost)
     except engine_client.EngineOutOfDate as exc:
-        # a build problem, so the detail belongs in the log and not in
-        # front of whoever is using the site
+        # a build problem, so the detail goes to the log and not the visitor
         log.error("%s. rebuild the engine and restart the gateway", exc)
         raise HTTPException(503, "This is not available right now.") from exc
     except engine_client.EngineRejected as exc:
-        # the engine is talking to us, not to whoever is using the site.
-        # its wording is about json and node ids and it means we sent
-        # something wrong, so that belongs in the log and not on screen.
+        # engine wording is about json and node ids and means we sent it junk
         log.error("engine rejected the request: %s", exc.message)
         raise HTTPException(exc.status, "We could not work that out.") from exc
     except engine_client.EngineUnavailable as exc:
         log.error("engine unavailable: %s", exc)
         raise HTTPException(503, "The routing service is not responding.") from exc
 
-    # buildings are nodes too, so anything the search reached that has a
-    # negative id is somewhere you could actually walk to
+    # buildings are nodes too, so pick out the ones the search reached
     costs = reply.get("costs", [])
     reached_buildings = []
     for node_id, cost_m in zip(reply.get("ids", []), costs):
         building = graph_data.by_node.get(node_id)
-        # where you already are is not somewhere you can get to, and it
-        # showed up in the list as a one minute walk
+        # the start used to show up as a one minute walk from itself
         if building is not None and building.node_id != start.node_id:
             reached_buildings.append(
                 {**building.as_dict(), "seconds": round(cost_m / speed)}
@@ -163,8 +143,7 @@ def route(request: RouteRequest):
     if not request.algorithms:
         raise HTTPException(400, "Pick at least one algorithm.")
 
-    # asking for the same algorithm twice is work we would do twice, so
-    # keep the first of each and hold the order the caller asked for
+    # keep the first of each, in the order asked
     wanted = list(dict.fromkeys(request.algorithms))
 
     start = graph_data.resolve(request.start)
@@ -174,13 +153,11 @@ def route(request: RouteRequest):
     if target is None:
         raise HTTPException(404, f"We could not find {request.target} on campus.")
 
-    # weather mode needs weather, the others do not care
     current = weather_cache.get_or_none() if request.mode == "weather" else None
     cost = cost_model.build(request.mode, graph_data.classes, current)
 
     if request.mode == "weather" and current is None:
-        # the panels print these word for word, and the other two live in
-        # cost_model.py, so this one has to match their voice
+        # shown word for word, so match the voice of the notes in cost_model
         cost["notes"].append("Weather is unavailable. Routing on shortest distance instead.")
 
     try:
@@ -193,14 +170,9 @@ def route(request: RouteRequest):
             max_trace_samples=request.maxTraceSamples,
         )
     except engine_client.EngineOutOfDate as exc:
-        # a build problem, so the detail belongs in the log and not in
-        # front of whoever is using the site
         log.error("%s. rebuild the engine and restart the gateway", exc)
         raise HTTPException(503, "This is not available right now.") from exc
     except engine_client.EngineRejected as exc:
-        # the engine is talking to us, not to whoever is using the site.
-        # its wording is about json and node ids and it means we sent
-        # something wrong, so that belongs in the log and not on screen.
         log.error("engine rejected the request: %s", exc.message)
         raise HTTPException(exc.status, "We could not work that route out.") from exc
     except engine_client.EngineUnavailable as exc:
@@ -212,17 +184,15 @@ def route(request: RouteRequest):
     for entry in engine_reply.get("results", []):
         item = dict(entry)
         if entry.get("status") == "ok" and entry.get("distanceM") is not None:
-            # in weather mode the weighted cost is already the slower walk,
-            # so timing the plain distance would reroute you around ice and
-            # then promise the same time as bare pavement
+            # weather mode times the weighted cost, or it would route around ice
+            # and still promise the bare pavement time
             metres = entry["distanceM"]
             if cost.get("speedDerived") and entry.get("cost") is not None:
                 metres = entry["cost"]
             item["estSeconds"] = round(metres / speed)
         results.append(item)
 
-    # walking directions describe one route, so they follow whichever
-    # exact algorithm answered. the three of them agree on cost anyway.
+    # directions follow the first exact algorithm, they all agree on cost anyway
     guide = None
     for item in results:
         if item.get("status") == "ok" and item.get("algorithm") != "bfs":
@@ -249,8 +219,7 @@ def route(request: RouteRequest):
             "blockedClasses": len(cost["blocked"]),
             "adjustedClasses": len(cost["multipliers"]),
             "walkingSpeedMps": speed,
-            # says whether estSeconds was timed on the weighted walk or
-            # the plain one, which is the difference between the modes
+            # whether estSeconds used the weighted walk or the plain one
             "speedDerived": cost["speedDerived"],
         },
         "weather": current,

@@ -1,4 +1,4 @@
-﻿"""Settings for the gateway. Everything comes from the environment."""
+"""Settings for the gateway. Everything comes from the environment."""
 
 import os
 from pathlib import Path
@@ -7,8 +7,7 @@ from dotenv import load_dotenv
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# a local convenience only. real deployments set real environment
-# variables, and those win because this does not override them.
+# local convenience. real env vars win, since this never overrides them
 load_dotenv(REPO_ROOT / "api" / ".env")
 
 
@@ -26,8 +25,7 @@ class Settings:
     def __init__(self) -> None:
         self.log_level = _env("LOG_LEVEL", "INFO").upper()
 
-        # the engine listens on loopback only so it is never reachable
-        # from outside the container
+        # loopback only, so the engine is never reachable from outside the container
         self.engine_bind_host = _env("ENGINE_BIND_HOST", "127.0.0.1")
         self.engine_port = int(_env("ENGINE_PORT", "8081"))
         self.engine_binary = _env("ENGINE_BINARY", _engine_binary_default())
@@ -39,7 +37,6 @@ class Settings:
             "GRAPH_JSON_PATH", str(REPO_ROOT / "api" / "data" / "graph.json")
         )
 
-        # how long we wait for a freshly spawned engine to answer healthz
         self.engine_startup_timeout_s = float(_env("ENGINE_STARTUP_TIMEOUT_S", "20"))
         self.engine_restart_backoff_s = float(_env("ENGINE_RESTART_BACKOFF_S", "10"))
 
@@ -47,11 +44,13 @@ class Settings:
         self.weather_ttl_s = float(_env("WEATHER_TTL_S", "600"))
         self.weather_timeout_s = float(_env("WEATHER_TIMEOUT_S", "6"))
 
+        # how long weather sits still after a failure before asking again
+        self.weather_retry_after_s = float(_env("WEATHER_RETRY_AFTER_S", "60"))
+
         self.rate_limit = _env("RATE_LIMIT", "60/minute")
 
-        # only turn this on when something trustworthy really is in front
-        # of us, like railway. anyone can send x forwarded for, so trusting
-        # it without a proxy hands out a free way past the rate limit.
+        # only behind a trusted proxy like railway. anyone can send x forwarded for,
+        # so trusting it without one is a free way past the rate limit
         self.trust_proxy_headers = _env("TRUST_PROXY_HEADERS", "false").lower() in (
             "1",
             "true",

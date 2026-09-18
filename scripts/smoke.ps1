@@ -1,7 +1,4 @@
-# Drives a running stack and checks the things unit tests cannot see.
-#
-# Start the backend first, then run this. It exits non zero if anything
-# it checks is wrong.
+# checks a running stack for what unit tests cannot see. start the backend first
 
 param([string]$Api = "http://127.0.0.1:8000")
 
@@ -38,21 +35,20 @@ Check "graph looks like campus" ($meta.counts.nodes -gt 16000 -and $meta.counts.
 Write-Host "`ntraces arrive whole" -ForegroundColor Cyan
 $traced = Route "ARC" "SES" "shortest" $true
 
-# the engine is compiled once at startup and never rebuilds itself, so
-# an old binary can be serving while the source has moved on
+# the engine is compiled once at startup, so an old binary can outlive the source
 $hasDropped = $traced.results[0].trace.PSObject.Properties.Name -contains "droppedEdges"
 Check "engine is not a stale binary" $hasDropped "no droppedEdges field, rebuild and restart the backend"
 
 foreach ($r in $traced.results) {
-    # a thinned trace loses roughly the square of what it looks like,
-    # because a path needs both of its ends
+    # a thinned trace loses edges roughly squared, since an edge needs both ends
     Check "$($r.algorithm) not thinned" (-not $r.trace.sampled) "sampled=$($r.trace.sampled)"
     if ($hasDropped) {
         Check "$($r.algorithm) kept every path" ($r.trace.droppedEdges -eq 0) `
             "dropped $($r.trace.droppedEdges)"
     }
-    Check "$($r.algorithm) has more paths than points" `
-        ($r.trace.edges.Count -ge $r.trace.points.Count - 1) `
+    # a tree of best routes has one edge fewer than points, the explored network has more
+    Check "$($r.algorithm) explored more than a tree" `
+        ($r.trace.edges.Count -gt $r.trace.points.Count - 1) `
         "$($r.trace.edges.Count) edges, $($r.trace.points.Count) points"
 }
 
@@ -66,8 +62,7 @@ foreach ($p in $pairs) {
     $short = Route $p[0] $p[1] "shortest" $false
     $exact = $short.results | Where-Object { $_.algorithm -ne "bfs" -and $_.status -eq "ok" }
 
-    # the three exact algorithms have to agree on real data too, not
-    # just on the random graphs the engine tests use
+    # the exact algorithms have to agree on real data, not just random test graphs
     $costs = $exact | ForEach-Object { [math]::Round($_.cost, 3) } | Select-Object -Unique
     Check "$($p[0]) to $($p[1]) exact algorithms agree" ($costs.Count -le 1) ($costs -join ", ")
 
@@ -102,13 +97,18 @@ Check "unknown algorithm is a 400" `
 Check "no algorithms is a 400" `
     ((Status '{"start":"SEO","target":"LCC","algorithms":[]}') -eq 400) "wrong status"
 
-Write-Host "`nsearch" -ForegroundColor Cyan
-Check "a code finds its building" `
-    ((Invoke-RestMethod "$Api/api/buildings?q=seo").buildings[0].abbr -eq "SEO") "wrong first hit"
-Check "and spelled with and instead of an ampersand" `
-    ((Invoke-RestMethod "$Api/api/buildings?q=science and engineering offices").count -ge 1) "no hits"
-Check "nonsense finds nothing" `
-    ((Invoke-RestMethod "$Api/api/buildings?q=zzzznope").count -eq 0) "unexpected hits"
+Write-Host "`nbuilding list" -ForegroundColor Cyan
+# search runs in the browser now, so the endpoint only hands over the list
+function GetStatus($url) {
+    try {
+        Invoke-WebRequest $url -UseBasicParsing | Out-Null
+        return 200
+    } catch { return $_.Exception.Response.StatusCode.value__ }
+}
+$all = Invoke-RestMethod "$Api/api/buildings?limit=500"
+Check "the list is the whole campus" ($all.count -eq 113) "$($all.count) buildings"
+Check "a limit is respected" ((Invoke-RestMethod "$Api/api/buildings?limit=5").count -eq 5) "wrong count"
+Check "a silly limit is refused" ((GetStatus "$Api/api/buildings?limit=5000") -eq 422) "wrong status"
 
 Write-Host ""
 if ($failures.Count -eq 0) {

@@ -9,11 +9,7 @@ from api.services.graph_data import graph_data
 
 @pytest.fixture(scope="module")
 def client():
-    """The api without the engine subprocess.
-
-    The gateway normally launches the engine on startup. Here we build a
-    bare app with just the routes so the tests stay fast and offline.
-    """
+    # just the routes, no engine subprocess, so this stays fast and offline
     from fastapi import FastAPI
 
     app = FastAPI()
@@ -51,38 +47,24 @@ def test_buildings_returns_the_whole_list(client):
     assert any(b["abbr"] == "SEO" for b in body["buildings"])
 
 
-def test_buildings_search_by_name(client):
-    body = client.get("/api/buildings", params={"q": "lecture"}).json()
-    names = [b["name"] for b in body["buildings"]]
-    assert len(names) >= 6
-    assert all("Lecture" in name for name in names)
+def test_buildings_respects_the_limit(client):
+    body = client.get("/api/buildings", params={"limit": 5}).json()
+    assert body["count"] == 5
+    assert len(body["buildings"]) == 5
 
 
-def test_buildings_search_by_code_puts_the_exact_match_first(client):
-    body = client.get("/api/buildings", params={"q": "seo"}).json()
-    assert body["buildings"][0]["abbr"] == "SEO"
-
-
-def test_buildings_search_ignores_ampersand_spelling(client):
-    body = client.get("/api/buildings", params={"q": "science and engineering"}).json()
-    assert body["count"] >= 1
-
-
-def test_buildings_search_with_no_hits_is_empty_not_an_error(client):
-    body = client.get("/api/buildings", params={"q": "zzzz nothing"}).json()
-    assert body["count"] == 0
-    assert body["buildings"] == []
+def test_buildings_refuses_a_silly_limit(client):
+    assert client.get("/api/buildings", params={"limit": 5000}).status_code == 422
+    assert client.get("/api/buildings", params={"limit": 0}).status_code == 422
 
 
 def test_graph_meta_reports_real_counts(client):
     body = client.get("/api/graph/meta").json()
-    # both campuses since round 18, so roughly double what it was
     assert body["counts"]["nodes"] > 16000
     assert body["counts"]["buildings"] == 113
 
 
 def weighted_reply():
-    """A walk where the weather made the going slower than the distance."""
     return fake_engine_reply(
         results=[
             {
@@ -121,11 +103,7 @@ def test_weather_times_the_slower_walk_and_not_the_bare_distance(client, monkeyp
 
 
 def test_accessible_times_the_real_distance(client, monkeypatch):
-    """The 1.5 on rough ground is a preference, not a measured speed.
-
-    Timing the weighted cost there would invent a slower walk out of a
-    routing nudge.
-    """
+    """The 1.5 on rough ground is a preference, so it must not slow the time."""
     def capture(start, target, algorithms, cost, trace=False, max_trace_samples=None):
         return weighted_reply()
 
@@ -150,11 +128,7 @@ def test_shortest_is_unaffected(client, monkeypatch):
 
 
 def test_weather_failure_never_shows_the_api_key(client, monkeypatch):
-    """The one that could actually lose something.
-
-    httpx puts the whole request url in its error text and ours carries
-    the key, so the public reason has to be a fixed string.
-    """
+    """httpx error text carries the url, and the url carries the key."""
     import httpx
 
     from api.services import weather as weather_module
@@ -162,9 +136,7 @@ def test_weather_failure_never_shows_the_api_key(client, monkeypatch):
     secret = "SUPERSECRETKEY1234567890abcdef"
     monkeypatch.setattr(weather_module.settings, "openweather_api_key", secret)
 
-    # let httpx build the error itself, since the leak is that its own
-    # message carries the whole url. constructing one by hand would test
-    # nothing.
+    # let httpx build the error, since the leak is in its own message
     request = httpx.Request("GET", f"https://api.openweathermap.org/x?appid={secret}")
     response = httpx.Response(401, request=request)
     try:
@@ -177,8 +149,7 @@ def test_weather_failure_never_shows_the_api_key(client, monkeypatch):
     def explode(*args, **kwargs):
         raise boom
 
-    # the module holds one client now, so patching httpx.get globally no
-    # longer intercepts anything and the patch has to go on the client
+    # the module holds one client, so patch that rather than httpx
     monkeypatch.setattr(weather_module._client, "get", explode)
     fresh = weather_module.WeatherCache()
     monkeypatch.setattr(weather_module, "weather_cache", fresh)
@@ -193,15 +164,13 @@ def test_weather_failure_never_shows_the_api_key(client, monkeypatch):
 def test_redact_takes_the_key_out_of_anything(monkeypatch):
     from api.services import weather as weather_module
 
-    # settings is the one the whole app shares, so setting it directly
-    # leaves the fake key in place for every test that runs after this
+    # settings is shared, so a direct set would leak into later tests
     monkeypatch.setattr(weather_module.settings, "openweather_api_key", "abc123")
     assert weather_module.redact("url?appid=abc123&x=1") == "url?appid=REDACTED&x=1"
 
 
 def test_a_failing_weather_service_is_not_asked_again_straight_away():
-    """Every weather request waits out the whole timeout before giving up,
-    so asking again on each one turns a dead service into a slow site."""
+    """Asking a dead service on every request turns an outage into a slow site."""
     from api.services import weather as weather_module
 
     cache = weather_module.WeatherCache()
@@ -219,11 +188,7 @@ def test_a_failing_weather_service_is_not_asked_again_straight_away():
 
 
 def test_the_hold_after_a_failure_lets_go_again():
-    """The other half of the test above, and the half that matters more.
-
-    A hold that never expires is weather being dead until somebody
-    restarts the gateway, and the test above would not notice.
-    """
+    """A hold that never lets go leaves weather dead until a restart."""
     from api.services import weather as weather_module
 
     cache = weather_module.WeatherCache()
@@ -243,22 +208,21 @@ def test_the_hold_after_a_failure_lets_go_again():
     assert len(calls) == 1
 
     # wind the failure back so the hold has run out, rather than sleeping
-    cache._failed_at -= weather_module.RETRY_AFTER_S + 1
+    cache._failed_at -= weather_module.settings.weather_retry_after_s + 1
 
     assert cache.get_or_none() is None, "it should have gone out and failed again"
     assert len(calls) == 2, "the hold never let go"
 
     # and it recovers on its own once the service comes back
     working[0] = True
-    cache._failed_at -= weather_module.RETRY_AFTER_S + 1
+    cache._failed_at -= weather_module.settings.weather_retry_after_s + 1
     reading = cache.get_or_none()
     assert reading is not None and reading["tempC"] == 3.0
     assert cache._failed_at == 0.0, "a good reading has to clear the failure"
 
 
 def test_only_one_caller_goes_out_when_the_cache_is_cold():
-    """A burst of requests after the cache expires used to be one call to
-    openweathermap each, which is a good way to spend the free tier."""
+    """A burst on a cold cache used to be one call to openweathermap each."""
     import threading
     import time as clock
 
@@ -324,7 +288,7 @@ def test_route_rejects_an_absurd_trace_cap(client):
 
 
 def guarded_app():
-    """The shared fixture is a bare app, so mount the guard on its own."""
+    # the shared fixture has no middleware, so mount the guard alone
     from fastapi import FastAPI
 
     from api.main import MAX_BODY_BYTES, BodySizeLimit
@@ -349,7 +313,7 @@ def test_a_huge_body_is_refused():
 
 
 def test_a_body_that_hides_its_size_is_also_refused():
-    """Chunked sends no content-length, and used to walk straight past."""
+    """A chunked body sends no content length and used to walk straight past."""
     client, cap = guarded_app()
 
     def chunks():
@@ -371,11 +335,7 @@ def test_a_lying_content_length_is_refused():
 
 
 def drive_body_guard(messages):
-    """Runs the guard over a fixed list of asgi messages.
-
-    The test client cannot hang up in the middle of a body, so this talks
-    to the middleware directly the way the rate limit tests do.
-    """
+    # the test client cannot hang up mid body, so drive the middleware directly
     import asyncio
 
     from api.main import MAX_BODY_BYTES, BodySizeLimit
@@ -405,11 +365,7 @@ def drive_body_guard(messages):
 
 
 def test_a_caller_that_hangs_up_stays_hung_up():
-    """Half a body used to be replayed as if it were the whole thing.
-
-    That sent us off doing a full search for somebody who had already
-    gone, because nothing downstream could tell the difference.
-    """
+    """Half a body used to be replayed as the whole thing."""
     seen = drive_body_guard(
         [
             {"type": "http.request", "body": b"x" * 100, "more_body": True},
@@ -430,11 +386,7 @@ def test_a_whole_body_still_arrives_whole():
 
 
 def test_closing_a_client_leaves_a_usable_one():
-    """Closing an httpx client is permanent, so close puts a fresh one back.
-
-    Without this the app can only be started once per process, which the
-    tests break the moment they start it twice.
-    """
+    """Closing is permanent, and the app has to start twice in one process."""
     from api.services import engine_client, engine_process, weather
 
     for module in (engine_client, engine_process, weather):
@@ -444,21 +396,12 @@ def test_closing_a_client_leaves_a_usable_one():
         assert first.is_closed
         assert not module._client.is_closed
 
-        # and doing it twice must not blow up either
         module.close()
         assert not module._client.is_closed
 
 
-def test_search_refuses_an_enormous_query(client):
-    assert client.get("/api/buildings", params={"q": "a" * 5000}).status_code == 422
-
-
 def test_the_rate_limiter_actually_limits():
-    """It never did, on any route added by include_router.
-
-    Fastapi wraps those in a router object with no endpoint attribute, so
-    slowapi's route lookup found nothing and called every request exempt.
-    """
+    """slowapi never limited any route added by include_router."""
     from fastapi import FastAPI
 
     from api.main import RateLimit
@@ -486,15 +429,12 @@ def test_the_window_reopens():
     guard = RateLimit(None, limit=2, window_s=10.0)
     assert guard.allow("a", 100.0) and guard.allow("a", 100.1)
     assert not guard.allow("a", 100.2)
-    # a different caller has their own allowance
     assert guard.allow("b", 100.2)
-    # and the window comes round again
     assert guard.allow("a", 111.0)
 
 
 def test_forwarded_for_uses_the_entry_our_proxy_added():
-    """The first entry is whatever the caller typed, so keying on it would
-    hand a fresh allowance to anyone who sends the header."""
+    """The first entry is whatever the caller typed."""
     from api import main
 
     def scope(value):
@@ -507,13 +447,12 @@ def test_forwarded_for_uses_the_entry_our_proxy_added():
         assert main.client_address(scope("9.9.9.9")) == "9.9.9.9"
     finally:
         main.settings.trust_proxy_headers = False
-    # and without a proxy in front we ignore the header entirely
+    # no proxy, so the header is ignored
     assert main.client_address(scope("1.2.3.4")) == "10.0.0.1"
 
 
 def test_forwarded_for_reads_every_line_of_the_header():
-    """A caller who sends their own gets a second header line, not a longer
-    one, and reading only the first line handed them a fresh allowance."""
+    """A forged header arrives as a second line, not a longer one."""
     from api import main
 
     forged = {
@@ -533,8 +472,7 @@ def test_forwarded_for_reads_every_line_of_the_header():
 
 
 def test_the_rate_limit_table_cannot_grow_without_end():
-    """Expiring old entries alone never shrinks a table where everyone is
-    current, which is what an attacker with many addresses produces."""
+    """Lots of current addresses must not grow the table forever."""
     from api.main import MAX_TRACKED, RateLimit
 
     guard = RateLimit(None, limit=20, window_s=60.0)
@@ -612,18 +550,12 @@ def test_route_passes_the_cost_model_to_the_engine(client, monkeypatch):
     )
 
     assert reply.status_code == 200
-    # steps really are blocked on the way through
     assert any("steps" in blocked for blocked in seen["cost"]["blocked"])
     assert seen["start"] == -664275388
 
 
 def test_route_does_not_cap_the_trace_by_default(client, monkeypatch):
-    """The gateway must not quietly shrink the search.
-
-    Thinning drops points, and a path needs both of its ends, so a cap
-    here loses roughly the square of what it looks like. A default of
-    1500 here once cut dijkstra down to 17% of its own search.
-    """
+    """A default of 1500 here once cut dijkstra to 17 percent of its search."""
     seen = {}
 
     def capture(start, target, algorithms, cost, trace=False, max_trace_samples=None):
@@ -653,11 +585,7 @@ def test_route_still_passes_a_cap_when_one_is_asked_for(client, monkeypatch):
 
 
 def test_engine_client_omits_the_cap_rather_than_sending_a_null(monkeypatch):
-    """The engine reads a missing key as its own default.
-
-    Sending null instead would not parse as a number and the cap would
-    be silently ignored, which is a different bug with the same look.
-    """
+    """A null would not parse as a number, so the cap would be quietly ignored."""
     sent = {}
 
     class Reply:
@@ -671,8 +599,7 @@ def test_engine_client_omits_the_cap_rather_than_sending_a_null(monkeypatch):
         sent.update(json)
         return Reply()
 
-    # the client is built once and reused, so patch the instance rather
-    # than httpx itself
+    # patch the shared client, not httpx
     monkeypatch.setattr(engine_client._client, "post", fake_post)
     engine_client.route(-1, -2, ["astar"], {"multipliers": {}, "blocked": []}, trace=True)
 
@@ -704,7 +631,6 @@ def test_route_keeps_no_path_as_a_normal_answer(client, monkeypatch):
     )
     assert reply.status_code == 200
     assert reply.json()["results"][0]["status"] == "no_path"
-    # nothing to estimate a time for
     assert "estSeconds" not in reply.json()["results"][0]
 
 
