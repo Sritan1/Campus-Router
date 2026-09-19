@@ -1,16 +1,9 @@
-"""Checks the walking directions read like directions.
-
-The awkward parts are all merging. Openstreetmap splits one road
-crossing into several tiny pieces and a straight path into many short
-edges, and saying all of those out loud would be useless.
-"""
+"""Walking directions. Most of the trouble is in the merging."""
 
 from api.services import directions
 
 
 class FakeGraph:
-    """Just enough of the graph to walk a made up route."""
-
     def __init__(self, edges):
         self.store = {}
         for u, v, length, tags in edges:
@@ -31,8 +24,7 @@ class FakeBuilding:
         self.lon = lon
 
 
-# a tenth of a degree of latitude is about eleven kilometres, so these
-# stay small enough to feel like campus
+# each step is about eleven metres, so these stay campus sized
 def north(base, steps):
     return [(base + 0.0001 * i, 0.0) for i in range(steps)]
 
@@ -190,12 +182,7 @@ def test_share_on_footpath_ignores_the_building_links():
 
 
 def test_short_zigzags_still_count_as_turns():
-    """The count describes the route, not the tidied up list.
-
-    Short legs get folded out of the step list to keep it readable. They
-    used to be folded out of the turn count as well, which reported one
-    turn for a path that visibly zigzags eleven times.
-    """
+    """Short legs fold out of the list but used to fold out of the turn count too."""
     # four hard corners, each leg too short to earn its own line
     points = [
         (0.0, 0.0),

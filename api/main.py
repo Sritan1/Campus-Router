@@ -1,7 +1,4 @@
-"""Campus Router gateway.
-
-Public API for the frontend. It also owns the C++ engine process.
-"""
+"""Campus Router gateway. The public api for the frontend, and owner of the engine process."""
 
 import logging
 from contextlib import asynccontextmanager
@@ -34,8 +31,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         engine.stop()
-        # all three of these hold a connection pool for the life of the
-        # process, so shutting down without letting go leaves sockets open
+        # each holds a connection pool, so let go of them on the way out
         engine_client.close()
         engine_process.close()
         weather.close()
@@ -43,19 +39,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Campus Router API", version="0.1.0", lifespan=lifespan)
 
-# nothing we accept is bigger than a few hundred bytes, and starlette
-# will happily read a body until it runs out of memory otherwise
+# real bodies are a few hundred bytes, and starlette reads until memory runs out
 MAX_BODY_BYTES = 64 * 1024
 
 
+# counts the bytes itself, since a chunked request sends no content length
 class BodySizeLimit:
-    """Refuses a body over the cap, whether or not it says how big it is.
-
-    Trusting content-length alone is not enough. A chunked request does
-    not send one at all, and a first version of this let half a megabyte
-    walk straight past because of it.
-    """
-
     def __init__(self, app, max_bytes: int) -> None:
         self.app = app
         self.max_bytes = max_bytes
@@ -78,16 +67,12 @@ class BodySizeLimit:
             except ValueError:
                 return await self._refuse(send, 400, "We could not read that request.")
 
-        # read it ourselves so an undeclared body is counted too. ours are
-        # a few hundred bytes, so holding one is not a problem.
         chunks: list[bytes] = []
         seen = 0
         gone = False
         while True:
             message = await receive()
-            # a caller that hung up halfway has to stay hung up. replaying
-            # what arrived as a whole body would send us off doing a search
-            # for somebody who is not there any more.
+            # a caller that hung up halfway stays hung up, or we search for nobody
             if message["type"] == "http.disconnect":
                 gone = True
                 break
@@ -117,12 +102,7 @@ DEFAULT_RATE = (60, 60.0)
 
 
 def parse_rate(text: str) -> tuple[int, float]:
-    """Turns something like 60/minute into a count and a window.
-
-    A value we cannot read falls back instead of raising, because this
-    runs at import and a typo in an env var would otherwise be a crash
-    loop rather than a bad setting.
-    """
+    # runs at import, so a bad value falls back rather than crash looping the app
     windows = {"second": 1.0, "minute": 60.0, "hour": 3600.0, "day": 86400.0}
 
     # only the first rule counts, and the word per reads the same as a slash
@@ -138,16 +118,10 @@ def parse_rate(text: str) -> tuple[int, float]:
 
 
 def client_address(scope) -> str:
-    """Who to count a request against.
-
-    Behind railway every connection arrives from the proxy, so the socket
-    address is the same for everybody and one caller could use up the
-    allowance for the whole site.
-    """
+    # behind railway the socket address is always the proxy
     if settings.trust_proxy_headers:
-        # a caller can send this header too, and anything they wrote lands
-        # in front of what our proxy appended, so read every line of it
-        # and take the last entry rather than the first one we come across.
+        # callers can send this header too and our proxy appends to it, so read
+        # every line and take the last entry
         parts: list[str] = []
         for name, value in scope.get("headers") or []:
             if name == b"x-forwarded-for":
@@ -159,26 +133,14 @@ def client_address(scope) -> str:
     return client[0] if client else "unknown"
 
 
-# how many callers we hold counts for, and what a sweep leaves behind.
-# expiring old entries alone cannot shrink a table where everybody is
-# current, so there has to be a ceiling as well.
+# expiring alone cannot shrink a table where everyone is current, so cap it too
 MAX_TRACKED = 20000
 KEEP_AFTER_SWEEP = 15000
 
 
+# hand rolled because slowapi called every include_router route exempt, since
+# fastapi wraps those in objects with no endpoint
 class RateLimit:
-    """A fixed window limit per caller, counted here rather than by a library.
-
-    slowapi did this until fastapi started wrapping included routers.
-    Its middleware looks the route handler up in `app.routes`, finds a
-    wrapper object with no endpoint on it, and treats the request as
-    exempt, so every route added by `include_router` was unlimited and
-    said nothing about it. Counting here needs no route lookup at all.
-
-    One process holds its own counts, so several workers each allow the
-    limit. That is fine for what this protects against.
-    """
-
     def __init__(self, app, limit: int, window_s: float) -> None:
         self.app = app
         self.limit = limit
@@ -187,15 +149,9 @@ class RateLimit:
         self._swept_at = 0.0
 
     def _sweep(self, now: float) -> None:
-        """Drops callers we no longer need to count.
-
-        Expiring the old ones is usually enough, but a burst of addresses
-        can all be current at once, so there is a hard ceiling too.
-        """
         self.seen = {k: v for k, v in self.seen.items() if now - v[0] < self.window_s}
         if len(self.seen) > MAX_TRACKED:
-            # oldest windows go first, and it drops well under the ceiling
-            # so the next sweep is a long way off and this stays cheap
+            # drop well under the ceiling so the next sweep is a long way off
             newest = sorted(self.seen.items(), key=lambda kv: kv[1][0], reverse=True)
             self.seen = dict(newest[:KEEP_AFTER_SWEEP])
 
@@ -206,8 +162,7 @@ class RateLimit:
         count += 1
         self.seen[key] = (started, count)
 
-        # sweeping walks the whole table, so it runs on a timer or when the
-        # table is too big, never on every request
+        # sweeping walks the whole table, so not on every request
         if len(self.seen) > MAX_TRACKED or now - self._swept_at >= self.window_s:
             self._swept_at = now
             self._sweep(now)
@@ -218,8 +173,6 @@ class RateLimit:
             return await self.app(scope, receive, send)
 
         if not self.allow(client_address(scope), time.monotonic()):
-            # says what to do about it, since a count and a window is not
-            # something anyone reading it can act on
             response = JSONResponse(
                 {"detail": "Too many requests. Wait a moment and try again."},
                 status_code=429,
@@ -231,24 +184,18 @@ class RateLimit:
 
 _limit, _window = parse_rate(settings.rate_limit)
 
-# these are added inside out, because add_middleware puts each new one in
-# front of the last. so the order below is back to front and the stack
-# ends up cors, then the limit, then the body cap, then gzip and routes.
+# add_middleware puts each new one in front, so this reads back to front.
+# the real order is cors, the limit, the body cap, then gzip and routes
 
-# a race with traces is a few hundred kilobytes of coordinates, which
-# is mostly repeated digits and squashes down a long way
+# race traces are mostly repeated digits and compress well
 app.add_middleware(GZipMiddleware, minimum_size=2000)
 
 app.add_middleware(BodySizeLimit, max_bytes=MAX_BODY_BYTES)
 
-# the api is public and read only, so there is nothing to log in to.
-# a per address limit is all the protection it needs. it sits outside the
-# body cap so a throttled caller is turned away before we read anything.
+# outside the body cap so a throttled caller is turned away before any reading
 app.add_middleware(RateLimit, limit=_limit, window_s=_window)
 
-# outermost on purpose. a 429 or a 413 with no cors headers on it is
-# unreadable to the browser, which then reports a network error instead
-# of the reason we went to the trouble of sending.
+# outermost, since a 429 or 413 without cors headers reads as a network error
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
@@ -261,10 +208,7 @@ app.include_router(routing_router)
 
 @app.get("/api/health")
 def health():
-    """Railway checks this, so it has to include the engine.
-
-    A green container with a dead engine would be a lie.
-    """
+    """Railway checks this, so a dead engine has to fail it."""
     engine_ok = engine.healthy()
     body = {
         "ok": engine_ok,

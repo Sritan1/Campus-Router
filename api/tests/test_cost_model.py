@@ -35,7 +35,7 @@ def test_accessible_discourages_rough_without_blocking_it():
 
 
 def test_multipliers_are_never_below_one():
-    """The engine's A star heuristic depends on this."""
+    """The a star heuristic in the engine depends on this."""
     for mode in ("shortest", "accessible", "weather"):
         for weather in (None, {"tempC": -5, "condition": "Snow"},
                         {"tempC": -5, "condition": "Rain"},

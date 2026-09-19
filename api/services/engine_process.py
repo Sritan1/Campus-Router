@@ -1,8 +1,4 @@
-"""Starts the C++ engine as a child process and keeps it alive.
-
-Railway watches the container, not the engine inside it, so the
-gateway has to do this itself.
-"""
+"""Keeps the engine running as a child, since Railway only watches the container."""
 
 import logging
 import subprocess
@@ -16,17 +12,12 @@ from api.core.config import settings
 
 log = logging.getLogger("engine")
 
-# health gets asked often, and building a fresh client each time costs
-# hundreds of milliseconds. same reason as the one in engine_client.
+# health is asked often, so hold one client like engine_client does
 _client = httpx.Client(timeout=settings.engine_timeout_s)
 
 
 def close() -> None:
-    """Let go of the connection pool on shutdown.
-
-    Puts a fresh client back, because closing one is permanent and the
-    tests start the app more than once in a single process.
-    """
+    # see engine_client.close
     global _client
     _client.close()
     _client = httpx.Client(timeout=settings.engine_timeout_s)
@@ -46,7 +37,6 @@ class EngineProcess:
         return proc is not None and proc.poll() is None
 
     def healthy(self) -> bool:
-        """True only when the child is up and actually answering."""
         if not self.is_running():
             return False
         return self._ping()
@@ -83,7 +73,6 @@ class EngineProcess:
         return child
 
     def _pump_output(self) -> None:
-        """Copies engine output into our logs so a crash is visible."""
         proc = self._proc
         if proc is None or proc.stdout is None:
             return
@@ -101,7 +90,6 @@ class EngineProcess:
         return False
 
     def start(self) -> None:
-        """Spawns the engine and blocks until it answers."""
         with self._lock:
             self._stopping = False
             self._spawn()
@@ -119,7 +107,6 @@ class EngineProcess:
         self._monitor.start()
 
     def _watch(self) -> None:
-        """Restarts the engine if it dies, backing off each time."""
         backoff = 0.5
         while not self._stopping:
             time.sleep(0.5)
@@ -143,8 +130,7 @@ class EngineProcess:
                 else:
                     self.last_error = "engine restarted but never answered"
             except OSError as exc:
-                # health is public, and an OSError carries the path it
-                # failed on, so the detail stays in the log
+                # health is public and an OSError carries the path, so keep it in the log
                 self.last_error = "could not restart the engine"
                 log.error("could not restart engine: %s", exc)
 

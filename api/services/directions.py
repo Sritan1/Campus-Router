@@ -1,20 +1,12 @@
-"""Turns a route into something a person can follow.
-
-Everything here comes off the graph we already built. Where the data
-does not say something we leave it out rather than guessing, which is
-why steps say a distance and a heading more often than a street name.
-"""
+"""Turns a route into stats and steps, using only what the graph actually says."""
 
 import math
 from typing import Optional
 
-# how sharp a bend has to be before it counts as a turn. edges are about
-# seven metres long, so a small angle here turns ordinary path wiggle
-# into a list of imaginary turns.
+# edges are about seven metres, so a small angle turns path wiggle into fake turns
 TURN_DEGREES = 50.0
 
-# a walking step shorter than this is not worth its own line, so its
-# distance gets folded into the step before it
+# shorter walking steps fold into the one before
 MIN_STEP_M = 30.0
 
 COMPASS = [
@@ -26,7 +18,6 @@ FOOTPATH = {"footway", "path", "pedestrian", "steps", "corridor"}
 
 
 def bearing(a: tuple, b: tuple) -> float:
-    """Compass bearing from one point to another, in degrees."""
     lat1, lon1 = math.radians(a[0]), math.radians(a[1])
     lat2, lon2 = math.radians(b[0]), math.radians(b[1])
     dlon = lon2 - lon1
@@ -36,12 +27,10 @@ def bearing(a: tuple, b: tuple) -> float:
 
 
 def compass(degrees: float) -> str:
-    """Nearest of the eight directions people actually say."""
     return COMPASS[int((degrees + 22.5) % 360.0 // 45.0)]
 
 
 def turn_size(before: float, after: float) -> float:
-    """How far the heading changed, ignoring which way it went."""
     change = abs(after - before) % 360.0
     return 360.0 - change if change > 180.0 else change
 
@@ -55,7 +44,6 @@ def kind_of(tags: dict) -> str:
 
 
 def _legs(path: list, points: list, graph) -> list:
-    """Pairs each leg of the route up with the edge it used."""
     legs = []
     for i in range(len(path) - 1):
         edge = graph.edge_between(path[i], path[i + 1])
@@ -73,11 +61,8 @@ def _legs(path: list, points: list, graph) -> list:
 
 
 def _runs(legs: list) -> list:
-    """Groups legs into the things a person would actually be told.
-
-    Openstreetmap splits one road crossing into several tiny pieces, and
-    a straight path into many short edges, so both get merged back.
-    """
+    # osm splits a crossing into tiny pieces and a straight path into short
+    # edges, so both get merged back
     runs = []
     for leg in legs:
         kind = kind_of(leg["tags"])
@@ -111,11 +96,7 @@ def _runs(legs: list) -> list:
 
 
 def _fold_short(runs: list) -> list:
-    """Drops walking runs too short to be worth saying.
-
-    Their distance goes onto the step before them, so the numbers still
-    add up to the length of the route.
-    """
+    # the distance moves onto the step before, so steps still add up to the route
     kept = []
     for run in runs:
         if run["kind"] == "walk" and run["metres"] < MIN_STEP_M and kept:
@@ -126,17 +107,11 @@ def _fold_short(runs: list) -> list:
 
 
 def _merge_same(steps: list) -> list:
-    """Two walking lines in a row saying the same thing read as a mistake.
-
-    A path can bend away and bend back, which lands on the same compass
-    word twice. Being told to keep going south twice helps nobody.
-    """
+    # bending away and back can land on the same compass word twice
     out = []
     for step in steps:
         last = out[-1] if out else None
-        # walking only. two crossings in a row are two roads with a short
-        # walk between them that got folded away, and merging those made
-        # the crossings count disagree with the list under it.
+        # walking only, merging crossings made the crossings stat disagree with the list
         same_way = (
             last is not None
             and last["kind"] == "walk"
@@ -151,16 +126,10 @@ def _merge_same(steps: list) -> list:
 
 
 def _side_of(building, point: tuple) -> str:
-    """Which side of a building a point sits on."""
     return compass(bearing((building.lat, building.lon), point))
 
 
 def build(path: list, points: list, graph, start, target) -> Optional[dict]:
-    """Stats and a step list for one route.
-
-    Returns nothing when the route is too short to describe, which keeps
-    the panel from showing a single meaningless line.
-    """
     if not path or len(path) < 2 or len(points) != len(path):
         return None
 
@@ -176,9 +145,8 @@ def build(path: list, points: list, graph, start, target) -> Optional[dict]:
 
     merged = _runs(real)
 
-    # count turns before the short runs get folded away. folding is only
-    # about keeping the list readable, and counting after it was quietly
-    # throwing away most of the real turns.
+    # count turns before folding. folding is only for readability, and counting
+    # after it threw most of the real turns away
     turns = 0
     previous = None
     for run in merged:

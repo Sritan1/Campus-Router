@@ -1,4 +1,4 @@
-"""Talks to the C++ engine over loopback."""
+"""Talks to the engine over loopback."""
 
 import logging
 from typing import Optional
@@ -15,8 +15,6 @@ class EngineUnavailable(RuntimeError):
 
 
 class EngineRejected(RuntimeError):
-    """The engine understood us and said no."""
-
     def __init__(self, status: int, message: str) -> None:
         super().__init__(message)
         self.status = status
@@ -24,30 +22,19 @@ class EngineRejected(RuntimeError):
 
 
 class EngineOutOfDate(RuntimeError):
-    """The engine is running but does not know this endpoint.
-
-    The engine is compiled once when the gateway starts and never
-    rebuilds itself, so an old binary can be answering happily while the
-    source has moved on. Only ever a local build problem.
-    """
+    """The engine binary is older than this code and lacks the endpoint."""
 
     def __init__(self, path: str) -> None:
         super().__init__(f"engine has no {path}, its binary is older than this code")
         self.path = path
 
 
-# One client for the life of the process. Building a fresh one per call
-# costs about half a second, which dwarfed the engine answering in under
-# a millisecond. Measured at 577 ms against 4 ms reusing this.
+# one client for the process. a fresh one per call measured 577 ms against 4 ms
 _client = httpx.Client(timeout=settings.engine_timeout_s)
 
 
 def close() -> None:
-    """Let go of the connection pool on shutdown.
-
-    Puts a fresh client back, because closing one is permanent and the
-    tests start the app more than once in a single process.
-    """
+    # closing is permanent and tests start the app more than once
     global _client
     _client.close()
     _client = httpx.Client(timeout=settings.engine_timeout_s)
@@ -70,10 +57,7 @@ def _post(path: str, payload: dict) -> dict:
 
     if reply.status_code >= 400:
         message = body.get("error", "engine said no")
-        # the engine says this when it has never heard of the path, which
-        # means the binary is older than the code asking. that is a build
-        # problem, not something a visitor can act on, so it goes to the
-        # log and they get the plain unavailable answer.
+        # an old binary that lacks the path. a build problem, not a visitor one
         if "no such endpoint" in message:
             raise EngineOutOfDate(path)
         raise EngineRejected(reply.status_code, message)
@@ -89,7 +73,6 @@ def route(
     trace: bool = False,
     max_trace_samples: Optional[int] = None,
 ) -> dict:
-    """Ask the engine for one or more routes."""
     payload = {
         "start": start_node,
         "target": target_node,
@@ -108,7 +91,6 @@ def route(
 
 
 def isochrone(start_node: int, limit_m: float, cost: dict) -> dict:
-    """Ask what is reachable from a node within a cost ceiling."""
     payload = {
         "start": start_node,
         "limit": limit_m,
