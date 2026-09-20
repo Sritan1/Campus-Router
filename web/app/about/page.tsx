@@ -6,19 +6,17 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchGraphMeta } from "@/lib/api";
 import { MODE_LABEL } from "@/lib/format";
 
-// the four lanes in the lab, in the order it races them
+// the four lane colours for the lab key
 const LANES = ["#e0762f", "#3b7fc4", "#4c9d63", "#8fb2d4"];
 
 export default function About() {
-  // the map data row reads the date off the graph itself, so it cannot
-  // drift. if the request fails the date is simply left out.
+  // the date comes off the graph, and is left out if the request fails
   const meta = useQuery({ queryKey: ["graph-meta"], queryFn: fetchGraphMeta });
   const pulled = meta.data?.extracted ?? null;
 
   return (
     <div className="about-page">
-      {/* the same shell the other two pages use, so the mark and the
-          wordmark sit in exactly the same place wherever you are */}
+      {/* the same header shell, so the brand sits in the same place on every page */}
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
@@ -42,8 +40,7 @@ export default function About() {
 
       <div className="about-body">
         <div className="bento">
-          {/* five of six columns on purpose, with nothing beside it. at full
-              width the card runs far past its own text. */}
+          {/* five of six columns, since full width runs far past the text */}
           <div className="c5 about-card about-hero">
             <div>
               <div className="about-eyebrow about-mono">ABOUT</div>
@@ -76,8 +73,7 @@ export default function About() {
             <div className="about-mode">
               <span className="about-swatch" aria-hidden="true" />
               <div style={{ flex: 1, minWidth: 0 }}>
-                {/* named from MODE_LABEL like the picker, so the two cannot
-                    call the same mode different things */}
+                {/* named from MODE_LABEL, like the picker */}
                 <div className="about-mode-key about-mono">{MODE_LABEL.shortest}</div>
                 <p>
                   The quickest way between two buildings, with a walking time and
@@ -212,10 +208,8 @@ export default function About() {
               </div>
             </div>
 
-            {/* the warranty sits under privacy rather than as a band of its
-                own, so the section closes on the grid */}
-            <div className="about-warranty">
-              <div className="about-warranty-key about-mono">NO WARRANTY</div>
+            <div className="about-card about-warranty">
+              <div className="about-label-head about-mono">NO WARRANTY</div>
               <div className="about-warranty-body">
                 Provided as is. Routes come from incomplete public map data and
                 may be wrong. Check accessibility information against the

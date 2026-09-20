@@ -48,16 +48,12 @@ button {
   background: var(--surface);
   border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
-  /* the search fields give this its height on the two routing pages. the
-     about page has none, so without a floor its brand would sit 9px higher
-     and the mark would jump as you moved between pages. the fields
-     actually make it 78.3, and that last third of a pixel is left alone
-     rather than copied here, where it would quietly go stale. */
+  /* the search fields set this height on the routing pages. about has none,
+     so this floor stops the brand jumping between pages */
   min-height: 78px;
 }
 
-/* centred in the bar rather than sat on its floor, so it lands in the same
-   place on every page whatever sits beside it */
+/* centred, so it lands in the same place on every page */
 .brand {
   display: flex;
   align-items: center;
@@ -66,10 +62,8 @@ button {
   white-space: nowrap;
 }
 
-/* the mark and the wordmark are the brand, so they are defined once here
-   and the about page uses the same two classes rather than its own copy */
-/* every piece is a share of --mark, so the size is one number and the
-   needle still meets the dot and the ring at any size */
+/* shared with the about page. every piece is a fraction of the mark size, so
+   the needle still meets the dot and the ring at any size */
 .brand-mark {
   --mark: 30px;
   flex: none;
@@ -133,9 +127,7 @@ button {
   color: #14161a;
 }
 
-/* a hairline splits the brand from the search and runs the full height of
-   the bar. the negative margins reach over the bar padding, and the
-   matching padding puts the fields back exactly where they were. */
+/* the negative margins reach over the bar padding so the divider runs full height */
 .ends {
   flex: 1;
   min-width: 320px;
@@ -249,8 +241,6 @@ button {
   color: var(--muted);
 }
 
-/* mode switch and actions */
-
 .segmented {
   display: flex;
   border: 1px solid var(--line);
@@ -346,9 +336,7 @@ button {
   box-shadow: 0 2px 8px rgba(16, 18, 22, 0.08);
 }
 
-/* clear of leaflet's zoom buttons, which live in the same corner and
-   were sitting on top of the first few letters */
-
+/* kept clear of the leaflet zoom buttons */
 .chip-weather {
   top: 12px;
   right: 12px;
@@ -409,8 +397,7 @@ button {
   gap: 4px;
 }
 
-/* every choice in the lab is the same card, so race mode reads as one
-   more option rather than a stray checkbox under the list */
+/* race mode is one more card rather than a stray checkbox */
 .card {
   width: 100%;
   text-align: left;
@@ -461,8 +448,7 @@ button {
   flex-shrink: 0;
 }
 
-/* race mode is a switch, because it is a thing you leave on rather than
-   a choice between four */
+/* a switch, since race mode is something you leave on */
 .switch {
   position: relative;
   width: 38px;
@@ -521,8 +507,6 @@ button {
   align-items: baseline;
 }
 
-/* who won, before the lane by lane detail */
-
 .winners {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -552,10 +536,8 @@ button {
   color: var(--muted);
 }
 
-/* the rule runs off to the right of the label, so the lanes below read
-   as one group rather than four loose rows */
-/* two classes on purpose. section-label is defined further down and
-   would otherwise win and squash the spacing back to nothing. */
+/* two classes on purpose, or the section label rule further down wins and
+   squashes the spacing */
 .section-label.lanes-head {
   display: flex;
   align-items: center;
@@ -585,8 +567,6 @@ button {
   padding: 0 12px 10px;
 }
 
-/* each lane is its own rounded card. hard edged rows running the full
-   width read as one table rather than four things you can click. */
 .lane {
   width: 100%;
   text-align: left;
@@ -641,8 +621,6 @@ button {
   color: var(--muted);
 }
 
-/* the same bar the running phase shows, kept in the results so the
-   difference in how much each one explored stays visible */
 .lane-track {
   height: 3px;
   margin-top: 3px;
@@ -721,10 +699,9 @@ button {
   }
 }
 
-/* four locked panels, one per algorithm, sharing a single frame */
+/* race grid */
 
-/* the grid and its credit line stack, so the credit gets its own room
-   instead of floating over the bottom two maps */
+/* the credit line gets its own row instead of floating over the bottom maps */
 .map-wrap.is-grid {
   display: flex;
   flex-direction: column;
@@ -742,8 +719,6 @@ button {
   min-height: 0;
 }
 
-/* each panel is a card holding a label and a map, rather than a map
-   with a label sitting on top of it */
 .panel-map {
   position: relative;
   display: flex;
@@ -770,8 +745,6 @@ button {
   z-index: 2;
 }
 
-/* the map sits inside the card with its own edge, so the card padding
-   reads as a mount rather than a gap */
 .panel-frame {
   flex: 1;
   min-height: 0;
@@ -787,8 +760,6 @@ button {
   cursor: pointer;
 }
 
-/* the name sits above its own map, so there is no doubt which search
-   belongs to which panel */
 .panel-label {
   display: flex;
   align-items: baseline;
@@ -830,16 +801,12 @@ button {
   }
 }
 
-/* the quiet link between the two modes */
-
-/* wordmark on top, links under it, sitting beside the mark */
 .brand-stack {
   display: flex;
   flex-direction: column;
 }
 
-/* the two header links share a row, split by a dot, so the brand block
-   stays two lines tall however many links end up in it */
+/* one row, so the brand stays two lines tall however many links it has */
 .brand-links {
   display: flex;
   align-items: center;
@@ -854,8 +821,7 @@ button {
   user-select: none;
 }
 
-/* small caps mono in the brand's own blue, which is quieter than the
-   app accent and stops two links reading as loudly as the wordmark */
+/* the brand blue, quieter than the app accent so the links do not shout */
 .mode-link {
   display: block;
   font-family: var(--brand-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -871,7 +837,7 @@ button {
   text-decoration: underline;
 }
 
-/* navigate mode result */
+/* navigate */
 
 .headline {
   display: flex;
@@ -896,8 +862,7 @@ button {
   min-height: 8px;
 }
 
-/* navigate scrolls its own content so copy link stays pinned at the
-   bottom however long the directions get */
+/* a scrolling body over a pinned footer, so the action button stays put */
 .panel-stack {
   padding: 0;
   gap: 0;
@@ -912,19 +877,13 @@ button {
   flex-direction: column;
 }
 
-/* once the steps overflow, flex is allowed to squash everything else to
-   nothing. the stat box lost its whole height that way. */
+/* without this, flex crushes the children once the steps overflow */
 .panel-scroll > * {
   flex-shrink: 0;
 }
 
-/* spacing is the hierarchy, so one flat gap between every child is
-   wrong. separate blocks get real air, and a heading stays close to
-   the line that belongs to it.
-
-   these name the shell as well as the scroller on purpose. plenty of
-   the children set margin zero themselves, at the same strength but
-   further down the file, and those were quietly winning. */
+/* spacing carries the hierarchy. these name the shell as well as the scroller,
+   or children that zero their own margin further down would win */
 .panel-stack .panel-scroll > * + * {
   margin-top: 18px;
 }
@@ -952,8 +911,7 @@ button {
   width: 100%;
 }
 
-/* the budget picker reads as one track with a pill on it, and the four
-   choices share the width evenly so 15 min does not hog the end */
+/* one track with a pill, and the choices share the width evenly */
 .panel-stack .segmented {
   background: var(--ground);
   border-radius: 9px;
@@ -1011,9 +969,8 @@ button {
   background: var(--ink);
 }
 
-/* ten buildings have no code, so this shows a full name instead and the
-   longest is fifty characters. without a clamp it wrapped the row into
-   three lines. */
+/* buildings without a code show a full name, up to fifty characters. it needs
+   min width zero, or a flex child will not shrink below its content */
 .summary-value {
   font-weight: 600;
   min-width: 0;
@@ -1022,9 +979,7 @@ button {
   white-space: nowrap;
 }
 
-/* weather's sentence runs to two lines where the other two fit on one,
-   so the card under it jumped every time you switched mode. hold two
-   lines worth of room whatever is in it. */
+/* holds two lines so the card below does not jump when a caption wraps */
 .mode-caption {
   min-height: 3.1em;
 }
@@ -1035,8 +990,6 @@ button {
   line-height: 1.55;
   color: var(--muted);
 }
-
-/* the three numbers about the walk, in one bordered strip */
 
 .stat-row {
   display: grid;
@@ -1069,8 +1022,7 @@ button {
   color: var(--muted);
 }
 
-/* no margin of its own on purpose. the panel decides how much air a
-   label gets, so it cannot fight the rules below.  */
+/* no margin of its own, the panel spacing rules decide */
 .section-label {
   margin: 0;
   font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -1078,8 +1030,6 @@ button {
   text-transform: uppercase;
   color: var(--muted);
 }
-
-/* the walk itself, one line per thing you do */
 
 .steps {
   list-style: none;
@@ -1111,8 +1061,6 @@ button {
   justify-self: center;
 }
 
-/* both ends of the walk are filled in, so the list reads as a journey
-   rather than a pile of instructions */
 .step.is-start .step-dot {
   background: var(--ink);
   border-color: var(--ink);
@@ -1145,8 +1093,7 @@ button {
   border-radius: 3px;
 }
 
-/* the invite across to the lab. this is the only thing telling a
-   visitor the algorithm work exists, so it has to earn the click. */
+/* the only thing telling a visitor the lab exists, so it has to earn the click */
 
 .invite {
   display: flex;
@@ -1175,8 +1122,6 @@ button {
   color: var(--accent);
 }
 
-/* things that only screen readers need */
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -1189,8 +1134,6 @@ button {
   border: 0;
 }
 
-/* a line under the header for things worth saying but not worth a modal */
-
 .notice {
   display: flex;
   align-items: center;
@@ -1202,8 +1145,6 @@ button {
   font-size: 13px;
   color: #6b5a2e;
 }
-
-/* when the backend is not there at all */
 
 .fatal {
   margin: auto;
@@ -1243,8 +1184,7 @@ button {
   color: #fff;
 }
 
-/* the map dims while the search plays, so the trace has something to
-   stand out against. it sits under the canvas and over the tiles. */
+/* dims the map while the search plays, between the tiles and the canvas */
 
 .scrim {
   position: absolute;
@@ -1265,8 +1205,6 @@ button {
     transition: none;
   }
 }
-
-/* race lanes while the exploration plays */
 
 .race-lane {
   display: flex;
@@ -1309,8 +1247,6 @@ button {
   }
 }
 
-/* results footer extras */
-
 .foot-race {
   display: flex;
   align-items: center;
@@ -1344,7 +1280,6 @@ button {
 
 /* comparison table */
 
-/* moved up to where the mode chip used to sit, now that it is gone */
 .chip-legend {
   top: 12px;
   left: 54px;
@@ -1352,8 +1287,6 @@ button {
   background: var(--accent-soft);
 }
 
-/* the table takes over the map area, so it is a card sitting on the
-   same grey ground the race panels sit on */
 .map-wrap.is-table {
   background: var(--ground);
   padding: 14px;
@@ -1433,7 +1366,7 @@ button {
   color: var(--muted);
 }
 
-/* narrow screens. the sidebar drops under the map rather than beside it */
+/* narrow screens, where the sidebar drops under the map */
 
 @media (max-width: 900px) {
   .body {
@@ -1456,21 +1389,23 @@ button {
     align-items: stretch;
   }
 
-  /* at this width the find route button moves in between the brand and
-     the search, so a line on the search would split the wrong pair */
+  /* push the button to the far end of the top row */
+  .topbar > button.primary {
+    margin-left: auto;
+  }
+
+  /* the fields get their own row. it has to be the basis, since the flex
+     shorthand sets that to zero and a width cannot beat it */
   .ends {
     order: 2;
-    width: 100%;
+    flex-basis: 100%;
     margin: 0;
     padding: 0;
     border-left: 0;
   }
 }
 
-/* the lab picks a cost model in its sidebar, where it reads as what the
-   algorithms are minimising rather than as a travel preference */
-
-/* no margin here either. the panel spacing rules above own the gaps. */
+/* the lab cost model picker */
 .cost-model {
   display: flex;
   flex-direction: column;
@@ -1490,11 +1425,6 @@ button {
   font-size: 12px;
 }
 
-/* the mode picker, sitting over both navigate views */
-
-/* this used to be a strip above the panel, so it carried its own
-   padding and a rule under it. inside the panel the scroller already
-   pads, and the rule read as a stray line across the middle. */
 .preference {
   display: flex;
   flex-direction: column;
@@ -1522,8 +1452,6 @@ button {
   background: var(--ink);
   color: #fff;
 }
-
-/* navigate can show a route or how far you can get */
 
 .view-switch {
   display: flex;
@@ -1571,7 +1499,7 @@ button {
   flex-shrink: 0;
 }
 
-/* buildings you can reach, listed nearest first */
+/* reach */
 
 .reach-list {
   display: flex;
@@ -1592,11 +1520,7 @@ button {
   letter-spacing: 0;
 }
 
-/* code, then the full name, then how long it takes. the code column is
-   fixed so the names all start in the same place. */
-/* the code column gives back a few pixels to the name, which is the
-   thing that runs out of room first. cuppah is the longest code at six
-   characters and still fits. */
+/* the code column is fixed so names line up, and 58px still fits CUPPAH */
 .reach-row {
   display: grid;
   grid-template-columns: 58px 1fr auto;
@@ -1640,8 +1564,6 @@ button {
   text-decoration: underline;
 }
 
-/* building codes left on screen inside a reach area */
-
 .leaflet-tooltip.reach-tag {
   background: #16181d;
   color: #fff;
@@ -1657,16 +1579,13 @@ button {
   display: none;
 }
 
-/* where the search started from, so it does not read as one more
-   building you could walk to */
 .leaflet-tooltip.reach-tag.is-start {
   background: var(--accent);
   font-size: 12px;
   padding: 3px 8px;
 }
 
-/* the accessibility caveat under a step free route. it is the one claim
-   in the app about the physical world, so it does not read as a footnote */
+/* the one claim about the physical world, so not styled as a footnote */
 .caveat {
   margin: 0;
   padding: 9px 11px;
@@ -1681,9 +1600,7 @@ button {
   color: var(--accent);
 }
 
-/* ---- the about page ---------------------------------------------------
-   Its own palette and type, from the design mock. It is the one screen
-   that is read rather than used, so it does not share the app shell. */
+/* the about page, with its own palette since it is read rather than used */
 
 .about-page {
   --a-ink: #14161a;
@@ -1725,14 +1642,10 @@ button {
   font-family: var(--brand-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* the header is the shared .topbar, so nothing is defined here. the one
-   thing to undo is the underline this page puts on every link, which the
-   brand link should not have. */
+/* this page underlines every link, but not the brand link */
 .about-page .topbar .mode-link {
   border-bottom: 0;
 }
-
-/* the grid */
 
 .about-body {
   max-width: 1120px;
@@ -1770,8 +1683,6 @@ button {
   border-radius: 11px;
   overflow: hidden;
 }
-
-/* the masthead card */
 
 .about-hero {
   padding: 30px 30px 32px;
@@ -1830,8 +1741,6 @@ button {
   text-wrap: pretty;
 }
 
-/* section rules */
-
 .about-rule {
   display: flex;
   align-items: baseline;
@@ -1858,8 +1767,6 @@ button {
   background: var(--a-chip);
 }
 
-
-/* card headers */
 
 .about-card-head {
   display: flex;
@@ -1889,8 +1796,6 @@ button {
   letter-spacing: 0.14em;
   color: var(--a-muted);
 }
-
-/* the three modes */
 
 .about-mode {
   display: flex;
@@ -1958,8 +1863,6 @@ button {
   border-radius: 1px;
 }
 
-/* body copy inside a card */
-
 .about-copy {
   margin: 0;
   padding: 16px 18px;
@@ -1968,8 +1871,6 @@ button {
   color: var(--a-body);
   text-wrap: pretty;
 }
-
-/* definition rows, used by sources and licensing */
 
 .about-rows {
   padding: 4px 18px 14px;
@@ -2021,40 +1922,20 @@ button {
   gap: 14px;
 }
 
-/* whatever comes last in a column fills it, so both columns end level.
-   that is the lab card in one and the warranty card in the other. */
+/* the last card in each column fills it, so both columns end level */
 .about-stack > :last-child {
   flex: 1;
 }
 
-/* the closing notice */
-
-/* when it stretches to fill its column the label and text stay together at
-   the top, and the extra room goes underneath instead of between them */
+/* stretches to fill the column, with the spare room under the text */
 .about-warranty {
-  background: var(--a-card);
-  border: 1px solid var(--a-edge);
-  border-radius: 11px;
-  padding: 22px 26px;
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  align-content: flex-start;
-  gap: 14px 24px;
-}
-
-.about-warranty-key {
-  flex: 0 0 auto;
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  color: var(--a-muted);
-  padding-top: 4px;
+  flex-direction: column;
 }
 
 .about-warranty-body {
-  flex: 1 1 400px;
-  min-width: 0;
-  font-size: 15.5px;
+  padding: 16px 18px 18px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--a-body);
   text-wrap: pretty;
