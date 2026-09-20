@@ -2,10 +2,7 @@ from pipeline import transform
 
 
 def raw_bundle():
-    """A tiny stand in for the overpass dump.
-
-    Two joined footways, one stray path off on its own, and a building.
-    """
+    # two joined footways, a stray path and a building
     return {
         "campus_relations": [1],
         "campus_bounds": {},
@@ -61,7 +58,6 @@ def test_surface_normalising():
     assert transform.normalise_surface(None) == "unknown"
     assert transform.normalise_surface("") == "unknown"
     assert transform.normalise_surface(" Concrete ") == "concrete"
-    # subtypes collapse onto the parent surface
     assert transform.normalise_surface("concrete:plates") == "concrete"
 
 
@@ -155,11 +151,7 @@ def test_unnamed_buildings_are_dropped():
 
 
 def stepped_bundle():
-    """A building whose closest paths are only reachable up steps.
-
-    Three nodes right at the door in their own little pocket, a bigger
-    network further off, and steps as the only thing joining them.
-    """
+    # a building whose nearest paths sit in a pocket that only steps reach
     return {
         "campus_relations": [1],
         "campus_bounds": {},
@@ -214,7 +206,6 @@ def test_a_building_walled_in_by_steps_gets_a_step_free_link():
     building = transform.build_buildings(raw, nodes, network, set(), free)[0]
     picked = [l["node_id"] for l in building["links"]]
 
-    # the three nodes at the door are still there, they are the closest
     assert {10, 11, 12}.issubset(set(picked))
     # and one that can actually be reached without steps came with them
     assert 20 in picked
@@ -268,7 +259,6 @@ def test_a_patch_joins_two_known_nodes():
     assert patch["way_id"] == transform.PATCH_WAY_ID
     assert patch["class_key"] == "footway|unknown|none"
     assert patch["length_m"] > 0
-    # the patched node is now part of the network
     assert 700 in transform.largest_component(edges)
 
 

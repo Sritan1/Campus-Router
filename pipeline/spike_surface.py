@@ -1,12 +1,4 @@
-"""Asks whether guessing the missing surface tags would be worth it.
-
-About six in ten campus ways have no surface tag. The idea was to train
-a small model to fill them in. Same rule as the other spikes, measure
-first and build second.
-
-Needs scikit learn, which is deliberately not in api/requirements.txt
-because nothing we ship uses it. Install it by hand to rerun this.
-"""
+"""Would guessing missing surface tags change a route? Needs scikit learn by hand."""
 
 import collections
 import json
@@ -23,9 +15,7 @@ from api.services.cost_model import ROUGH_SURFACES
 
 GRAPH = pathlib.Path(__file__).resolve().parents[1] / "api" / "data" / "graph.json"
 
-# how big a block is when we split the map into training and testing
-# areas. roughly a city block, so a test area is genuinely somewhere the
-# model has not seen.
+# about a city block, so a test area is somewhere the model has not seen
 BLOCK_M = 150.0
 
 FOLDS = 5
@@ -33,18 +23,14 @@ SEED = 0
 
 
 def normalise(value):
-    """Same folding the pipeline does, so labels match the graph."""
+    # same folding as the pipeline, so labels match the graph
     if not value:
         return None
     return value.strip().lower().split(":")[0]
 
 
 def load_ways():
-    """One record per osm way, since surface is tagged on the way.
-
-    Splitting individual edges into train and test would put pieces of
-    the same way on both sides, which is free marks for the model.
-    """
+    # one record per way, since splitting edges would put a way on both sides
     graph = json.loads(GRAPH.read_text(encoding="utf-8"))
     coords = {n["id"]: (n["lat"], n["lon"]) for n in graph["nodes"]}
 
@@ -83,7 +69,7 @@ def load_ways():
 
 
 def featurise(ways, highways):
-    """Numbers only, and nothing that gives away the surface tag."""
+    # nothing here may give away the surface tag
     rows = []
     for way in ways:
         row = [1.0 if way["highway"] == h else 0.0 for h in highways]
@@ -106,7 +92,6 @@ def featurise(ways, highways):
 
 
 def blocks_for(ways):
-    """Grid cell each way sits in, used to split by area."""
     lat_deg = BLOCK_M / 111_320.0
     mid = sum(w["lat"] for w in ways) / len(ways)
     lon_deg = BLOCK_M / (111_320.0 * math.cos(math.radians(mid)))
@@ -116,7 +101,6 @@ def blocks_for(ways):
 
 
 def score(features, labels, splits, name):
-    """Run the model and the dumb baseline over the same folds."""
     model_acc, model_f1, base_acc, base_f1 = [], [], [], []
 
     for train, test in splits:
@@ -143,11 +127,7 @@ def score(features, labels, splits, name):
 
 
 def rough_recall(features, binary, splits):
-    """How many rough ways it catches when it has not seen them.
-
-    Averaging f1 over folds hides this, because most folds contain no
-    rough way at all and score a perfect one for free.
-    """
+    # averaged f1 hides this, most folds hold no rough way and score perfectly
     found = 0
     missed = 0
     for train, test in splits:
@@ -166,11 +146,7 @@ def rough_recall(features, binary, splits):
 
 
 def impute(features, labels, ways, labelled, untagged, highways):
-    """Fill in every untagged way and see what it would change.
-
-    This is the thing we would actually ship, so it is the thing worth
-    measuring rather than a cross validation number.
-    """
+    # what shipping it would really change, which matters more than accuracy
     forest = RandomForestClassifier(
         n_estimators=300, min_samples_leaf=2, random_state=SEED, n_jobs=-1
     )
@@ -210,8 +186,7 @@ def main() -> int:
         rough = "  rough, changes cost" if value in ROUGH_SURFACES else ""
         print(f"  {value:16} {n:5}  {100.0 * n / len(labelled):5.1f}%{rough}")
 
-    # this is the part that actually decides it. surface only reaches the
-    # router through the rough list, so anything not rough costs the same.
+    # surface only reaches the router through the rough list
     rough_ways = [w for w in labelled if w["surface"] in ROUGH_SURFACES]
     rough_len = sum(w["length_m"] for w in rough_ways)
     total_len = sum(w["length_m"] for w in labelled)
@@ -233,8 +208,7 @@ def main() -> int:
     print(f"majority class is {counts.most_common(1)[0][0]} at "
           f"{100.0 * counts.most_common(1)[0][1] / len(labelled):.1f}%")
 
-    # keep classes with too few examples out of the stratified split,
-    # otherwise it cannot put one in every fold
+    # rare classes cannot land in every fold, so leave them out
     keep = np.array([counts[s] >= FOLDS for s in labels])
     random_splits = list(
         StratifiedKFold(n_splits=FOLDS, shuffle=True, random_state=SEED).split(
@@ -253,8 +227,6 @@ def main() -> int:
         features, labels, spatial_splits, f"split by area, {n_blocks} blocks"
     )
 
-    # the rough list is the only distinction that matters, so ask the
-    # question that actually decides it. can it find rough ground.
     binary = np.array([1 if s in ROUGH_SURFACES else 0 for s in labels])
     print("\n=== the only question that changes a route ===")
     print(f"rough examples available to learn from: {int(binary.sum())}")
@@ -262,8 +234,6 @@ def main() -> int:
     print(f"rough ways the model found when they were held out: {found} of "
           f"{found + missed}")
 
-    # and the real thing we would do with it. fill in every untagged way
-    # and see how much of the network would actually be priced differently.
     predicted = impute(features, labels, ways, labelled, untagged, highways)
 
     print("\n=== verdict ===")

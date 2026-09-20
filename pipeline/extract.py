@@ -1,9 +1,4 @@
-"""Pulls raw campus data from Overpass.
-
-Paths come from a slightly buffered box around campus so that sidewalks
-just off the edge still connect. Buildings come from the campus polygon
-itself so search does not fill up with nearby businesses.
-"""
+"""Pulls raw campus data from Overpass."""
 
 import argparse
 import datetime as dt
@@ -13,12 +8,10 @@ import pathlib
 from pipeline import overpass
 from pipeline.transform import WALKABLE
 
-# east campus and west campus, as mapped in openstreetmap. west is the
-# health sciences half and it was missing entirely until round 18.
+# east campus, then west, the health sciences half
 CAMPUS_RELATIONS = [19755400, 17687555]
 
-# uic buildings that sit in neither campus relation. south campus has no
-# relation of its own, so without these they are simply lost.
+# uic buildings in neither relation, since south campus has none of its own
 EXTRA_BUILDINGS = [
     ("relation", 17650163),   # Thomas Beckham Hall, TBH
     ("relation", 17650162),   # Marie Robinson Hall, MRH
@@ -27,30 +20,22 @@ EXTRA_BUILDINGS = [
     ("way", 930816391),       # Maxwell Street Parking Structure
 ]
 
-# way 210257184 is a second piece of the Taylor Street Building with no
-# code. adding it would put two identical names in the search box, which
-# is worse than leaving it out.
+# way 210257184 is a codeless second piece of the Taylor Street Building,
+# left out so search does not show the name twice
 
-# the school of law is uic too but sits downtown, about 1.2 km further
-# east. pulling it in would drag the whole loop along for one building.
+# the school of law is downtown, and would drag the loop in for one building
 
-# roughly 110 metres of slack around the campus edge
+# about 110 metres of slack, so sidewalks just off the edge still connect
 BBOX_BUFFER_DEG = 0.001
 
-# the same list transform keeps, turned into what overpass wants. these
-# used to be written out twice, and adding a value to one of them alone
-# either downloads ways nothing reads or reads ways nothing downloaded.
+# taken from transform, so the download and the build never disagree
 WALKABLE_PATTERN = "|".join(sorted(WALKABLE))
 
 RAW_DIR = pathlib.Path(__file__).resolve().parent / "raw"
 
 
 def campus_bounds() -> dict:
-    """Asks openstreetmap where campus actually is instead of guessing.
-
-    Two relations now, east and west, so the box is the union of both
-    and the corridor between them comes along with it.
-    """
+    # the box covers both campuses, so the corridor between them comes along
     parts = ";".join(f"rel({r})" for r in CAMPUS_RELATIONS)
     query = f"""[out:json][timeout:120];
 ({parts};);
@@ -84,7 +69,6 @@ def buffered_box(bounds: dict) -> tuple:
 
 
 def fetch_ways(box: tuple, refresh: bool) -> dict:
-    """Walkable ways plus every node they reference."""
     s, w, n, e = box
     query = f"""[out:json][timeout:300];
 way["highway"~"^({WALKABLE_PATTERN})$"]["access"!~"^(private|no)$"]({s},{w},{n},{e});
@@ -95,11 +79,7 @@ out skel qt;"""
 
 
 def fetch_buildings(refresh: bool) -> dict:
-    """Buildings inside either campus polygon, plus the named strays.
-
-    Using polygons and not a box is what keeps Greyhound Terminal and
-    the local Walgreens out of the search box.
-    """
+    # polygons, not a box, keep Greyhound Terminal and the local Walgreens out of search
     areas = "\n".join(
         f"  rel({rel}); map_to_area -> .a{i};"
         for i, rel in enumerate(CAMPUS_RELATIONS)
@@ -123,7 +103,7 @@ out tags center;"""
 
 
 def fetch_entrances(box: tuple, refresh: bool) -> dict:
-    """Entrance nodes. These are the only place wheelchair tags live."""
+    # entrances are the only place wheelchair tags live
     s, w, n, e = box
     query = f"""[out:json][timeout:300];
 node["entrance"]({s},{w},{n},{e});
@@ -150,8 +130,7 @@ def main() -> int:
         "campus_relations": CAMPUS_RELATIONS,
         "campus_bounds": bounds,
         "query_box": list(box),
-        # the day the data came out of openstreetmap. the app says this on
-        # its about page, so it has to be recorded rather than remembered.
+        # the about page shows this date, so record it rather than remember it
         "fetched": dt.date.today().isoformat(),
         "ways": ways,
         "buildings": buildings,

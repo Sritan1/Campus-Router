@@ -10,8 +10,7 @@ def test_same_point_is_zero():
 
 
 def test_one_degree_of_latitude():
-    # one degree of latitude is the same everywhere, so we can check it
-    # against the radius directly
+    # one degree of latitude is the same everywhere, so check it against the radius
     expected = EARTH_RADIUS_M * math.radians(1.0)
     assert haversine_m(0.0, 0.0, 1.0, 0.0) == pytest.approx(expected)
 
@@ -27,7 +26,6 @@ def test_longitude_shrinks_as_you_go_north():
 
 
 def test_known_campus_distance():
-    # two points about 100 metres apart on campus
     metres = haversine_m(41.8708, -87.6505, 41.8717, -87.6505)
     assert 95 < metres < 105
 

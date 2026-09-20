@@ -1,9 +1,4 @@
-"""Turns the raw Overpass dump into our own graph file.
-
-Ways become individual edges between consecutive nodes so that each
-edge can carry its own tags. Buildings get attached to the network
-through real entrances where they exist.
-"""
+"""Turns the raw Overpass dump into the graph files the gateway and engine load."""
 
 import argparse
 import collections
@@ -21,14 +16,12 @@ ENGINE_PATH = pathlib.Path(__file__).resolve().parents[1] / "api" / "data" / "gr
 # patched edges come from no real way, so they get their own marker
 PATCH_WAY_ID = -1
 
-# buildings become real nodes so routing is just node to node. osm way ids
-# and node ids can collide, so building nodes go negative.
+# building nodes go negative, since osm way ids and node ids can collide
 LINK_CLASS = "link|building|none"
 
 SCHEMA_VERSION = 1
 
-# highway values we treat as walkable. service covers campus driveways
-# and parking aisles, which people really do walk along.
+# service covers campus driveways and parking aisles, which people really walk
 WALKABLE = {
     "footway",
     "path",
@@ -40,17 +33,14 @@ WALKABLE = {
     "residential",
 }
 
-# how far from a building we are willing to look for a way to attach it
 BUILDING_LINK_M = 60.0
 
-# tags we keep on every edge, whether or not they are populated
 KEPT_TAGS = [
     "highway", "surface", "wheelchair", "incline", "lit", "covered",
     "tactile_paving", "footway", "name",
 ]
 
-# roads worth naming in directions. a crossing borrows the name of the
-# road it meets, since crossings almost never carry one themselves.
+# a crossing borrows the name of the road it meets, since crossings rarely have one
 NAMED_ROADS = {
     "residential", "living_street", "service", "unclassified",
     "tertiary", "secondary", "primary",
@@ -58,7 +48,7 @@ NAMED_ROADS = {
 
 
 def raw_written_on() -> str:
-    """The day the raw dump landed, for dumps pulled before extract stamped one."""
+    # for dumps pulled before extract stamped a date
     stamp = RAW_PATH.stat().st_mtime
     return dt.date.fromtimestamp(stamp).isoformat()
 
@@ -70,20 +60,15 @@ def load_raw() -> dict:
 
 
 def normalise_surface(value):
-    """Folds the long tail of surface values into something usable."""
     if not value:
         return "unknown"
     value = value.strip().lower()
-    # concrete:plates and similar subtypes collapse to their parent
+    # subtypes like concrete plates collapse to the parent
     return value.split(":")[0]
 
 
 def class_key(tags: dict) -> str:
-    """The bucket an edge belongs to for cost lookups.
-
-    Only tags with real coverage on campus are used here. wheelchair,
-    incline, lit and covered are all too sparse to key on.
-    """
+    # wheelchair, incline, lit and covered are too sparse on campus to key on
     highway = tags.get("highway") or "unknown"
     surface = normalise_surface(tags.get("surface"))
     tactile = "tactile" if tags.get("tactile_paving") in ("yes", "contrasted") else "none"
@@ -96,8 +81,7 @@ def build_nodes(raw: dict) -> dict:
         if element["type"] == "node":
             nodes[element["id"]] = (element["lat"], element["lon"])
 
-    # entrances come back in their own query and some sit on no way at
-    # all, which is exactly the kind of node a patch needs to reach
+    # some entrances sit on no way at all, which is exactly what a patch needs to reach
     for element in raw["entrances"]["elements"]:
         if "lat" in element and "lon" in element:
             nodes.setdefault(element["id"], (element["lat"], element["lon"]))
@@ -105,18 +89,13 @@ def build_nodes(raw: dict) -> dict:
 
 
 def load_patches() -> list:
-    """Paths we know are there that openstreetmap has not mapped yet.
-
-    Each one names two nodes already in the dump, so this declares a
-    connection rather than drawing new geometry.
-    """
+    # paths osm has not mapped yet, each joining two nodes the dump already has
     if not PATCH_PATH.exists():
         return []
     return json.loads(PATCH_PATH.read_text(encoding="utf-8"))["ways"]
 
 
 def apply_patches(edges: list, nodes: dict, patches: list) -> int:
-    """Adds the patched paths onto the edge list."""
     seen = {(edge["u"], edge["v"]) for edge in edges}
     added = 0
 
@@ -152,11 +131,7 @@ def apply_patches(edges: list, nodes: dict, patches: list) -> int:
 
 
 def road_names_by_node(raw: dict) -> dict:
-    """Which named road touches each node.
-
-    Used to work out what a crossing is crossing. Only nodes touched by
-    exactly one name are useful, since two names means an intersection.
-    """
+    # only nodes on exactly one named road, since two names means an intersection
     found = {}
     for element in raw["ways"]["elements"]:
         if element["type"] != "way":
@@ -172,13 +147,12 @@ def road_names_by_node(raw: dict) -> dict:
 
 
 def crossing_name(element: dict, road_names: dict):
-    """The street a crossing way meets, if we can tell without guessing."""
     hits = {road_names[n] for n in element.get("nodes", []) if n in road_names}
     return hits.pop() if len(hits) == 1 else None
 
 
 def build_edges(raw: dict, nodes: dict) -> list:
-    """Splits each way into one edge per pair of consecutive nodes."""
+    # one edge per consecutive node pair, so each edge carries its own tags
     edges = []
     seen = {}
     contested = []
@@ -192,13 +166,10 @@ def build_edges(raw: dict, nodes: dict) -> list:
             continue
 
         refs = element.get("nodes", [])
-        # only keep tags that are actually set. most edges carry one or
-        # two of these and writing the empty ones out doubled the file.
+        # only tags that are set, writing out the empty ones doubled the file
         kept = {t: tags[t] for t in KEPT_TAGS if tags.get(t)}
         key = class_key(tags)
 
-        # directions need to say which street you are stepping into, and
-        # the crossing itself almost never carries the name
         if tags.get("footway") == "crossing":
             crosses = crossing_name(element, road_names)
             if crosses:
@@ -208,10 +179,8 @@ def build_edges(raw: dict, nodes: dict) -> list:
             if u == v or u not in nodes or v not in nodes:
                 continue
 
-            # a way pair can repeat across overlapping ways, keep one.
-            # which one wins is whichever overpass listed first, so say
-            # something when the loser was a different class. a dropped
-            # steps claim would quietly unblock a staircase.
+            # overlapping ways repeat pairs and the first listed wins. a dropped steps
+            # claim would quietly unblock a staircase, so report class conflicts
             pair = (u, v) if u < v else (v, u)
             if pair in seen:
                 if seen[pair] != key:
@@ -244,11 +213,7 @@ def build_edges(raw: dict, nodes: dict) -> list:
 
 
 def largest_component(edges: list) -> set:
-    """Finds the biggest connected chunk of the network.
-
-    Stray disconnected paths are real in openstreetmap and they would
-    only ever produce routes that fail.
-    """
+    # stray disconnected paths only ever produce routes that fail
     adjacency = collections.defaultdict(list)
     for edge in edges:
         adjacency[edge["u"]].append(edge["v"])
@@ -277,11 +242,7 @@ def largest_component(edges: list) -> set:
 
 
 def pick_refs(tags: dict):
-    """Building codes live in the ref tag on campus.
-
-    Some buildings list several, like SEL;SELE;SELW, so the first one
-    is the abbreviation and the rest become search aliases.
-    """
+    # codes live in ref and some list several. the first is the code, the rest are aliases
     raw = tags.get("ref") or tags.get("short_name") or tags.get("abbr")
     parts = []
     if raw:
@@ -296,7 +257,6 @@ def pick_refs(tags: dict):
 
 
 def step_free_component(edges: list) -> set:
-    """The biggest chunk you can get around without using steps."""
     return largest_component(
         [e for e in edges if e["class_key"].split("|")[0] != "steps"]
     )
@@ -309,17 +269,10 @@ def build_buildings(
     entrance_ids: set,
     step_free: set | None = None,
 ) -> list:
-    """Attaches each named building to the walking network.
-
-    Real entrances win. If a building has none nearby we fall back to
-    the closest network nodes, which is the usual way this is done.
-
-    A building is reachable if any of its doors is, so if every node we
-    picked is walled off behind steps we add the nearest one that is not.
-    """
+    # real entrances win, otherwise the closest nodes. if every pick sits behind
+    # steps, the nearest step free node is added too
     buildings = []
 
-    # only nodes that are actually part of the routable network
     candidates = [(nid, nodes[nid]) for nid in network if nid in nodes]
 
     for element in raw["buildings"]["elements"]:
@@ -346,16 +299,12 @@ def build_buildings(
 
         fallback_used = False
         if not chosen:
-            # nothing within the threshold, take the single closest node
             everything = sorted(
                 (haversine_m(clat, clon, nlat, nlon), nid) for nid, (nlat, nlon) in candidates
             )
             chosen = everything[:1]
             fallback_used = True
 
-        # every door we picked can sit somewhere steps are the only way
-        # out, which reads as the building being unreachable when really
-        # we just picked the wrong door
         step_free_used = False
         if step_free and not any(nid in step_free for _, nid in chosen):
             reachable = [(d, nid) for d, nid in near if nid in step_free]
@@ -392,11 +341,7 @@ def build_buildings(
 
 
 def write_engine_graph(nodes: dict, used: set, edges: list, buildings: list) -> None:
-    """Writes the compact format the C++ engine loads.
-
-    Plain text on purpose. It parses in a few lines with no json
-    library, and it is about a quarter the size of the json.
-    """
+    # plain text, so the engine needs no json library, and a quarter the size
     class_ids = {}
     for edge in edges:
         if edge["class_key"] not in class_ids:
@@ -409,7 +354,6 @@ def write_engine_graph(nodes: dict, used: set, edges: list, buildings: list) -> 
     for key, index in sorted(class_ids.items(), key=lambda kv: kv[1]):
         lines.append(f"{index} {key}")
 
-    # building nodes ride along with the real ones
     lines.append(f"nodes {len(used) + len(buildings)}")
     for nid in sorted(used):
         lat, lon = nodes[nid]
@@ -474,8 +418,7 @@ def main() -> int:
             "campus_relations": raw["campus_relations"],
             "campus_bounds": raw["campus_bounds"],
             "query_box": raw["query_box"],
-            # dumps pulled before this field existed fall back to the day
-            # the file was written, which is the same thing for them
+            # older dumps fall back to the day the file was written
             "extracted": raw.get("fetched") or raw_written_on(),
             "counts": {
                 "nodes": len(used),
@@ -494,8 +437,7 @@ def main() -> int:
         ],
     }
 
-    # compact on purpose. this is a build artifact that gets loaded,
-    # not something anyone reads by hand.
+    # compact, nobody reads this by hand
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(json.dumps(graph, separators=(",", ":")), encoding="utf-8")
     size_mb = OUT_PATH.stat().st_size / 1024 / 1024

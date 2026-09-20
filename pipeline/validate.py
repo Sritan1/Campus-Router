@@ -1,8 +1,4 @@
-"""Checks the built graph and prints a report.
-
-Anything that would make routing quietly wrong is a failure here
-rather than a surprise later.
-"""
+"""Checks the built graph. Anything that would quietly break routing fails here."""
 
 import collections
 import json
@@ -23,16 +19,12 @@ EXPECTED = [
 
 
 def loose(text: str) -> str:
-    """Openstreetmap writes both and and ampersand, so treat them the same."""
+    # osm spells and both ways
     return text.lower().replace("&", "and").replace("  ", " ")
 
 
 def read_engine_graph(path: pathlib.Path):
-    """Reads the compact file the engine loads.
-
-    It has its own writer and its own class numbering, and until now
-    nothing checked it, even though it is the one the router reads.
-    """
+    # the file the engine really loads, with its own writer and class numbering
     words = path.read_text(encoding="utf-8").split()
     at = 0
 
@@ -102,7 +94,6 @@ def main() -> int:
     print(f"buildings {len(buildings)}")
     print(f"classes   {len(graph['classes'])}")
 
-    # every edge has to point at nodes we actually have
     dangling = [e for e in edges if e["u"] not in nodes or e["v"] not in nodes]
     if dangling:
         failures.append(f"{len(dangling)} edges reference missing nodes")
@@ -187,8 +178,7 @@ def main() -> int:
             print(f"edges     {len(engine_edges)}")
             print(f"classes   {len(engine_classes)}")
 
-            # buildings ride along as nodes with a negative id, and each of
-            # their links is an edge, so the two files count differently
+            # buildings are extra nodes and their links extra edges, so counts differ
             want_nodes = len(nodes) + len(buildings)
             if len(engine_nodes) != want_nodes:
                 failures.append(
@@ -208,8 +198,7 @@ def main() -> int:
             if adrift:
                 failures.append(f"{len(adrift)} engine edges name a node the file never declares")
 
-            # an unknown class is never blocked and never weighted, so a
-            # bad number here would quietly route somebody up a staircase
+            # an unknown class is never blocked, so a bad id could route up a staircase
             unknown = [e for e in engine_edges if e[3] not in engine_classes]
             if unknown:
                 failures.append(f"{len(unknown)} engine edges name a class that does not exist")

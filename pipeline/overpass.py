@@ -1,8 +1,4 @@
-"""Talks to the Overpass API and caches whatever comes back.
-
-Every query result is written to .cache so reruns cost nothing and so
-we are not hammering a free public service.
-"""
+"""Talks to the Overpass API and caches results, so reruns spare a free service."""
 
 import hashlib
 import json

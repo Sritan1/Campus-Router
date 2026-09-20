@@ -1,9 +1,4 @@
-"""Asks whether campus is hilly enough for grade to matter.
-
-Chicago is famously flat, so before building grade aware routing we
-should find out whether there is any grade to route around. Same idea
-as the tag coverage check, measure first and build second.
-"""
+"""Is campus hilly enough for grade to matter? Measure before building."""
 
 import json
 import math
@@ -19,13 +14,11 @@ from pipeline.geo import haversine_m
 GRAPH = pathlib.Path(__file__).resolve().parents[1] / "api" / "data" / "graph.json"
 CACHE = pathlib.Path(__file__).resolve().parent / ".cache" / "elevation.json"
 
-# free, no key, batched. resolution is coarse but good enough to tell
-# flat from not flat.
+# free and keyless. coarse, but enough to tell flat from not flat
 URL = "https://api.open-meteo.com/v1/elevation"
 BATCH = 100
 
-# the numbers that matter for a wheelchair. running slope above 5% needs
-# handrails, and 8.33% is the steepest a ramp is allowed to be.
+# ada limits. above 5 percent needs handrails, 8.33 percent is the steepest ramp
 ADA_RUNNING = 5.0
 ADA_RAMP = 8.33
 
@@ -35,11 +28,7 @@ def load_graph() -> dict:
 
 
 def fetch_elevations(nodes: list) -> dict:
-    """One height per node, cached because this is a lot of requests.
-
-    The free service is happy to rate limit us, so this backs off and
-    keeps whatever it already has rather than losing the lot.
-    """
+    # cached, and it keeps what it has when the free service rate limits
     if CACHE.exists():
         print("using cached elevations")
         return {int(k): v for k, v in json.loads(CACHE.read_text()).items()}
@@ -84,11 +73,7 @@ def fetch_elevations(nodes: list) -> dict:
 
 
 def sample_for(graph: dict, wanted: int) -> list:
-    """Nodes belonging to a spread of edges.
-
-    Answering whether campus is flat does not need every node, and both
-    ends of a sampled edge are needed for its grade.
-    """
+    # a spread of edges is enough, with both ends of each for its grade
     edges = graph["edges"]
     step = max(1, len(edges) // wanted)
     ids = []
@@ -141,15 +126,12 @@ def main() -> int:
     print(f"p99    {just[int(len(just) * 0.99)]:.2f}%")
     print(f"max    {just[-1]:.2f}%")
 
-    # how coarse the heights are. if they only ever come back as whole
-    # metres then a rounding of one metre is the smallest difference we
-    # can see at all, and on a short edge that alone looks like a cliff.
+    # whole metre heights make a short edge look like a cliff
     quantum = 1.0 if all(float(v).is_integer() for v in values) else 0.1
     print(f"\nheights are quantised to {quantum} m "
           f"({len(set(values))} distinct values across {len(values)} samples)")
 
-    # only trust an edge long enough that the rounding cannot fake the
-    # answer. a metre of rounding over ten metres is already 10%.
+    # only trust edges long enough that rounding cannot fake the grade
     trustworthy_run = quantum / (ADA_RUNNING / 100.0) * 2
     usable = [(g, e) for g, e in grades if e["length_m"] >= trustworthy_run]
     print(f"edges long enough to measure at all (over {trustworthy_run:.0f} m): "
