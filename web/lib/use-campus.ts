@@ -1,7 +1,6 @@
 "use client";
 
-// The bits both modes need. Navigate and the lab ask the same questions
-// about buildings, the graph and the weather, so they ask them here.
+// the queries navigate and the lab both need
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -53,10 +52,7 @@ export function useCampus() {
   return { buildings, meta, weather, list, weatherReady, weatherChip };
 }
 
-/// Reads a shared link once, after the buildings have arrived.
-///
-/// Returns what the link asked for and a note about anything in it we
-/// could not find, so the page can say so instead of quietly ignoring it.
+// reads a shared link once the buildings arrive, and notes anything it could not find
 export function useRestoreFromUrl(
   list: Building[],
   apply: (found: {
@@ -94,11 +90,10 @@ export function useRestoreFromUrl(
   return { notice, setNotice, restored: doneRef };
 }
 
-// the parameters the app owns. everything else in the address bar is
-// somebody else's and gets left alone.
+// the params the app owns, anything else in the address bar is left alone
 const OURS = new Set(["from", "to", "mode", "race", "algo"]);
 
-/// Keeps the address bar current, without piling up history entries.
+// replaceState, so the address bar stays current without piling up history
 export function useWriteUrl(
   ready: boolean,
   input: {
@@ -117,9 +112,6 @@ export function useWriteUrl(
     }
     const next = new URLSearchParams(writeUrl({ from, to, mode, race, algorithm }));
 
-    // keep anything in the address bar that is not ours to manage. we
-    // used to rebuild the query from scratch, which quietly deleted
-    // whatever else someone had put there.
     const current = new URLSearchParams(window.location.search);
     for (const [key, value] of current) {
       if (!OURS.has(key)) {

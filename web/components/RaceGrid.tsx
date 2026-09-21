@@ -40,14 +40,11 @@ function Panel({
   const colour = ALGORITHM_COLORS[result.algorithm] ?? "#2a78d6";
   const points = result.points ?? [];
 
-  // the canvas takes a list, and a new array every render would make it
-  // throw away what it has already painted
+  // a new array every render would make the canvas drop what it painted
   const traces = useMemo(() => [result], [result]);
 
   return (
-    // a div rather than a button. a button may only hold text and the like,
-    // and this holds a whole leaflet map, which is not valid markup and
-    // leaves screen readers unsure what they are being offered.
+    // a div, since a button cannot validly hold a whole leaflet map
     <div
       role="button"
       tabIndex={0}
@@ -76,14 +73,10 @@ function Panel({
 
       <span className="panel-frame">
       <MapContainer
-        // every panel is pinned to the same frame, and none of them can
-        // be moved. a panel framed on its own would make a small search
-        // look like a closer zoom.
+        // all panels share one locked frame, or a small search looks like a closer zoom
         bounds={bounds}
         boundsOptions={{ padding: [6, 6] }}
-        // leaflet normally only sits on whole zoom levels, so a frame a
-        // hair too big for one drops to the next and shows everything at
-        // half the size. quarter steps let it actually fit the frame.
+        // quarter zoom steps, for the same reason as the main map
         zoomSnap={0.25}
         zoomDelta={0.25}
         className="panel-canvas"
@@ -98,9 +91,7 @@ function Panel({
       >
         <TileLayer url={TILE_URL} maxZoom={TILE_MAX_ZOOM} />
 
-        {/* the tiles are beige and tan, which is close enough to the
-            warmer trace colours that they break up against it. dimming
-            while the search plays is what the big map already does. */}
+        {/* dimmed while playing, since the beige tiles break up the warmer traces */}
         <div
           className={`scrim${playing ? " is-on" : ""}`}
           aria-hidden="true"
@@ -143,7 +134,7 @@ function Panel({
   );
 }
 
-/// Four locked panels sharing one frame, for race mode only.
+// race mode only
 export default function RaceGrid(props: Props) {
   return (
     <div className="race-grid">

@@ -1,5 +1,4 @@
-// The idle, running and results machine the prototype uses.
-// Kept separate from the components so it can be tested on its own.
+// the lab idle, running and results machine, kept apart so it can be tested
 
 import { ALGORITHMS } from "./api";
 import type { AlgorithmName, RouteMode, RouteReply } from "./api";
@@ -27,8 +26,7 @@ export const INITIAL: AppState = {
   race: true,
   algorithm: "astar",
   selected: "astar",
-  // start empty. the prototype prefilled a building the user never picked,
-  // which reads as a bug outside a wireframe.
+  // start empty, a prefilled building nobody picked reads as a bug
   startId: null,
   targetId: null,
   searchFor: null,
@@ -55,8 +53,7 @@ export type Action =
   | { type: "restore"; patch: Partial<AppState> }
   | { type: "reset" };
 
-/// Anything that changes what a route would be has to invalidate the one
-/// on screen, otherwise the map shows an answer to a different question.
+// anything that changes the question has to clear the answer on screen
 function staleAfterChange(): Partial<AppState> {
   return { phase: "idle", reply: null, error: null, showTable: false };
 }
@@ -102,9 +99,7 @@ export function reduce(state: AppState, action: Action): AppState {
         ...staleAfterChange(),
       };
 
-    // says which way to go rather than flip. a caller that turns racing on
-    // and runs in the same click has to know what it just asked for, and a
-    // toggle leaves it guessing.
+    // set rather than flip, so a caller running in the same click knows what it asked for
     case "setRace":
       if (state.race === action.race) {
         return state;
@@ -130,8 +125,7 @@ export function reduce(state: AppState, action: Action): AppState {
       return { ...state, phase: "running", error: null, reply: null };
 
     case "arrived": {
-      // the data is here but the exploration still has to play out, so
-      // we stay in running with a result attached
+      // the exploration still has to play, so stay in running
       const first = action.reply.results.find((r) => r.status === "ok");
       return {
         ...state,
@@ -164,8 +158,7 @@ export function reduce(state: AppState, action: Action): AppState {
       return { ...state, ...action.patch };
 
     case "reset":
-      // the pair stays. new route means try something else on these two
-      // buildings, and retyping both to change one algorithm is a chore.
+      // the pair stays, retyping both to change one algorithm is a chore
       return {
         ...INITIAL,
         mode: state.mode,

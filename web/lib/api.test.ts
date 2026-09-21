@@ -21,9 +21,7 @@ afterEach(() => {
 
 describe("asking for a route", () => {
   it("does not cap the trace", async () => {
-    // this is the one that bit. thinning drops points, and a path needs
-    // both of its ends, so capping here cost roughly the square of what
-    // it looked like. dijkstra was arriving with 17% of its own search.
+    // this one bit. a cap here once left dijkstra with 17 percent of its search
     const fetchMock = stubFetch();
     await requestRoute({
       start: "ARC",
@@ -88,8 +86,7 @@ describe("asking for a route", () => {
       })) as unknown as typeof fetch,
     );
 
-    // the status is carried on the error, not written into the message.
-    // a panel showing "request failed with 500" told nobody anything.
+    // the status rides on the error, since a message saying 500 told nobody anything
     const failed = requestRoute({
       start: "SEO",
       target: "LCC",

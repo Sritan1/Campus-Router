@@ -54,8 +54,7 @@ describe("what the invite is allowed to claim", () => {
   });
 
   it("names the odd one out when exactly one differs", () => {
-    // this is the interesting case and it happens often, because bfs
-    // optimises hops rather than distance
+    // the common case, since bfs optimises hops rather than distance
     const found = agreementFor(
       reply(FOUR, [["dijkstra", "astar", "bidirectional"], ["bfs"]]),
     );
@@ -83,9 +82,7 @@ describe("what the invite is allowed to claim", () => {
   });
 
   it("handles a single algorithm without claiming agreement between many", () => {
-    // the name of this test was already right. it used to assert
-    // "All 1 algorithms agree on this route", which claims the agreement
-    // it says it should not, and does not read as english either.
+    // this used to expect All 1 algorithms agree, the very claim it should not make
     const found = agreementFor(reply([result("astar")], [["astar"]]));
     expect(found?.headline).toBe("One algorithm found this route");
   });

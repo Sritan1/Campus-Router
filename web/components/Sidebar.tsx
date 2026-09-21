@@ -22,12 +22,7 @@ import type { AppState } from "@/lib/state";
 
 const ALL: readonly AlgorithmName[] = ALGORITHMS;
 
-// the same three modes navigate offers, named for what they mean here.
-// in the lab this is not how you would like to get somewhere, it is
-// which number the four algorithms are minimising.
-// names come from MODE_LABEL so the lab and navigate cannot drift apart.
-// only the notes are the lab's own, since it explains the cost model
-// rather than how you would like to get there.
+// names from MODE_LABEL, notes are lab only, since here it is what the algorithms minimise
 const COST_MODELS: { id: RouteMode; note: string }[] = [
   { id: "shortest", note: "Plain distance, nothing weighted up or down." },
   { id: "accessible", note: "Steps removed from the graph, rough surfaces penalised." },
@@ -152,8 +147,7 @@ function IdlePanel(props: Props) {
 function RunningPanel({ state, progress, onSkip }: Props) {
   const reply = state.reply;
 
-  // before the reply lands there is nothing to measure, so show the
-  // plain waiting state rather than empty bars pretending to move
+  // nothing to measure before the reply, so no fake moving bars
   if (!reply) {
     return (
       <div className="panel">
@@ -201,10 +195,7 @@ function RunningPanel({ state, progress, onSkip }: Props) {
   );
 }
 
-/// Who won, on the two things worth winning.
-///
-/// Only shown when there is more than one lane, since a single result
-/// is not the fastest of anything.
+// only with more than one lane, since a single result is not the fastest of anything
 function Winners({ results }: { results: AlgorithmResult[] }) {
   const ran = results.filter((r) => r.status === "ok");
   if (ran.length < 2) {
@@ -249,8 +240,7 @@ function ResultsPanel(props: Props) {
   const reply = state.reply as RouteReply;
   const anyRoute = reply.results.some((result) => result.status === "ok");
 
-  // no pair on campus fails today, but the engine can still answer
-  // no_path, so the guard stays rather than rendering half a result
+  // nothing fails today, but the engine can still say no_path
   if (!anyRoute) {
     return (
       <div className="panel">
@@ -265,9 +255,7 @@ function ResultsPanel(props: Props) {
     );
   }
 
-  // bars are scaled against the slowest run, so the widest one fills the
-  // track and the rest are read against it. this matches the runtime
-  // printed on the same lane rather than the node count beside it.
+  // scaled to the slowest run, to match the runtime on the lane
   const slowest = Math.max(
     1,
     ...reply.results.map((r) => (r.status === "ok" ? r.runtimeUs : 0)),
@@ -280,8 +268,7 @@ function ResultsPanel(props: Props) {
         {state.race ? <span className="panel-hint">Click a lane</span> : null}
       </div>
 
-      {/* one scroll for the whole lot. giving the lanes their own made
-          a stubby inner scrollbar that hid the last card by a sliver. */}
+      {/* one scroll for the lot, an inner one hid the last card */}
       <div className="results-body">
         <Winners results={reply.results} />
 
@@ -340,8 +327,7 @@ function ResultsPanel(props: Props) {
         ))}
 
         <div className="foot-buttons">
-          {/* one algorithm has nothing to compare against, so the useful
-              offer there is to race the other three */}
+          {/* one algorithm has nothing to compare, so offer the race instead */}
           {state.race ? (
             <button type="button" className="secondary" onClick={props.onToggleTable}>
               {state.showTable ? "Show Maps" : "Compare table"}

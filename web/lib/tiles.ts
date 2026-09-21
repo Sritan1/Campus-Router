@@ -1,8 +1,5 @@
-// Where the basemap comes from. One place, because two maps draw it.
-//
-// Openstreetmap raster tiles, no key and no account. Their usage policy
-// asks that it not back a production app, which is a known trade for a
-// low traffic demo. Swapping providers means changing this file only.
+// the one place the basemap is set. osm asks not to back production apps, a
+// known trade for a low traffic demo
 
 export const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 

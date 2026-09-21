@@ -10,8 +10,7 @@ describe("distance", () => {
   });
 
   it("can tell two campus routes apart", () => {
-    // dijkstra and bfs on the same pair. in miles to two places these
-    // were both "0.23 mi", which hid the entire point of racing them.
+    // dijkstra and bfs on one pair, which both read 0.23 mi in miles
     expect(distance(367.6)).not.toBe(distance(373.8));
   });
 

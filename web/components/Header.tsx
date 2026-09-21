@@ -12,7 +12,7 @@ type Props = {
   searchFor: "start" | "target" | null;
   actionLabel: string;
   busy: boolean;
-  /// where the little link at the top right goes
+  // the link under the wordmark
   otherMode: { href: string; label: string };
   onOpenSearch: (which: "start" | "target") => void;
   onCloseSearch: () => void;
@@ -35,14 +35,12 @@ export default function Header(props: Props) {
             <span>Campus</span>
             <span> Router</span>
           </span>
-          {/* both links sit on one row so the brand stays two lines tall.
-              a third line here would push the search fields down. */}
+          {/* one row, so the brand stays two lines tall */}
           <span className="brand-links">
             <Link className="mode-link" href={props.otherMode.href}>
               {props.otherMode.label}
             </Link>
-            {/* its own element rather than a ::before on the link, or it
-                sits inside the link and lights up with it on hover */}
+            {/* its own element, or it lights up with the link on hover */}
             <span className="brand-sep" aria-hidden="true">
               ·
             </span>
@@ -98,8 +96,3 @@ export default function Header(props: Props) {
     </header>
   );
 }
-
-// The map used to carry a chip naming the mode. It went because the
-// picker in the sidebar already says which mode is on, and a second
-// label in a different voice added nothing. The weather reading chip is
-// separate and stays.

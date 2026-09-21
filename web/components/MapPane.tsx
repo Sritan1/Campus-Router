@@ -22,20 +22,14 @@ import { ALGORITHM_COLORS, LINE, walkMinutes } from "@/lib/format";
 
 const CAMPUS_CENTER: [number, number] = [41.8708, -87.6505];
 
-/// How far the map may be dragged, roughly the graph plus a quarter.
-///
-/// Both campuses since round 18, so the graph now runs 41.85906 to
-/// 41.88176 and -87.68623 to -87.63907, which is 2.52 km by 3.91 km.
-/// This is that with room to see what is just past the edge. Panning off
-/// to another neighbourhood only shows streets nothing can route along.
-/// Update this if the pipeline ever pulls a different area.
+// the graph and about a quarter more, kept by hand, so update it whenever the
+// pipeline pulls a different area
 const CAMPUS_MAX_BOUNDS: [[number, number], [number, number]] = [
   [41.8534, -87.6980],
   [41.8874, -87.6273],
 ];
 
-// how many reachable buildings keep a label on the map. they arrive
-// nearest first, so these are the ones worth naming.
+// reachable buildings arrive nearest first, so only these keep a label
 const LABELLED = 12;
 
 type Props = {
@@ -46,11 +40,10 @@ type Props = {
   startedAt: number | null;
   reducedMotion: boolean;
   isochrone?: Isochrone | null;
-  /// the building reach will measure from, before anything has been drawn
+  // the building reach measures from, before anything is drawn
   reachStart?: Building | null;
 };
 
-/// Keeps the whole route on screen when a new one arrives.
 function FitToRoute({ points }: { points: [number, number][] }) {
   const map = useMap();
 
@@ -58,26 +51,18 @@ function FitToRoute({ points }: { points: [number, number][] }) {
     if (points.length < 2) {
       return;
     }
-    // no animation on purpose. while leaflet animates a zoom it still
-    // reports the old one, so anything the trace canvas draws during
-    // those few hundred milliseconds lands in the wrong place and stays
-    // there.
-    // the frame already carries its own margin, so this is just enough
-    // to keep a marker off the very edge
+    // no animation. leaflet reports the old zoom while it animates, and the
+    // trace canvas then draws in the wrong place
     map.fitBounds(points, { padding: [24, 24], maxZoom: 18, animate: false });
   }, [map, points]);
 
   return null;
 }
 
-// how close to sit when the map moves to a reach start. about a
-// kilometre across on a normal window, so the building has campus around
-// it instead of filling the screen.
+// about a kilometre across, so the building has campus around it
 const REACH_START_ZOOM = 16;
 
-/// Moves the map to the building reach measures from. Not while an area
-/// is drawn, since that frames itself and two things moving the map would
-/// fight each other.
+// not while an area is drawn, since that frames itself and the two would fight
 function CenterOnStart({
   lat,
   lon,
@@ -90,9 +75,7 @@ function CenterOnStart({
   const map = useMap();
   const areaRef = useRef(hasArea);
 
-  // this is a ref and not a dependency on purpose. as a dependency,
-  // clearing an area would read as a reason to move the map, and
-  // clearing is not one.
+  // a ref, not a dependency, so clearing an area does not move the map
   useEffect(() => {
     areaRef.current = hasArea;
   });
@@ -101,9 +84,7 @@ function CenterOnStart({
     if (areaRef.current || !Number.isFinite(lat) || !Number.isFinite(lon)) {
       return;
     }
-    // it never zooms out. picking a building should show where it sits,
-    // not throw away a closer look somebody chose.
-    // animation stays off for the same reason the route fit has it off.
+    // never zooms out of a closer look somebody chose, and no animation, as above
     map.setView([lat, lon], Math.max(map.getZoom(), REACH_START_ZOOM), {
       animate: false,
     });
@@ -129,28 +110,22 @@ export default function MapPane({
   isochrone = null,
   reachStart = null,
 }: Props) {
-  // the same dot before and after the search. once there is an area the
-  // area owns the start, otherwise it is whatever has been picked, so
-  // choosing a building puts it on the map straight away.
+  // the same dot before and after the search, so a picked building shows at once
   const reachFrom = isochrone?.start ?? reachStart;
-  // both of these feed memos below, and rebuilding them every render made
-  // those memos miss every time and restringify the whole route
+  // both feed memos below, and fresh ones every render made those miss each time
   const results = useMemo(() => drawableResults(reply), [reply]);
   const chosen = useMemo(
     () => results.find((r) => r.algorithm === selected) ?? results[0],
     [results, selected],
   );
 
-  // while the exploration plays, the finished route would give the
-  // answer away, so the lines wait until it is done
+  // the finished route would give the answer away while the search plays
   const showRoute = !playing;
 
-  // the canvas keeps what it has painted, so handing it a fresh array
-  // every render would make it start over
+  // the canvas keeps what it painted, so a fresh array would restart it
   const traces = useMemo(() => reply?.results ?? [], [reply]);
 
-  // anything that took a different path is drawn faintly behind, so the
-  // race shows without four lines stacking on the same pixels
+  // different paths draw faintly behind, so four lines do not stack up
   const others = useMemo(() => {
     if (!chosen?.points) {
       return [];
@@ -168,21 +143,14 @@ export default function MapPane({
     return unique;
   }, [results, chosen]);
 
-  // what to frame on. an isochrone has no route, so it uses the ground
-  // it reached. a route uses the same frame the race panels do, which
-  // holds both buildings, the whole path, and nearly all of the search,
-  // so a single algorithm does not explore off the side of the screen.
-  //
-  // memoised because refitting runs off this array, and a fresh one
-  // every render would fight the user panning.
+  // a reach area frames on the ground it reached, a route on the race frame.
+  // memoised, since a fresh array every render would fight the user panning
   const fitPoints = useMemo<[number, number][]>(() => {
     if (isochrone?.points.length) {
-      // the drawn area sits outside the points it came from, so framing
-      // on the points alone clips the edges of the shape
+      // the drawn area sits outside its points, so pad the frame
       return boundsAround(isochrone.points, 0.12) ?? isochrone.points;
     }
-    // all of it, not the grid's 94 percent. one map has the room, and a
-    // node drawn off the edge looks like a bug.
+    // the whole search, not 94 percent like the grid, since one map has room
     return raceBounds(reply, 1) ?? chosen?.points ?? [];
   }, [isochrone, reply, chosen]);
 
@@ -193,19 +161,12 @@ export default function MapPane({
         zoom={16}
         className="map-canvas"
         scrollWheelZoom
-        // the graph is both campuses and a bit past them, so zooming out
-        // further only shows city we cannot route across. the rule is
-        // about twice the graph, and the graph is 3.91 km wide now, so
-        // this went from 14 to 13.5 when west campus arrived.
+        // about twice the graph, so zooming out never shows city nothing routes across
         minZoom={13.5}
-        // and it cannot be dragged off the campus either. zoomed in
-        // there is room to move about inside the box, zoomed out the box
-        // is smaller than the screen so it simply holds still.
+        // and it cannot be dragged off campus either
         maxBounds={CAMPUS_MAX_BOUNDS}
         maxBoundsViscosity={1}
-        // leaflet only sits on whole zoom levels by default, so a frame
-        // a hair too big for one drops to the next and shows everything
-        // at half the size. quarter steps actually fit the frame.
+        // on whole zoom levels a frame a hair too big drops to half the size
         zoomSnap={0.25}
         zoomDelta={0.25}
       >
@@ -224,10 +185,7 @@ export default function MapPane({
 
         <IsochroneCanvas data={isochrone} />
 
-        {/* where you are measuring from. the gateway leaves it out of
-            the reachable list, since you cannot walk to where you already
-            are, so without this it has no marker at all. bigger, and the
-            colour of the area rather than the dark of a destination. */}
+        {/* the gateway leaves the start out of the reachable list, so draw it here */}
         {reachFrom ? (
           <CircleMarker
             center={[reachFrom.lat, reachFrom.lon]}
@@ -257,9 +215,7 @@ export default function MapPane({
           </CircleMarker>
         ) : null}
 
-        {/* the buildings you could actually get to, which is the answer
-            people are really after. these sit over a shaded area, so they
-            need a white ring to stay legible against it. */}
+        {/* reachable buildings, with a white ring to stay legible on the shaded area */}
         {isochrone?.buildings.map((building, rank) => (
           <CircleMarker
             key={building.id}
@@ -272,12 +228,8 @@ export default function MapPane({
               fillOpacity: 1,
             }}
           >
-            {/* only ever the code on the map, and only for the nearest
-                few. fifty labels at fifteen minutes pile into an
-                unreadable heap over the middle of campus, so the rest
-                stay as dots you can hover.
-                a marker binds one tooltip, so the name goes in a popup
-                rather than a second one that would replace this. */}
+            {/* codes only, for the nearest few, or the labels pile up. a marker binds
+                one tooltip, so the name goes in a popup */}
             {building.abbr && rank < LABELLED ? (
               <Tooltip permanent direction="right" offset={[9, 0]} className="reach-tag">
                 {building.abbr}

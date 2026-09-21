@@ -5,9 +5,7 @@ import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import Providers from "./providers";
 import "./globals.css";
 
-// self hosted at build time rather than fetched from google, so the about
-// page can still say the site makes no third party requests and mean it.
-// the brand and the about page use these, the rest of the app does not.
+// self hosted at build time, so the site makes no third party font requests
 const sans = IBM_Plex_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600"],

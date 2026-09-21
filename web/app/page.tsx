@@ -37,7 +37,6 @@ export default function Navigate() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // the second thing navigate can do. no destination needed.
   const [view, setView] = useState<"route" | "reach">("route");
   const [minutes, setMinutes] = useState(5);
   const [reach, setReach] = useState<Isochrone | null>(null);
@@ -58,7 +57,6 @@ export default function Navigate() {
     algorithm: "astar",
   });
 
-  // anything that changes the answer throws the old one away
   const clear = useCallback(() => {
     setReply(null);
     setReach(null);
@@ -73,9 +71,7 @@ export default function Navigate() {
     setBusy(true);
     setError(null);
     try {
-      // reach is always plain distance. measured across all 59 buildings,
-      // the other two modes only shrink the area and almost never change
-      // its shape, so offering them taught people the control was broken.
+      // always plain distance, the other modes barely changed the shape
       setReach(await requestIsochrone({ start: start.id, mode: "shortest", minutes }));
     } catch (caught) {
       setError(
@@ -99,8 +95,7 @@ export default function Navigate() {
       setBusy(true);
       setError(null);
       try {
-        // all four, but no traces. it costs about a millisecond and it
-        // lets the link into the lab say something true.
+        // all four without traces, nearly free, so the lab invite can say something true
         const result = await requestRoute({
           start: start.id,
           target: target.id,
@@ -140,8 +135,7 @@ export default function Navigate() {
             The service may be starting up or temporarily unavailable. Try again
             in a moment.
           </p>
-          {/* the address and the command are only any use to whoever is
-              running it, so a visitor never sees either */}
+          {/* only the person running it can use these, so visitors never see them */}
           {process.env.NODE_ENV === "development" ? (
             <p className="fatal-body">
               Not answering at <code>{API_BASE}</code>. Start it with{" "}
@@ -205,9 +199,7 @@ export default function Navigate() {
           <MapPane
             reply={view === "route" ? reply : null}
             selected={reply?.results.find((r) => r.status === "ok")?.algorithm ?? "astar"}
-            // no graph stats chip here on purpose. the front door carries
-            // the weather reading and nothing else, and node counts are
-            // the sort of thing the lab is for.
+            // no graph stats here, node counts are for the lab
             meta={null}
             playing={false}
             startedAt={null}
@@ -240,8 +232,7 @@ export default function Navigate() {
             </button>
           </div>
 
-          {/* the picker lives inside the route panel now. only the route
-              uses a cost model, so reach never shows a dead control */}
+          {/* only the route uses a cost model, so reach never shows a dead control */}
           {view === "route" ? (
             <NavigatePanel
               reply={reply}
@@ -260,10 +251,8 @@ export default function Navigate() {
                   return;
                 }
                 setMode(next);
-                // a route already on screen answers the mode they just
-                // left, so ask again with the new one. clearing it made
-                // them press find route again to see what changed, which
-                // is the whole point of accessible mode.
+                // a route on screen answers the old mode, so ask again. clearing it
+                // hid what accessible actually changed
                 if (reply) {
                   void run(next);
                 } else {

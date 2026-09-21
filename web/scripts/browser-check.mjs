@@ -1,9 +1,5 @@
-// Drives a real browser against a running app.
-//
-// This covers the things unit tests cannot see, mainly layout at
-// different widths and the states that only appear on screen.
-//
-//   node scripts/browser-check.mjs [url]
+// drives a real browser for the layout and screen states unit tests cannot see.
+// pass a url to check somewhere other than localhost
 
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
@@ -53,8 +49,7 @@ try {
   let b = await boxes(page);
   check("sidebar sits beside the map", b.sidebar.x > b.map.x + b.map.w - 5,
         `map ends ${b.map.x + b.map.w}, sidebar starts ${b.sidebar.x}`);
-  // matches --sidebar in globals.css. went 400 to 440 with the type scale
-  // so names stopped running out of room, then back to 420.
+  // matches the sidebar width in globals.css
   check("sidebar is the planned width", Math.abs(b.sidebar.w - 420) < 3, `${b.sidebar.w}px`);
   await page.screenshot({ path: `${shots}/wide.png` });
 
@@ -87,9 +82,8 @@ try {
   console.log(`       invite reads: "${invite}"`);
   await page.screenshot({ path: `${shots}/navigate.png` });
 
-  // the step list has to account for the whole walk. it used to drop both
-  // building links, which is 86 m of a 218 m route on erf to ses, and it
-  // only shows up if you add the numbers on screen up.
+  // the steps have to add up to the route. both building links once went missing,
+  // which only adding up the screen shows
   const stepSum = await page.evaluate(() =>
     [...document.querySelectorAll(".step-metres")]
       .reduce((total, el) => total + parseInt(el.textContent, 10), 0));
@@ -97,9 +91,7 @@ try {
   check("the steps add up to the route",
         Math.abs(stepSum - headline) <= 2, `steps ${stepSum} m against ${headline} m`);
 
-  // and the crossings count has to match the crossing lines under it.
-  // it used to say four while listing two, because merging the list
-  // changed a number that was describing the route.
+  // the crossings stat has to match its lines, since merging once changed the number
   const crossingStat = await page.evaluate(() => {
     const stat = [...document.querySelectorAll(".stat")]
       .find((el) => el.textContent.includes("crossings"));
@@ -123,15 +115,13 @@ try {
   await page.waitForTimeout(3000);
   await page.screenshot({ path: `${shots}/race-done.png` });
 
-  // new route should leave the pair alone, otherwise trying another
-  // algorithm means typing both buildings in again
+  // new route keeps the pair, or trying another algorithm means retyping both
   await page.getByRole("button", { name: "New route" }).click();
   await page.waitForTimeout(600);
   check("new route keeps both ends",
         page.url().includes("from=SEO") && page.url().includes("to=LCC"), page.url());
 
-  // and racing from a single result has to run, not just flip a flag.
-  // the handler reads state that the dispatch has not updated yet.
+  // racing from one result has to run, not just flip a flag
   await page.getByRole("button", { name: /^Dijkstra/ }).first().click();
   await page.getByRole("complementary")
     .getByRole("button", { name: "Find route", exact: true }).click();
@@ -145,10 +135,7 @@ try {
         await page.locator(".lane").count() === 4,
         `${await page.locator(".lane").count()} lanes`);
 
-  // changing mode reroutes on its own. clearing the route instead meant
-  // pressing find route again to see what accessible actually changed,
-  // which is the one thing that mode is there to show. erf to ses because
-  // step free really is longer there, 218 m against 424 m.
+  // changing mode reroutes on its own. erf to ses, since step free really is longer there
   console.log("\nchanging mode");
   await page.goto(`${base}/?from=ERF&to=SES`, { waitUntil: "networkidle" });
   await page.waitForTimeout(500);

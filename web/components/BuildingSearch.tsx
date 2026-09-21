@@ -16,9 +16,7 @@ type Props = {
   onPick: (building: Building) => void;
 };
 
-/// A real filtering input with keyboard support. The prototype listed
-/// every building regardless of what you typed, which was fine for a
-/// wireframe and useless in the actual app.
+// filters as you type, with keyboard support
 export default function BuildingSearch({
   label,
   placeholder,
@@ -104,9 +102,7 @@ export default function BuildingSearch({
           aria-controls={`${label}-list`}
           aria-autocomplete="list"
           aria-haspopup="listbox"
-          // focus stays in the box while the arrows move the highlight, so
-          // without this a screen reader never hears which building is
-          // picked out and the keyboard support is only there for the eye
+          // focus stays in the input, so without this a screen reader never hears the highlight
           aria-activedescendant={
             matches[highlight] ? `${label}-option-${matches[highlight].id}` : undefined
           }
@@ -124,9 +120,7 @@ export default function BuildingSearch({
       {open ? (
         <div className="search-list" id={`${label}-list`} role="listbox">
           {matches.length === 0 ? (
-            // an empty list means the buildings have not arrived yet, since
-            // campus does not shrink. saying no match while we are still
-            // fetching reads as a broken search rather than a slow one.
+            // no buildings at all means still loading, not a broken search
             <div className="search-none">
               {buildings.length === 0
                 ? "Loading buildings…"

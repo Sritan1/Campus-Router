@@ -1,23 +1,15 @@
-// Turning numbers into the strings the panels show.
-
 import type { RouteMode } from "./api";
 
 const METRES_PER_MILE = 1609.344;
 
-/// What each mode is called, everywhere. The picker, the reach receipt
-/// and the lab all read from here so they cannot drift apart.
+// the one place modes are named, so the picker, receipt and lab cannot drift
 export const MODE_LABEL: Record<RouteMode, string> = {
   shortest: "Shortest",
   accessible: "Accessible",
   weather: "Weather",
 };
 
-/// Metres up to a kilometre, miles past that.
-///
-/// Two decimal places of a mile cannot tell a campus walk apart, so
-/// dijkstra at 367 m and bfs at 373 m both read "0.23 mi" and hid the
-/// point of the race. Since round 18 a cross campus walk is about 2 km,
-/// so both units really do show up in one column. That is on purpose.
+// metres under a kilometre, since two decimals of a mile hid a 367 m against 373 m race
 export function distance(metres: number | undefined): string {
   if (metres === undefined) {
     return "—";
@@ -39,11 +31,7 @@ export function duration(seconds: number | undefined): string {
   return `${minutes} min`;
 }
 
-/// Walking time in whole minutes, never zero.
-///
-/// The reach list and the map markers both want this rather than duration,
-/// since a building you can walk to is not an under a minute walk. Written
-/// out by hand in both places until they were pulled together here.
+// never zero, since a building you can walk to is not an under a minute walk
 export function walkMinutes(seconds: number): string {
   return `${Math.max(1, Math.round(seconds / 60))} min`;
 }
@@ -55,8 +43,7 @@ export function count(value: number | undefined): string {
   return value.toLocaleString("en-US");
 }
 
-/// Runtimes come back in microseconds and are often under a millisecond,
-/// so rounding to whole milliseconds would show a lot of zeroes.
+// often under a millisecond, so whole milliseconds would show zeroes
 export function runtime(micros: number | undefined): string {
   if (micros === undefined) {
     return "—";
@@ -105,10 +92,8 @@ export const ALGORITHM_COLORS: Record<string, string> = {
 
 // line weights, kept together so they are easy to tune
 export const LINE = {
-  // the search spreading across the map
   trace: 2.8,
   traceAlpha: 0.7,
-  // the route it settled on
   route: 8,
   // a different path another algorithm took
   alternate: 4.5,

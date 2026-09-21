@@ -10,20 +10,12 @@ type Props = {
   data: Isochrone | null;
 };
 
-// the area is worked out on a grid this big. small enough to follow the
-// shape of where you can get, big enough that paths running alongside
-// each other join into one region.
-//
-// it also sets how generous the shape is. every filled square is grown
-// by one, so the outline sits up to this far outside the real ground.
+// small enough to follow the shape, big enough that neighbouring paths join.
+// squares grow by one, so the outline can sit this far outside the real edge
 const CELL_M = 55;
 
-/// Draws everywhere you can walk to as an outlined area, paths on top.
-///
-/// The outline comes from binning the reachable points onto a grid and
-/// tracing round the filled squares. A square only joins the area when
-/// the search actually got to it, so the shape cannot bulge across the
-/// expressway or through the middle of a block the way a hull would.
+// only squares the search reached join the area, so unlike a hull it cannot
+// bulge across the expressway
 export default function IsochroneCanvas({ data }: Props) {
   const map = useMap();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -79,7 +71,6 @@ export default function IsochroneCanvas({ data }: Props) {
 
       const cell = Math.max(10, Math.min(pixelsFor(CELL_M), 120));
 
-      // which squares of ground the search reached
       const cells = new Set<string>();
       for (const edge of data.edges) {
         for (const end of edge) {

@@ -1,14 +1,11 @@
-// Working out the shape of everywhere you can walk to.
+// the shape of everywhere you can walk to
 
-/// One area, one colour. Splitting the budget into sub bands implied a
-/// precision the walking speed does not have, and gave the eye three
-/// outlines to read when one is the answer.
+// one area, one colour. sub bands claimed a precision walking speed does not have
 export const REGION_COLOUR = "#2a78d6";
 
 export type Ring = [number, number][];
 
-/// Grows the filled squares by one, to close the gaps between paths
-/// that run alongside each other so they read as one area.
+// joins paths that run alongside each other into one area
 export function grow(cells: Set<string>): Set<string> {
   const out = new Set<string>();
   for (const key of cells) {
@@ -22,11 +19,8 @@ export function grow(cells: Set<string>): Set<string> {
   return out;
 }
 
-/// Traces the outline around a set of filled squares.
-///
-/// Any side of a square that does not have another filled square behind
-/// it is on the edge. Collecting those and joining them end to end
-/// gives the boundary, as one loop per separate piece.
+// a side with no filled square behind it is edge. joined end to end, those
+// give one loop per separate piece
 export function outlines(cells: Set<string>): Ring[] {
   const segments = new Map<string, [number, number][]>();
   const key = (x: number, y: number) => `${x},${y}`;
@@ -40,8 +34,7 @@ export function outlines(cells: Set<string>): Ring[] {
 
   for (const cell of cells) {
     const [x, y] = cell.split(":").map(Number);
-    // wound the same way round every square, so the joined up loops
-    // never double back on themselves
+    // wound the same way round every square, so joined loops never double back
     if (!cells.has(`${x}:${y - 1}`)) add(x, y, x + 1, y);
     if (!cells.has(`${x + 1}:${y}`)) add(x + 1, y, x + 1, y + 1);
     if (!cells.has(`${x}:${y + 1}`)) add(x + 1, y + 1, x, y + 1);
@@ -79,7 +72,6 @@ export function outlines(cells: Set<string>): Ring[] {
   return rings;
 }
 
-/// How far a point sits from the line between two others.
 function offLine(
   point: [number, number],
   from: [number, number],
@@ -95,11 +87,7 @@ function offLine(
   return cross / span;
 }
 
-/// Drops the points that were not saying anything, keeping the corners.
-///
-/// Douglas and Peucker. Straight off the grid the outline is hundreds of
-/// little right angles, so this keeps the ones that turn and throws the
-/// rest away.
+// douglas peucker. off the grid the outline is hundreds of little right angles
 function thin(points: Ring, tolerance: number): Ring {
   if (points.length < 3) {
     return points;
@@ -125,16 +113,10 @@ function thin(points: Ring, tolerance: number): Ring {
   return [...left.slice(0, -1), ...right];
 }
 
-/// How far a corner may be cut, in grid cells. A little over one square,
-/// enough to lose the staircase and not enough to take the corner off a
-/// whole block. The default and the caller used to disagree, so the tests
-/// were measuring a tolerance the app never used.
+// in grid cells. enough to lose the staircase, not enough to cut off a block corner
 export const SIMPLIFY_CELLS = 1.2;
 
-/// Turns a staircase loop into a polygon with real corners.
-///
-/// The loop is cut in two before thinning, because the ends of a closed
-/// ring are both anchors and thinning it whole leaves a flat spot there.
+// cut in two first, since a closed ring thinned whole leaves a flat spot at its ends
 export function simplify(ring: Ring, tolerance = SIMPLIFY_CELLS): Ring {
   if (ring.length < 4) {
     return ring;

@@ -7,7 +7,7 @@ import { agreementFor } from "@/lib/agreement";
 import { ALGORITHM_COLORS, MODE_LABEL, distance, duration } from "@/lib/format";
 import ModePicker from "@/components/ModePicker";
 
-// the four lanes, in the order the lab races them
+// one colour per algorithm, for the invite dots
 const LANE_COLOURS = [
   ALGORITHM_COLORS.dijkstra,
   ALGORITHM_COLORS.astar,
@@ -27,7 +27,7 @@ type Props = {
   labHref: string;
   onRun: () => void;
   onMode: (mode: RouteMode) => void;
-  /// throws the route away and keeps the pair, like clear reach does
+  // throws the route away and keeps the pair, like clear reach does
   onClear: () => void;
 };
 
@@ -37,10 +37,7 @@ const MODE_SUMMARY: Record<RouteMode, string> = {
   weather: "Winter-aware routing that steers you off the surfaces that turn treacherous.",
 };
 
-/// What the search is about to do, before it has done it.
-///
-/// Same card the reach view shows, since both are a receipt of the
-/// settings you are about to run.
+// a receipt of what the search will do, the same card reach shows
 function Summary({
   start,
   target,
@@ -166,16 +163,12 @@ export default function NavigatePanel(props: Props) {
 
   const best = reply.results.find((r) => r.status === "ok");
 
-  // no pair on campus fails today, but the engine can still answer
-  // no_path, so the guard stays rather than reading a route that is
-  // not there
+  // nothing fails today, but the engine can still say no_path
   if (!best) {
     return (
       <div className="panel">
         <h2 className="panel-title">No route found</h2>
-        {/* a step free failure is a claim about our map rather than about
-            the building, and saying it the other way round would be wrong
-            about a place somebody may actually need to get into */}
+        {/* a claim about our map, not the building, since somebody may need to get in */}
         <p className="empty-body">
           {mode === "accessible"
             ? "No step free route to the entrance we know about. There may still be one we have not mapped."
@@ -196,8 +189,7 @@ export default function NavigatePanel(props: Props) {
           <span className="headline-time">{duration(best.estSeconds)} walk</span>
         </div>
 
-        {/* the picker rides with the sentence in both states, otherwise
-            there is no way to change mode once a route is on screen */}
+        {/* the picker shows in both states, or mode cannot change once a route is up */}
         {picker}
         <p className="lede">{MODE_SUMMARY[mode]}</p>
         {reply.cost.notes.map((note) => (
@@ -206,9 +198,7 @@ export default function NavigatePanel(props: Props) {
           </p>
         ))}
 
-        {/* only on the results, not the idle panel. the caption above is
-            pinned to two lines to stop the card jumping, and a note that
-            appears for one mode only would start it jumping again. */}
+        {/* results only, since a note for one mode on the idle panel makes the card jump */}
         {mode === "accessible" ? (
           <p className="caveat">
             Accessible routing reads OpenStreetMap, which maps stairs far more
@@ -233,9 +223,6 @@ export default function NavigatePanel(props: Props) {
         ) : null}
       </div>
 
-      {/* the route goes and the two buildings stay, since this means try
-          something else on these two rather than start from an empty
-          form. clear reach does the same to an area. */}
       <div className="panel-foot">
         <button type="button" className="primary" onClick={onClear}>
           New route

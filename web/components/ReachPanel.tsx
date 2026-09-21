@@ -17,16 +17,12 @@ type Props = {
   onClear: () => void;
 };
 
-// four on purpose, the pill track is an even four up. these went up with
-// round 18, since the campuses are about 25 minutes apart and the old top
-// of 15 could never show you the other one.
+// the campuses are about 25 minutes apart, so the top choice has to reach past that
 const CHOICES = [5, 10, 20, 30];
 
-// never collapse below this, otherwise a short window leaves a list too
-// stubby to be worth reading
+// a floor, so a short window still shows a list worth reading
 const LEAST_SHOWN = 4;
 
-/// What the search is about to do, before it has done it.
 function Summary({
   start,
   minutes,
@@ -54,10 +50,7 @@ function Summary({
   );
 }
 
-/// How many rows the panel can show without scrolling.
-///
-/// Measured rather than guessed, because a tall window fits twice what
-/// a short one does and a fixed number is wrong on both.
+// measured, since a tall window fits twice what a short one does
 function useRowsThatFit(
   box: React.RefObject<HTMLDivElement | null>,
   list: React.RefObject<HTMLDivElement | null>,
@@ -79,14 +72,12 @@ function useRowsThatFit(
       if (!height) {
         return;
       }
-      // the heading and the show more line live in here too, so their
-      // height comes off before the rows are counted
+      // the heading and show more line share the room, so take them off first
       const head = inner!.querySelector(".reach-head") as HTMLElement | null;
       const more = inner!.querySelector(".reach-more") as HTMLElement | null;
       const taken = (head?.offsetHeight ?? 0) + (more?.offsetHeight ?? 40);
 
-      // space left under wherever the list starts. the things above it
-      // do not move, so this does not fight itself.
+      // things above the list do not move, so this cannot fight itself
       const room = outer!.getBoundingClientRect().bottom - inner!.getBoundingClientRect().top;
       const many = Math.max(LEAST_SHOWN, Math.floor((room - taken - 10) / height));
       setFits((was) => (was === many ? was : many));
@@ -150,9 +141,6 @@ export default function ReachPanel({
           ))}
         </div>
 
-        {/* a bare sentence with nothing above it reads as part of the
-            panel rather than as something having gone wrong, and the
-            route side already says it this way */}
         {error ? (
           <>
             <p className="section-label">Something went wrong</p>

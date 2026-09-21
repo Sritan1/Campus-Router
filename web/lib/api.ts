@@ -1,5 +1,4 @@
-// Everything that talks to the gateway lives here, so the components
-// never build a url themselves.
+// everything that talks to the gateway, so components never build a url
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -15,9 +14,7 @@ export type Building = {
   lon: number;
 };
 
-// The four, and the three modes, named once. Both types are read back off
-// the list, so adding one here is the only edit and nothing can end up
-// holding a shorter copy of it.
+// named once, and both types are read off these lists
 export const ALGORITHMS = ["dijkstra", "astar", "bfs", "bidirectional"] as const;
 export const MODES = ["shortest", "accessible", "weather"] as const;
 
@@ -43,9 +40,7 @@ export type AlgorithmResult = {
     edges: [number, number][];
     sampled: boolean;
     total: number;
-    // paths the engine had to drop because only one end survived thinning.
-    // the engine reports this so a caller can tell the search arrived in
-    // pieces, which is the bug that cost the most time on this project.
+    // edges lost because thinning dropped one end, so a caller can tell
     droppedEdges: number;
   };
 };
@@ -70,7 +65,7 @@ export type DirectionStep = {
 export type Directions = {
   turns: number;
   crossings: number;
-  /// share of the walk on a real footpath rather than a road
+  // share of the walk on a real footpath rather than a road
   onFootpath: number;
   steps: DirectionStep[];
 };
@@ -88,8 +83,7 @@ export type RouteReply = {
     blockedClasses: number;
     adjustedClasses: number;
     walkingSpeedMps: number;
-    // whether the time estimate was taken off the weighted walk or the
-    // plain one, which is the difference between weather mode and the rest
+    // whether the time came off the weighted walk or the plain one
     speedDerived: boolean;
   };
   weather: Weather | null;
@@ -104,7 +98,7 @@ export type GraphMeta = {
     maxlon: number;
   } | null;
   classes: number;
-  /// the day the openstreetmap data was pulled, for the about page
+  // the day the osm data was pulled, for the about page
   extracted?: string | null;
 };
 
@@ -114,9 +108,9 @@ export type Isochrone = {
   minutes: number;
   points: [number, number][];
   edges: [number, number][];
-  /// how long it takes to reach each path, in seconds
+  // seconds to reach each path
   edgeSeconds: number[];
-  /// buildings inside the area, nearest first, with how long they take
+  // nearest first, with how long each takes
   buildings: (Building & { seconds: number })[];
   reached: number;
   runtimeUs: number;
@@ -132,14 +126,10 @@ export class ApiError extends Error {
   }
 }
 
-// The gateway can wait six seconds on weather and five on the engine, so
-// a request that has taken this long is not coming back. Without it a
-// hung backend leaves the panel spinning with no way out of it.
+// the gateway waits at most eleven seconds, so past this a hung panel needs a way out
 const REQUEST_TIMEOUT_MS = 20000;
 
-// Reading the body happens in here rather than in the callers, because
-// fetch resolves as soon as the headers land. Clearing the timer before
-// the body is read leaves a stalled reply with nothing to cancel it.
+// the body is read inside the timeout, since fetch resolves once headers land
 async function ask<T>(path: string, init?: RequestInit): Promise<T> {
   const giveUp = new AbortController();
   const timer = setTimeout(() => giveUp.abort(), REQUEST_TIMEOUT_MS);
@@ -166,8 +156,7 @@ async function post<T>(path: string, input: unknown): Promise<T> {
   });
 }
 
-// what to say when the reply carries no reason we can show. a status code
-// on its own is not something anyone reading it can do anything with.
+// for replies with no reason to show, since a bare status helps nobody
 const NO_REASON = "Something went wrong at our end. Try again in a moment.";
 
 async function readError(reply: Response): Promise<string> {
@@ -210,8 +199,6 @@ export async function requestRoute(input: {
   algorithms: AlgorithmName[];
   trace: boolean;
 }): Promise<RouteReply> {
-  // no sample limit on purpose. thinning drops points, and a path only
-  // survives if both of its ends do, so asking for half the points threw
-  // away three quarters of the paths and the search came out in pieces.
+  // no sample limit on purpose, thinning shreds the search
   return post<RouteReply>("/api/route", input);
 }

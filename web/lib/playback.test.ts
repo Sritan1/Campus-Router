@@ -59,8 +59,7 @@ describe("how much of the search is drawn", () => {
 });
 
 describe("bars", () => {
-  // runtimes from a real cross campus race, where bfs settles the most
-  // nodes of anyone and still finishes first
+  // runtimes from a real cross campus race, where bfs settles most and still wins
   const all = [
     result("dijkstra", 12898, 200, 2521),
     result("astar", 3183, 185, 1156),
@@ -76,8 +75,6 @@ describe("bars", () => {
   });
 
   it("measures time and not work, so the busiest search can be shortest", () => {
-    // bfs settles more nodes than dijkstra and still gets the shorter
-    // bar. keying on nodes hid exactly this.
     expect(all[2].nodesVisited).toBeGreaterThan(all[0].nodesVisited);
     expect(barFraction(all[2], all, 1)).toBeLessThan(barFraction(all[0], all, 1));
   });

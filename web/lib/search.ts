@@ -1,5 +1,4 @@
-// Building search, done on the client because the whole list is small
-// and typing should not wait on the network.
+// on the client, since the list is small and typing should not wait on the network
 
 import type { Building } from "./api";
 
@@ -22,8 +21,7 @@ function termsFor(building: Building): string[] {
   return terms.map(fold);
 }
 
-/// Ranks an exact building code first, then names that start with what
-/// was typed, then anything that merely contains it.
+// exact code first, then names starting with the query, then any match
 export function searchBuildings(
   buildings: Building[],
   query: string,

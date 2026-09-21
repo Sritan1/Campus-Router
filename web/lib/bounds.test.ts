@@ -117,7 +117,6 @@ describe("the shared race frame", () => {
       [41.9, -87.62],
     ];
     const box = raceBounds(reply([result("astar", [], route)]))!;
-    // a route point is never trimmed, however far out it sits
     expect(box[1][0]).toBeGreaterThan(41.9);
     expect(box[1][1]).toBeGreaterThan(-87.62);
   });
@@ -128,7 +127,6 @@ describe("the shared race frame", () => {
       wide.push([41.87 + i * 0.00005, -87.65]);
     }
     const box = raceBounds(reply([result("bfs", wide)]))!;
-    // most of it is on screen even though the tail is trimmed
     expect(box[1][0]).toBeGreaterThan(41.878);
   });
 
@@ -142,14 +140,12 @@ describe("the shared race frame", () => {
     const tight = spread(raceBounds(reply([result("bfs", near)]))!);
     const loose = spread(raceBounds(reply([result("bfs", withStrays)]))!);
 
-    // two wanderers out of two hundred would otherwise blow the frame
-    // out and leave every panel showing a speck
+    // two strays in two hundred would otherwise leave every panel a speck
     expect(loose).toBeLessThan(tight * 3);
   });
 
   it("keeps every stray when asked to cover all of it", () => {
-    // the single algorithm map passes 1, because one map has the room
-    // and a node drawn off the edge looks like a bug
+    // the single map passes 1, since it has the room
     const near: [number, number][] = [];
     for (let i = 0; i < 200; i++) {
       near.push([41.871 + (i % 10) * 0.0001, -87.651]);

@@ -26,15 +26,12 @@ import {
 import { writeUrl } from "@/lib/url";
 import { useCampus, useRestoreFromUrl, useWriteUrl } from "@/lib/use-campus";
 
-// leaflet reaches for window as soon as it loads, so it cannot render
-// on the server
+// leaflet reaches for window as soon as it loads, so no server rendering
 const MapPane = dynamic(() => import("@/components/MapPane"), {
   ssr: false,
   loading: () => <div className="map-pane map-loading">Loading the map…</div>,
 });
 
-// leaflet reaches for window on import, so the grid cannot be rendered
-// on the server either
 const RaceGrid = dynamic(() => import("@/components/RaceGrid"), {
   ssr: false,
   loading: () => <div className="map-pane map-loading">Loading the maps…</div>,
@@ -43,8 +40,7 @@ const RaceGrid = dynamic(() => import("@/components/RaceGrid"), {
 export default function Lab() {
   const [state, dispatch] = useReducer(reduce, INITIAL);
 
-  // playback clock. the canvas runs its own frames off startedAt so it
-  // stays smooth, while react only re-renders for the sidebar bars.
+  // the canvas runs its own frames off startedAt, react only renders the bars
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -54,8 +50,6 @@ export default function Lab() {
     setReducedMotion(prefersReducedMotion());
   }, []);
 
-  // both screens ask the same three questions, so they ask them in one
-  // place. the lab used to keep its own copy of all of this.
   const { buildings, meta, list, weatherReady, weatherChip } = useCampus();
 
   const start = useMemo(
@@ -67,9 +61,7 @@ export default function Lab() {
     [list, state.targetId],
   );
 
-  // put a shared link back together, once, after the buildings arrive.
-  // same hook navigate uses, so an unknown building reads the same way on
-  // both screens instead of drifting apart.
+  // the same hook navigate uses, so an unknown building reads the same on both
   const {
     notice: linkNotice,
     setNotice: setLinkNotice,
@@ -89,8 +81,6 @@ export default function Lab() {
     });
   });
 
-  // keep the address bar current without adding history entries. same
-  // hook navigate uses, so both leave other people's parameters alone.
   useWriteUrl(restored.current, {
     from: start,
     to: target,
@@ -106,10 +96,7 @@ export default function Lab() {
     }
   }, []);
 
-  /// Ticks the sidebar bars while the canvas animates.
-  ///
-  /// Twenty times a second is plenty for a bar, and it keeps react out
-  /// of the sixty frame loop the canvas is running.
+  // twenty ticks a second is plenty for a bar and keeps react out of the canvas loop
   const startClock = useCallback(() => {
     stopClock();
     const began = performance.now();
@@ -140,8 +127,7 @@ export default function Lab() {
     dispatch({ type: "finished" });
   }, [stopClock]);
 
-  // takes the state to run rather than reading it, so a caller can turn
-  // racing on and run in one go without waiting for the dispatch
+  // takes the state to run, so racing on and running work in one click
   const runWith = useCallback(
     async (wanted: AppState) => {
       if (!canRun(wanted)) {
@@ -176,7 +162,6 @@ export default function Lab() {
 
   const run = useCallback(() => runWith(state), [runWith, state]);
 
-  /// Switch to racing and go, from a single algorithm result.
   const raceAll = useCallback(() => {
     dispatch({ type: "setRace", race: true });
     return runWith({ ...state, race: true, selected: "astar" });
@@ -225,8 +210,7 @@ export default function Lab() {
     state.startId && state.targetId && state.startId === state.targetId,
   );
 
-  // the grid is only for racing all four. a single algorithm has
-  // nothing to compare against, so it keeps the normal moveable map.
+  // the grid only when racing all four, a single run keeps the normal map
   const gridBounds = useMemo(() => raceBounds(state.reply), [state.reply]);
   const showGrid = Boolean(
     state.race &&
@@ -235,8 +219,6 @@ export default function Lab() {
       (state.phase === "running" || state.phase === "results"),
   );
 
-  // the table takes over the map area rather than sitting under it, so
-  // the numbers get the room instead of a strip at the bottom
   const showTable = Boolean(
     state.showTable && state.phase === "results" && state.reply,
   );
@@ -250,8 +232,6 @@ export default function Lab() {
     algorithm: state.algorithm,
   })}`;
 
-  // without the building list there is nothing to search and nothing to
-  // route between, so say so plainly rather than showing an empty box
   if (buildings.isError) {
     return (
       <main className="shell">
@@ -261,8 +241,7 @@ export default function Lab() {
             The service may be starting up or temporarily unavailable. Try again
             in a moment.
           </p>
-          {/* the address and the command are only any use to whoever is
-              running it, so a visitor never sees either */}
+          {/* only the person running it can use these, so visitors never see them */}
           {process.env.NODE_ENV === "development" ? (
             <p className="fatal-body">
               Not answering at <code>{API_BASE}</code>. Start it with{" "}
@@ -343,8 +322,7 @@ export default function Lab() {
               selected={state.selected}
               onSelect={(algorithm) => dispatch({ type: "selectLane", algorithm })}
             />
-            {/* the panels turn leaflet's own attribution off, so both
-                credits have to live here instead */}
+            {/* the panels turn leaflet attribution off, so the credits live here */}
             <p className="grid-credit">
               <a href="https://leafletjs.com">Leaflet</a> · Map data ©{" "}
               <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>{" "}
@@ -361,8 +339,6 @@ export default function Lab() {
             startedAt={startedAt}
             reducedMotion={reducedMotion}
           />
-          {/* darkens the tiles while exploring so the trace reads,
-              then fades back out */}
           <div
             className={`scrim${state.phase === "running" && state.reply ? " is-on" : ""}`}
             aria-hidden="true"

@@ -22,8 +22,7 @@ describe("growing the filled squares", () => {
   });
 
   it("joins two squares that were a gap apart", () => {
-    // this is the point of it. paths either side of a building would
-    // otherwise outline as two separate areas.
+    // paths either side of a building would otherwise outline as two areas
     const joined = grow(cells("0:0", "2:0"));
     expect(joined.has("1:0")).toBe(true);
   });
@@ -44,8 +43,7 @@ describe("tracing the outline", () => {
   });
 
   it("gives separate loops for separate pieces", () => {
-    // somewhere across the expressway you genuinely cannot reach should
-    // not be joined to somewhere you can
+    // somewhere across the expressway must not join somewhere you can reach
     const rings = outlines(cells("0:0", "5:5"));
     expect(rings).toHaveLength(2);
   });
@@ -62,7 +60,7 @@ describe("tracing the outline", () => {
 });
 
 describe("simplifying into a polygon", () => {
-  /// A square carrying pointless extra points along its sides.
+  // a square with pointless extra points along its sides
   function padded(): Ring {
     const ring: Ring = [];
     for (let x = 0; x <= 10; x++) ring.push([x, 0]);

@@ -1,7 +1,4 @@
-// Working out what the invite into the lab is allowed to claim.
-//
-// Navigate runs all four algorithms, so it can say something true about
-// whether they agreed rather than a generic line.
+// what the invite into the lab may truthfully claim
 
 import { ALGORITHM_LABELS } from "./format";
 import type { RouteReply } from "./api";
@@ -26,8 +23,7 @@ export function agreementFor(reply: RouteReply): Agreement | null {
 
   if (groups.length <= 1) {
     return {
-      // all four find a route or none of them do, so one on its own should
-      // not happen. it still reads as english if it ever does.
+      // all four find a route or none do, but one alone still reads as english
       headline:
         found.length === 1
           ? "One algorithm found this route"

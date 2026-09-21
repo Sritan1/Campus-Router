@@ -1,20 +1,13 @@
-// Working out one frame that every race panel shares.
+// one frame that every race panel shares
 
 import type { RouteReply } from "./api";
 
 export type Bounds = [[number, number], [number, number]];
 
-// how much of each search has to be on screen. the last few percent of
-// a bfs run are long thin tendrils that push the frame out a long way
-// while saying almost nothing, and paying for them shrinks the route to
-// a speck in every panel.
+// the tail of a bfs run is thin tendrils that would shrink the route to a speck
 const COVERAGE = 0.94;
 
-/// The box around some points, grown by a fraction of its own size.
-///
-/// The isochrone is drawn deliberately wider than the ground it was
-/// measured from, since the cells are grown and the outline simplified,
-/// so framing on the raw points clips the shape that is actually drawn.
+// the reach area is drawn wider than its points, so framing on raw points clips it
 export function boundsAround(
   points: [number, number][],
   margin: number,
@@ -44,14 +37,8 @@ export function boundsAround(
   ];
 }
 
-/// The box that holds both ends, the whole route, and most of the searching.
-///
-/// All four panels use this same box. If they framed themselves
-/// independently a smaller search would just look like a closer zoom,
-/// and the comparison would mean nothing.
-/// @param coverage how much of the searching has to be on screen. the
-/// grid trims a little because four panels have no room to spare. one
-/// map on its own shows the lot.
+// all four panels share this box, or a smaller search would look like a closer
+// zoom. the single map passes a coverage of 1, since it has the room
 export function raceBounds(
   reply: RouteReply | null,
   coverage = COVERAGE,
@@ -82,8 +69,7 @@ export function raceBounds(
     return null;
   }
 
-  // measure from the middle of the route, so trimming takes the
-  // furthest wandering rather than one side of the map
+  // measured from the middle of the route, so trimming takes the furthest strays
   const centreLat =
     required.reduce((sum, p) => sum + p[0], 0) / required.length;
   const centreLon =

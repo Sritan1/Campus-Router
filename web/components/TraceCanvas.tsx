@@ -11,15 +11,12 @@ type Props = {
   results: AlgorithmResult[];
   startedAt: number | null;
   reducedMotion: boolean;
-  /// off draws nothing, playing animates, complete shows the whole search
+  // off draws nothing, playing animates, complete shows the whole search
   mode?: "off" | "playing" | "complete";
 };
 
-/// Draws the search spreading along the real footpaths.
-///
-/// Each settled node knows the node it was reached from, so a step is a
-/// line down an actual path rather than a loose dot. That is what makes
-/// bfs look like a flood and a star look like an arrow.
+// draws the search as lines along real footpaths rather than loose dots,
+// which is what makes bfs look like a flood and a star like an arrow
 export default function TraceCanvas({
   results,
   startedAt,
@@ -30,12 +27,10 @@ export default function TraceCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef<number | null>(null);
 
-  // how far each algorithm has already been painted, so a frame only
-  // strokes what is new instead of the whole search again
+  // how far each algorithm is painted, so a frame only strokes what is new
   const drawnRef = useRef<number[]>([]);
 
-  // what the map looked like when we last painted. anything already on
-  // the canvas was placed for that view and is wrong for any other.
+  // the view last painted for, anything on the canvas is wrong for any other
   const viewRef = useRef<string>("");
 
   useEffect(() => {
@@ -81,7 +76,6 @@ export default function TraceCanvas({
       viewRef.current = "";
     }
 
-    /// Strokes one algorithm's paths between two positions in its trace.
     function strokeRange(result: AlgorithmResult, from: number, to: number) {
       const trace = result.trace;
       if (!trace?.edges.length || to <= from) {
@@ -101,8 +95,7 @@ export default function TraceCanvas({
       }
 
       context!.strokeStyle = ALGORITHM_COLORS[result.algorithm] ?? "#2a78d6";
-      // once it has played out the map comes back to full brightness, so
-      // the search sits behind the route rather than competing with it
+      // once played out, the search sits behind the route instead of competing
       context!.globalAlpha = mode === "complete" ? 0.45 : LINE.traceAlpha;
       context!.lineWidth = mode === "complete" ? LINE.trace * 0.8 : LINE.trace;
       context!.stroke();
@@ -122,18 +115,14 @@ export default function TraceCanvas({
       return clamp((performance.now() - startedAt) / PLAYBACK_MS);
     }
 
-    /// A short description of where the map is looking right now.
     function viewKey() {
       const at = map.getCenter();
       return `${map.getZoom()}:${at.lat.toFixed(6)}:${at.lng.toFixed(6)}`;
     }
 
-    /// Paints whatever has been revealed since the last frame.
     function paintNew() {
-      // if the map has shifted at all, everything already painted was
-      // placed against a view that no longer exists. leaflet reports the
-      // old zoom part way through its own animations, so this is checked
-      // every frame rather than trusted to fire as an event.
+      // checked every frame, not left to an event, since leaflet reports the old
+      // zoom part way through its own animations
       const now = viewKey();
       if (now !== viewRef.current) {
         viewRef.current = now;
@@ -153,7 +142,6 @@ export default function TraceCanvas({
       });
     }
 
-    /// Repaints everything, for when the map has moved under us.
     function repaintAll() {
       wipe();
       paintNew();
@@ -172,10 +160,7 @@ export default function TraceCanvas({
     sizeToMap();
     wipe();
 
-    // panning or zooming invalidates every pixel already painted.
-    // the end events matter as much as the live ones, because leaflet
-    // only reports its real zoom once the animation has finished, and
-    // whatever was painted before that is in the wrong place.
+    // the end events too, since leaflet only reports the real zoom once it settles
     map.on("move zoom moveend zoomend", repaintAll);
     map.on("resize", onResize);
 
@@ -189,8 +174,7 @@ export default function TraceCanvas({
 
     return () => {
       map.off("move zoom moveend zoomend", repaintAll);
-      // naming the handler matters, otherwise this takes leaflet's own
-      // resize listener down with it
+      // name the handler, or this also removes the resize listener leaflet uses
       map.off("resize", onResize);
       if (frameRef.current !== null) {
         cancelAnimationFrame(frameRef.current);

@@ -126,7 +126,6 @@ describe("selecting lanes", () => {
 
 describe("playback", () => {
   it("the reply arriving does not end the running phase", () => {
-    // the exploration still has to play out after the data lands
     const running = withEnds({ phase: "running" });
     const next = reduce(running, { type: "arrived", reply: fakeReply() });
     expect(next.phase).toBe("running");
@@ -195,8 +194,6 @@ describe("reset", () => {
     });
     const next = reduce(settled, { type: "reset" });
 
-    // going back to pick another algorithm should not make you type
-    // both buildings in again
     expect(next.startId).toBe("1");
     expect(next.targetId).toBe("2");
     expect(next.phase).toBe("idle");

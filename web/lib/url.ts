@@ -1,4 +1,4 @@
-// Keeping the route in the address bar, so a link can be shared.
+// keeps the route in the address bar, so a link can be shared
 
 import { ALGORITHMS, MODES } from "./api";
 import type { AlgorithmName, Building, RouteMode } from "./api";
@@ -53,10 +53,7 @@ export function writeUrl(input: {
   return query ? `?${query}` : "";
 }
 
-/// Finds the building a link is asking for.
-///
-/// Links carry a code like SEO, but an id works too so an older link
-/// does not break.
+// links carry a code like SEO, and an id still works for older links
 export function findBuilding(
   buildings: Building[],
   key: string | null,

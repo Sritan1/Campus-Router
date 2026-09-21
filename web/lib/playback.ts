@@ -1,10 +1,7 @@
-// Timing for the exploration animation.
-
 import type { AlgorithmResult } from "./api";
 
-// The engine answers in well under a millisecond, so this duration is
-// presentation, not compute. It exists so the search can be watched.
-// The runtime column reports the real measured time.
+// presentation, not compute. the engine answers in under a millisecond, and the
+// runtime column shows the real time
 export const PLAYBACK_MS = 4200;
 
 export function prefersReducedMotion(): boolean {
@@ -14,11 +11,7 @@ export function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-/// How much of its own exploration an algorithm has drawn at time p.
-///
-/// Each one is scaled by its own total, so all four finish together and
-/// what you are watching is how widely each searched rather than a race.
-/// Speed is the runtime column and the bars, not this.
+// scaled per algorithm, so all four finish together. speed is the bars, not this
 export function edgesShown(result: AlgorithmResult, progress: number): number {
   const total = result.trace?.edges.length ?? 0;
   if (total === 0) {
@@ -37,12 +30,8 @@ export function clamp(value: number): number {
   return value;
 }
 
-/// Bar length is measured engine time against whoever took the longest,
-/// so the shortest bar is the algorithm that finished first.
-///
-/// It used to be nodes explored, which hid the more interesting result.
-/// On a cross campus race bfs settles the most nodes of anyone and is
-/// still the fastest, because a plain queue is cheaper than a heap.
+// engine time, not nodes. bfs settles the most nodes yet finishes first, since a
+// plain queue is cheaper than a heap
 export function barFraction(
   result: AlgorithmResult,
   results: AlgorithmResult[],
