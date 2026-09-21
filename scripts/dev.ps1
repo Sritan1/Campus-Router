@@ -1,5 +1,4 @@
-# Builds the engine then starts the gateway, which launches the engine itself.
-# Use this for everyday local work. Deployment comes much later.
+# builds the engine, then starts the gateway, which launches the engine itself
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -7,8 +6,7 @@ Set-Location $root
 
 $binary = "engine\build\campus_engine.exe"
 
-# make is not installed on windows here, so call the compiler directly.
-# the flags match engine/Makefile on purpose, include path included.
+# builds without make, so keep these flags in step with the engine Makefile
 Write-Host "building engine..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path "engine\build" | Out-Null
 

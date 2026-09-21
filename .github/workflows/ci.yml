@@ -37,9 +37,8 @@ jobs:
       - name: tests
         run: python -m pytest pipeline api -q
 
-  # the two suites above only ever see their own side. this one runs the
-  # real stack and checks what actually comes out of it, which is where
-  # the trace sampling bug lived.
+  # the suites above each see one side. this runs the real stack, which is where
+  # the trace sampling bug lived
   endtoend:
     runs-on: ubuntu-latest
     steps:

@@ -1,13 +1,4 @@
-"""Finds pairs where step free routing really changes the answer.
-
-Accessible mode blocks steps and charges more for rough ground. Most of
-campus has a step free way round, so on most pairs it changes nothing.
-This goes through every pair and says which ones actually differ, so the
-readme and the demo can point at a real one instead of a hopeful one.
-
-Talks to the engine directly, not through the gateway, so the public
-rate limit does not turn this into a ten minute job.
-"""
+"""Finds pairs where step free routing really differs, skipping the gateway rate limit."""
 
 import itertools
 

@@ -1,17 +1,4 @@
-"""Compares our routes against an independent router.
-
-The algorithms are already checked against each other and against brute
-force. What has never been checked from the outside is the data
-pipeline, which highway values count as walkable, how buildings get
-attached to the network, whether we route through places you cannot
-actually walk.
-
-An independent router built from the same openstreetmap data is a way
-to ask that. It will never agree exactly, so this looks for patterns
-rather than matches.
-
-    python scripts/compare_reference.py [--pairs 40]
-"""
+"""Compares our routes with an independent router, looking for patterns not matches."""
 
 import argparse
 import statistics
@@ -22,19 +9,13 @@ import httpx
 
 OURS = "http://127.0.0.1:8000"
 
-# osrm running the foot profile on openstreetmap data. the demo server
-# at router.project-osrm.org looks like it takes a foot profile in the
-# url and quietly answers with driving, so do not use that one.
+# osrm with the foot profile. the osrm demo server quietly answers with driving
 REFERENCE = "https://routing.openstreetmap.de/routed-foot/route/v1/foot"
 
-# they snap to their own nearest way and we go building centre to
-# building centre, so a few tens of metres of disagreement is expected
+# they snap to their nearest way and we go centre to centre, so some gap is expected
 TOLERANCE = 0.25
 
-# and on a hundred metre walk those few tens of metres are a quarter of
-# the answer on their own, so a percentage alone flags every short route.
-# something has to be off by this much in metres as well before it is
-# worth looking at.
+# on a short walk that gap is a big share, so a route must also be this far off in metres
 ABSOLUTE_M = 120.0
 
 
@@ -91,8 +72,7 @@ def main() -> int:
     named.sort(key=lambda b: b["abbr"])
     print(f"{len(named)} buildings with a code, comparing {args.pairs} pairs\n")
 
-    # walk the list in a stride so the pairs are spread out rather than
-    # all being neighbours
+    # a stride through the list, so pairs are spread out rather than neighbours
     pairs = []
     step = max(1, len(named) // 7)
     for i in range(len(named)):

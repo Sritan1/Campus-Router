@@ -1,13 +1,11 @@
-# Docker sends the whole folder to the daemon before it reads the
-# Dockerfile, so anything left in here is uploaded even though nothing
-# copies it. node_modules and the venv alone are hundreds of megabytes.
+# docker uploads the whole folder before reading the Dockerfile, so skip what
+# nothing copies. node modules and the venv alone are hundreds of megabytes
 
 .git/
 .github/
 
-# patterns here match the whole path from the context root, not just a
-# file name the way gitignore does, so anything that can turn up in a
-# subfolder needs the leading star star or it only matches at the top.
+# patterns match the whole path from the context root, unlike gitignore, so
+# anything that can sit in a subfolder needs a leading star star
 
 # dependencies and build output, all rebuilt inside the image
 **/node_modules/
@@ -26,8 +24,8 @@ engine/bin/
 **/*.obj
 **/*.exe
 
-# secrets never belong in an image layer. api/.env is a real file here
-# and a bare .env rule would sail straight past it.
+# secrets never belong in an image layer, and a bare rule for the env file would
+# miss the real one inside the api folder
 **/.env
 **/.env.*
 !**/.env.example
@@ -41,7 +39,7 @@ docs/
 
 web/scripts/shots/
 
-# the raw overpass dump. the built graph in api/data is what ships.
+# the raw overpass dump, since the built graph is what ships
 pipeline/.cache/
 pipeline/raw/
 

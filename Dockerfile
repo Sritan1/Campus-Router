@@ -1,5 +1,4 @@
-# two stages. we build the engine with gcc then drop it into a small
-# python image so the shipped container has no compiler in it.
+# two stages, so the shipped image has no compiler in it
 
 FROM gcc:14 AS engine-build
 WORKDIR /src
@@ -20,22 +19,16 @@ ENV ENGINE_BINARY=/app/engine/build/campus_engine
 ENV ENGINE_BIND_HOST=127.0.0.1
 ENV ENGINE_PORT=8081
 
-# TRUST_PROXY_HEADERS is deliberately not set here. whether something
-# trustworthy is in front of us is a fact about the deployment, not about
-# the image, so railway sets it and a plain docker run does not.
+# TRUST_PROXY_HEADERS is set on railway, not here, since whether a trusted proxy
+# is in front is a fact about the deployment
 
-# nothing here needs root, and a container that runs as root turns any
-# problem in the app into a root problem inside the container
+# nothing needs root, and running as root turns any app bug into a root problem
 RUN useradd --create-home --shell /usr/sbin/nologin campus \
     && chown -R campus:campus /app
 USER campus
 
 EXPOSE 8000
 
-# railway hands us the port through PORT so we expand it at runtime.
-#
-# no proxy-headers on purpose. uvicorn would rewrite the client address
-# from the first entry of x forwarded for, which is the part the caller
-# writes, and that is the end we deliberately do not trust. the gateway
-# reads the header itself and takes the entry our own proxy appended.
+# railway passes the port in PORT. no proxy headers flag, since uvicorn would take
+# the first x forwarded for entry, the one the caller writes
 CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
