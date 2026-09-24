@@ -1,48 +1,26 @@
-# docker uploads the whole folder before reading the Dockerfile, so skip what
-# nothing copies. node modules and the venv alone are hundreds of megabytes
+# an allowlist. docker uploads the whole folder before reading the Dockerfile,
+# and the image only needs the engine and the gateway, so everything is out
+# unless it is named here. anything new in the repo stays out by default
 
-.git/
-.github/
+*
+!engine
+!api
 
 # patterns match the whole path from the context root, unlike gitignore, so
 # anything that can sit in a subfolder needs a leading star star
 
-# dependencies and build output, all rebuilt inside the image
-**/node_modules/
-web/.next/
-web/.next-verify/
-web/out/
-.venv/
-venv/
-**/__pycache__/
-**/*.py[cod]
-**/.pytest_cache/
-**/.ruff_cache/
+# build output, rebuilt inside the image
 engine/build/
 engine/bin/
 **/*.o
 **/*.obj
 **/*.exe
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
 
 # secrets never belong in an image layer, and a bare rule for the env file would
 # miss the real one inside the api folder
 **/.env
 **/.env.*
-!**/.env.example
-
-
-
-
-docs/
-*.pdf
-
-
-web/scripts/shots/
-
-# the raw overpass dump, since the built graph is what ships
-pipeline/.cache/
-pipeline/raw/
-
-.DS_Store
-Thumbs.db
-desktop.ini

@@ -1,234 +1,223 @@
 # Campus Router
 
-Walking routes across the University of Illinois Chicago campus footpath network, with
-four pathfinding algorithms you can race against each other on the same start and end
-pair.
+<!-- LIVE LINK TODO: replace "coming soon" with the Vercel URL once the app is deployed. -->
+**Live demo:** coming soon &nbsp;·&nbsp; Code: [MIT](LICENSE) &nbsp;·&nbsp; Map data: [ODbL](LICENSE-DATA)
 
-The routing is real. The graph is 16,149 nodes and 19,392 edges built from a fresh
-OpenStreetMap extract covering both campuses, and the engine is a from-scratch C++ service
-that answers a cross campus route in about 2 ms.
+Campus Router is a walking map for the University of Illinois Chicago. Pick two buildings and it shows you the quickest way to walk between them, along with how long it takes and directions to follow. Two additional modes adapt the route to the person and the season: Accessible avoids every staircase on the map, for anyone using a wheelchair or otherwise unable to take stairs, and Weather adjusts for snow and ice based on current conditions. A separate Reach view outlines the area you can cover on foot within 5 to 30 minutes.
 
-> **Not affiliated with, endorsed by, or connected to the University of Illinois Chicago.**
-> It is a personal project built on public map data.
+Alongside the routing tool is a lab for comparing pathfinding algorithms. It runs Dijkstra, A\*, BFS and bidirectional Dijkstra on the same trip, then replays each search on its own map with its measured runtime.
 
-## What it does
+![A route from SEO to Lecture Center C with walking directions](docs/screenshots/navigate.png)
 
-**Navigate** is the routing tool: pick two buildings, get a route, a distance, a walking
-time and turn by turn directions. **Reach** answers how far you can walk from a building in
-5, 10, 20 or 30 minutes, drawn as a polygon. **The lab** is the same engine with the
-covers off, racing Dijkstra, A\*, BFS and bidirectional Dijkstra side by side and animating
-how each one explored the graph.
+## Features
 
-Three routing modes: shortest distance, step free, and a winter mode that reprices snow and
-ice.
+### Accessible
 
-## Layout
+<img align="right" width="56%" hspace="16" src="docs/screenshots/accessible.png" alt="The trip from ERF to SES taking a longer step free route">
 
-| Folder | What it is |
+<br>
+
+Routes around every staircase and penalizes rough ground such as gravel and cobbles. About one building pair in ten ends up with a longer walk.
+
+<br>
+OpenStreetMap maps stairs much better than ramps. A missing step free route can simply mean a missing path, so check anything important with the university.
+
+<br clear="all">
+
+### Weather
+
+Factors in snow and ice that slow walking down. The figures come from a research paper by Fossum and Ryeng (2021), who timed pedestrians walking on winter pavement. The paper found no measurable effect from rain, so the mode accounts for snow and ice rather than bad weather in general.
+
+<img align="right" width="56%" hspace="16" src="docs/screenshots/weather.png" alt="Weather mode on a snowy reading, timing the walk from ARC to SES at nine minutes">
+
+| Surface | Walking time |
 |---|---|
-| `engine/` | C++ pathfinding engine. Own graph structure, own JSON parser, own HTTP server, no dependencies. |
-| `api/` | Python FastAPI gateway. Public API, weather, the cost model, directions, and it owns the engine process. |
-| `pipeline/` | Offline scripts that build the graph from the Overpass API. Never runs at request time. |
-| `web/` | Next.js frontend with Leaflet. |
+| Bare pavement | Baseline, 1.607 m/s |
+| Compact snow | 7% longer |
+| Loose snow | 9% longer |
+| Gritted ice | 10% longer |
+| Clean ice | 19% longer |
 
-## Running it locally
+On a snowy reading the 816 m walk from ARC to SES is timed at nine minutes instead of eight.
 
-Two terminals.
+<br clear="all">
 
-**Backend.** Builds the engine, sets up the virtual environment the first time, and starts
-the gateway with hot reload.
+### Reach
 
+<img align="right" width="56%" hspace="16" src="docs/screenshots/reach.png" alt="Everywhere within a 10 minute walk of SES">
+
+<br>
+
+Shades everywhere you can walk to from a building within 5, 10, 20 or 30 minutes.
+The outline follows real footpaths instead of drawing a circle.
+
+<br>
+It uses the same algorithm that the routing modes use, but stops at the chosen walking time instead of at a destination.
+
+<br>
+Near the edge of the mapped area the shape stops where the data stops, not where your walking time runs out.
+
+<br clear="all">
+
+### The lab
+
+Shows how differently four pathfinding algorithms search for the same route. You can watch all four side by side and replay any of them.
+
+Here is how the four compare on the walk from ARC to SES:
+
+| Algorithm | What it finds | How much of the map it explored |
+|---|---|---|
+| Dijkstra | the shortest route, spreading out evenly | 2,991 nodes |
+| A\* | the shortest route, aiming at the destination | 839 nodes |
+| BFS | the route with the fewest segments, regardless of length | 4,992 nodes |
+| Bidirectional Dijkstra | the shortest route, searching from both ends | 1,790 nodes |
+
+Three of them agree on an 816 m walk. BFS finds one 258 m longer, because it counts path segments rather than distance.
+
+![The lab racing four algorithms on one trip, each search drawn on its own map with the runtimes beside them](docs/screenshots/lab.png)
+
+On a longer trip across both campuses, BFS explores more of the map than Dijkstra, 13,316 nodes against 12,898, and still finishes about three times faster, because a plain queue costs less per node than a priority queue.
+
+## Tech stack
+
+| Layer | Built with |
+|---|---|
+| Engine | C++20, compiled with g++ through a plain Makefile |
+| Gateway | Python, FastAPI, httpx |
+| Frontend | TypeScript, Next.js, React, React Query, Leaflet |
+| Map data | OpenStreetMap, pulled through the Overpass API and processed offline in Python |
+| Weather | OpenWeatherMap |
+| Testing | A hand written C++ test harness, pytest, Vitest, Playwright, GitHub Actions |
+| Hosting | Vercel for the frontend and a single Railway container for the backend, not yet deployed |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  browser["Browser"] --> web["Next.js frontend<br/>(Vercel)"]
+  web -->|"JSON over HTTPS"| gateway
+  subgraph container["One container (Railway)"]
+    gateway["FastAPI gateway<br/>cost model, weather cache,<br/>directions, rate limit"] -->|"HTTP on 127.0.0.1"| engine["C++ engine<br/>graph held in memory"]
+  end
+  gateway --> owm["OpenWeatherMap"]
+  overpass["Overpass API"] -.->|"offline pipeline"| data[("api/data<br/>graph.json, graph.campus")]
+  data -.->|"loaded at startup"| gateway
+  data -.->|"loaded at startup"| engine
 ```
+
+### The map
+
+Python scripts download both campuses from OpenStreetMap ahead of time, split every path into short edges that keep their own tags, and connect each building to the network through its mapped entrances where there are any. The result is 16,149 nodes, 19,392 edges and 113 buildings, from data downloaded on 2026-09-06. It is written twice: `graph.json` for the gateway, which needs the tags to build directions, and `graph.campus`, a compact text format the engine loads. Nothing calls OpenStreetMap for routing data while the site is running.
+
+### The request
+
+A request goes first to the gateway, a Python service. It looks up the two buildings, reads the weather if the mode needs it, turns the mode into a cost table, and passes all of that to the engine. The engine returns the path, and the gateway converts it into the directions on screen.
+
+### The engine
+
+It has its own JSON parser and HTTP server, and uses nothing beyond the C++ standard library and the operating system's sockets. The map never changes once loaded, so it sits in one flat array with an offset per node, and a route across both campuses takes about 2 ms.
+
+### The container
+
+The gateway starts the engine, restarts it if it crashes, and counts it in its own health check, so a dead engine cannot hide behind a working gateway. The engine listens only inside the container, so nothing outside can reach it.
+
+## Validation
+
+### Against another router
+
+Routes for 40 pairs of buildings are compared against OSRM's foot profile, an independent router. It reads the same OpenStreetMap data, so this cannot catch an error in the map. What it checks is the part that is ours: the pipeline, the graph it builds and the routing on top of it. The median ratio between the two is 1.008, and 31 of the 40 pairs agree within 5%.
+
+### Against the ground
+
+The map itself can only be checked on the ground, and it was, in two places. The underpass beneath Science and Engineering South has no ramp and no lift, which confirms the long detours around it, and Student Center East Tower turned out to have a step free entrance that no path in the map connected to, so the missing 15.8 m was added.
+
+### Tests
+
+Each part has its own tests, and CI runs all of them, along with checks against a live backend, on every push to `main` and every pull request. The gap is the interface, where the React components have no unit tests and are covered only by a browser check that clicks through the real site.
+
+Both A\* and bidirectional Dijkstra are easy to get subtly wrong. A\*'s estimate never exceeds the real remaining cost, because no surface costs less than its own length. Scaling that straight line estimate by the cheapest multiplier in play makes it as tight as this scaling allows, without breaking that guarantee. Bidirectional Dijkstra cannot stop the moment its two searches meet, because the first node they share is not always on the best path. Either mistake still produces a believable route, so a property test runs all three shortest route searches on 200 randomly generated maps and fails if their costs ever disagree.
+
+## Running locally
+
+You'll need Python 3.12 or newer, Node.js 22 or newer, and a C++20 compiler, plus `make` on macOS or Linux. A weather key is optional; without one, weather mode routes by distance and says so.
+
+On Windows, this builds the engine and starts the backend:
+
+```powershell
 powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 ```
 
-**Frontend.**
+On macOS or Linux:
 
+```bash
+make -C engine
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r api/requirements-dev.txt
+python -m uvicorn api.main:app --port 8000 --reload
 ```
+
+Then start the frontend in a second terminal and open http://localhost:3000:
+
+```bash
 cd web
 npm install
 npm run dev
 ```
 
-Then open http://localhost:3000
+To turn on weather mode, copy `api/.env.example` to `api/.env` and add an `OPENWEATHER_API_KEY`. To run the tests:
 
-You do not start the engine yourself. The gateway launches it as a child process, waits for
-it to answer its health check, and restarts it if it dies.
-
-### Doing it by hand
-
-```
-cd engine
-make
-cd ..
-python -m venv .venv
-.venv/Scripts/python -m pip install -r api/requirements.txt
-.venv/Scripts/python -m uvicorn api.main:app --port 8000 --reload
+```bash
+make -C engine test
+python -m pytest api/tests pipeline/tests -q
+cd web && npm run typecheck && npm test
 ```
 
-On macOS or Linux use `.venv/bin/python` instead.
+To rebuild the map from a fresh OpenStreetMap download:
 
-No API key is needed to run any of this. Without an OpenWeatherMap key, winter mode routes
-by plain distance and says so on screen.
-
-## How the pieces fit together
-
-```
-Browser ──► Next.js (Vercel) ──► FastAPI gateway ──http──► C++ engine
-                                 owns secrets,     127.0.0.1   graph in memory
-                                 weather cache,
-                                 rate limit
+```bash
+python -m pipeline.extract --refresh
+python -m pipeline.transform
+python -m pipeline.validate
 ```
 
-The gateway owns the engine process. It starts it on loopback, blocks until it answers,
-forwards its output into the gateway log, and restarts it with backoff if it exits.
-`/api/health` reports engine state as well as its own, so a half dead service cannot report
-itself as fine. The engine binds `127.0.0.1` only and is never reachable from outside.
+## Project structure
 
-Routing costs are class-keyed. Every edge gets a `class_key` at pipeline time, and the
-engine applies a small `(class, weather) → multiplier` table in constant time rather than
-scoring edges per request.
+```
+.
+├── engine/                 # C++ routing engine, no dependencies
+│   ├── include/campus/     #   Headers: graph, algorithms, cost model, JSON, service
+│   ├── src/                #   Graph storage, four algorithms, JSON parser, HTTP server
+│   ├── cli/                #   Offline harness for routing by hand
+│   ├── tests/              #   Hand written test harness and suites
+│   └── Makefile
+├── api/                    # FastAPI gateway, owns the engine process
+│   ├── core/               #   Settings, read from api/.env
+│   ├── routes/             #   The public endpoints
+│   ├── services/           #   Cost model, weather cache, directions, engine client
+│   ├── data/               #   graph.json for the gateway, graph.campus for the engine
+│   └── tests/
+├── pipeline/               # Offline map build, never runs at request time
+│   ├── extract.py          #   Pulls both campuses from Overpass
+│   ├── transform.py        #   Splits ways into tagged edges, links buildings
+│   ├── validate.py         #   Checks the result before it ships
+│   └── patches.json        #   The one hand verified map fix
+├── web/                    # Next.js site
+│   ├── app/                #   Navigate, the lab, the about page
+│   ├── components/         #   Map panes, canvas renderer, panels
+│   ├── lib/                #   URL state, formatting, geometry, the logic the tests cover
+│   └── scripts/            #   Browser checks and screenshot capture
+└── scripts/                # Dev server, smoke checks, OSRM comparison, step free sweep
+```
 
-## Testing
+The first four each have their own README with more detail: [engine](engine/README.md), [gateway](api/README.md), [pipeline](pipeline/README.md), [web](web/README.md).
 
-| Suite | Covers |
-|---|---|
-| `engine/` C++ tests | the four algorithms, the JSON parser, the graph loader, and a property test asserting Dijkstra, A\* and bidirectional agree on cost over randomised graphs |
-| `api/` pytest | the gateway API, the cost model, directions merging, the rate limiter, the weather cache |
-| `pipeline/` pytest | extraction, the graph build, validation |
-| `web/` vitest | the pure modules in `lib/`, mostly URL handling, formatting and geometry |
-| `scripts/smoke.ps1` | end to end against a live stack, including the three way agreement invariant on real building pairs |
-| `web/scripts/browser-check.mjs` | a real browser, layout at two widths and the states that only appear on screen |
+## Credits and license
 
-**What is not covered: there are no unit tests for any React component or either page.**
-The component layer is exercised only by the browser checks. That is a deliberate boundary
-rather than an oversight, but it is worth knowing before reading a test count as coverage.
+- The map is built from [OpenStreetMap](https://www.openstreetmap.org/). Map data © OpenStreetMap contributors, under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/). The files in `api/data/` are built from it and carry the same license. See [LICENSE-DATA](LICENSE-DATA).
+- Map tiles come from the OpenStreetMap Foundation, under their [tile usage policy](https://operations.osmfoundation.org/policies/tiles/). Weather comes from [OpenWeather](https://openweathermap.org/).
+- Winter walking speeds are from Fossum and Ryeng (2021), [The walking speed of pedestrians on various pavement surface conditions during winter](https://doi.org/10.1016/j.trd.2021.102934), *Transportation Research Part D*.
+- Built with Leaflet (BSD 2-Clause), react-leaflet (Hippocratic 2.1), and IBM Plex (SIL Open Font License 1.1). The other runtime dependencies are MIT, and the build and test tools add Apache 2.0, including TypeScript and Playwright.
+- The code is under the [MIT License](LICENSE).
 
-## What this cannot tell you
-
-The app makes claims about a real campus from incomplete public data. The ones worth
-stating plainly:
-
-- **Step free routing reflects the map, not the ground.** OpenStreetMap has 27 stairways on
-  this campus and exactly one wheelchair ramp and no lifts, so every level change in the
-  graph is stairs by construction. That is a fact about map coverage, not about the
-  university. Where the app says there is no step free route, it means none to the entrance
-  it knows about.
-- **A route may walk you through a building.** Buildings are single points linked to nearby
-  path nodes, and nothing stops a route entering by one link and leaving by another. Nothing
-  models opening hours, lifts or indoor corridors.
-- **Reach measures the mapped network, not walking distance.** Near the edge of the extract
-  the shape is clipped by where the download stopped rather than by the time budget.
-- **Directions are as specific as the tags allow.** 421 of 947 crossings resolve to a street
-  name; only 14 of 2,679 footpaths are named at all; there are no landmarks. So a step says
-  a heading and a distance rather than prose.
-- **Winter surface state is inferred, not observed.** The multipliers are measured and
-  cited, but whether there is ice on a given path is a guess from a temperature and a
-  condition word. See []().
-- **Distances read in metres under a kilometre and miles above.** A cross campus route says
-  miles while a same campus one says metres. That is deliberate, and it exists because
-  two-decimal miles once hid a 6 m difference between two algorithms.
-
-## The cost model
-
-Winter multipliers come from Fossum & Ryeng (2021), *Transportation Research Part D*
-97:102934, an OLS model of walking speed against surface and temperature (n = 2,498,
-R² = 0.539), using their university-trip row. Two of their results are counter-intuitive
-and both shaped the feature: **precipitation was not significant**, so this is a snow and
-ice feature rather than a rain one, and **colder means slightly faster**.
-
-Every multiplier is ≥ 1.0 by construction, which is what makes the A\* heuristic admissible
-without clamping.
-
-**There is no machine learning in this project.** A surface-imputation model was built and
-measured against a held-out baseline and then cut, because rough surfaces reach the router
-through one narrow door and the model repriced 0 m of 162,688 m of network. Accuracy was
-the wrong bar; metres repriced was the real one. `requirements.txt` contains no
-scikit-learn. The full write-up is in []().
-
-## The exploration animation
-
-Race playback runs about four seconds, and **that duration is presentation, not compute**.
-The engine answers in well under a millisecond, so an honest real time animation would be a
-single flash of colour and you would learn nothing from it.
-
-Everything it draws is real. It draws **edges along actual footpaths** — every edge from a
-settled node back to a node already reached — so what you see is the explored network
-rather than the tree of best routes. Nothing is thinned on the way to the browser; only the
-engine caps trace size, and it reports when it does. All four lanes play on one shared
-clock, and the runtime column reports the engine's own measured microseconds separately
-from the playback.
-
-## One local correction to the map
-
-`pipeline/patches.json` declares hand-checked corrections applied on top of the
-OpenStreetMap download. Today it holds exactly one: a 15.8 m footway at Student Center East
-Tower, joining an entrance node and a footpath node that both already exist upstream.
-Without it the building could only be reached up a 1.5 m staircase and had no step free
-route from anywhere on campus. It was confirmed on the ground, no geometry was traced, and
-a patch removes itself automatically if OpenStreetMap ever gains the path.
-
-The better fix is upstream in OpenStreetMap, at which point the patch can be deleted.
-
-## Security
-
-The public API is rate limited per caller, the request body is capped, and the engine is
-unreachable from outside the container. Two things are worth being precise about, because
-both were asserted for a long time before they were true:
-
-- **The rate limiter is hand rolled** in `api/main.py`, not slowapi. slowapi's middleware
-  looks the route handler up in `app.routes` and this FastAPI version wraps everything added
-  by `include_router` in an object with no endpoint on it, so every router route was silently
-  exempt. It is tested now by sending more requests than the limit and checking where the
-  429 lands.
-- **`TRUST_PROXY_HEADERS` must be set on the deployment, not in the image.** Whether an
-  `X-Forwarded-For` header can be trusted is a fact about what is running in front of the
-  container. See `api/README.md`.
-
-## Deployment
-
-Not deployed yet, and deliberately left until last. A `Dockerfile` and `railway.json`
-describe the intended shape — one container holding the gateway and the engine, with Vercel
-serving the frontend — but **neither has been built**, so treat them as unverified.
-
-## Data and licensing
-
-Map data is © OpenStreetMap contributors, licensed under the
-[Open Database License](https://opendatacommons.org/licenses/odbl/1-0/). The graph files
-under `api/data/` are a **derivative database** and carry the same licence — see
-[LICENSE-DATA](LICENSE-DATA).
-
-Source code is MIT licensed — see [LICENSE](LICENSE).
-
-Map tiles come from the OpenStreetMap Foundation's public tile server. Their
-[tile usage policy](https://operations.osmfoundation.org/policies/tiles/) asks that it not
-be the basemap for production applications. This is a low traffic demo with attribution in
-place, and the race grid softens its four-maps-at-once load by sharing bounds so most tiles
-come from cache, but it is goodwill rather than an entitlement and it should be said out
-loud rather than quietly relied on.
-
-Weather comes from [OpenWeather](https://openweathermap.org/). Leaflet is BSD 2-Clause,
-react-leaflet is Hippocratic 2.1, and the IBM Plex fonts are SIL OFL 1.1, self-hosted with the
-site rather than loaded from Google. React, Next.js, React Query and the remaining
-dependencies are MIT or BSD. No analytics, no cookies, no trackers — the only third-party
-request the page makes is for map tiles.
-
-## Relationship to prior coursework
-
-This project revisits the problem domain of a UIC course assignment (`proj6-osm`) that
-implemented Dijkstra's algorithm over a campus footpath graph. That assignment shipped with
-instructor provided server and frontend scaffolding.
-
-This is a separate build. The graph structure, the four algorithms, the HTTP service, the
-JSON parser, the API, the data pipeline, the frontend, the tests and the tooling here are
-written from scratch. What carries over is limited to public knowledge: the great circle
-distance formula, general familiarity with Dijkstra's algorithm, and the idea of linking
-building centres to nearby footpath nodes.
-
-The engine vendors no third-party JSON or HTTP library; both are written for this project,
-deliberately, because the coursework used off-the-shelf ones.
-
-## License
-
-Code: MIT, see [LICENSE](LICENSE).
-Data: ODbL, see [LICENSE-DATA](LICENSE-DATA).
+Campus Router is a personal project and isn't affiliated with or endorsed by the University of Illinois Chicago. There are no accounts, no analytics and no cookies, and apart from the site's own backend the only requests your browser makes are for the map tiles.

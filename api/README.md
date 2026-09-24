@@ -7,10 +7,11 @@ The public API, and the process that owns the C++ engine. FastAPI.
 | | |
 |---|---|
 | `GET /api/health` | gateway and engine state. Reports 503 when the engine is down |
-| `GET /api/buildings?q=` | building search for the box at the top of the page |
+| `GET /api/buildings` | the whole list, which the page filters in the browser. `limit` defaults to 200 and caps at 500 |
 | `GET /api/graph/meta` | real node and edge counts for the map chip |
 | `GET /api/weather` | current conditions, or why they are missing |
 | `POST /api/route` | the main one |
+| `POST /api/isochrone` | everywhere you can walk to inside a time budget |
 
 ### Routing
 
@@ -43,16 +44,23 @@ the same time as bare pavement.
 **A route that does not exist is not an error.** Blocking steps genuinely strands parts
 of campus, so those come back as `"status": "no_path"` inside a normal 200.
 
-## Search
+## Search happens in the browser
 
-Matching is forgiving. An exact building code wins, then anything starting with what you
-typed, then anything containing it. Ampersands, hyphens and accents are folded, because
-OpenStreetMap writes `Science & Engineering Offices` while people type "and".
+There is no search parameter on this endpoint. `/api/buildings` returns the whole list and
+the page filters it as you type. There used to be a `q` parameter here; it was removed,
+because a round trip per keystroke bought nothing on a list of 113 buildings.
+
+The matching itself lives in `web/lib/search.ts` and is forgiving. An exact building code
+wins, then anything starting with what you typed, then anything containing it. Ampersands,
+hyphens and accents are folded, because OpenStreetMap writes `Science & Engineering
+Offices` while people type "and".
 
 ## The cost model
 
 Multipliers are measured, not invented. They come from Fossum and Ryeng 2021, who timed
-2498 pedestrians walking on winter pavement.
+pedestrians on winter pavement in Trondheim with a stopwatch, 2498 observations in all.
+The table below is their flat ground model with older pedestrians left out, 1195 of those
+observations, which is the closest the study gets to a walk across campus.
 
 | Surface state | Multiplier |
 |---|---|

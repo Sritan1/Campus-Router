@@ -44,9 +44,6 @@ rather than inventing geometry. A patch whose pair OpenStreetMap has since mappe
 skipped on its own, and one naming a node the dump does not have stops the build rather
 than failing quietly.
 
-Only the east campus is included. West campus is a separate relation across a gap, and
-including it would produce a graph in two disconnected halves.
-
 ## What comes out
 
 ```
@@ -97,8 +94,10 @@ sunken courtyard. The building did not become inaccessible, our idea of its fron
 
 - The graph is trimmed to its largest connected piece. Stray disconnected paths exist in
   OpenStreetMap and would only ever produce routes that fail.
-- Blocking steps strands 86 nodes, so accessible routing genuinely needs a no path state.
-  That is real, not a bug. One building, ETMSW, has no step free link at all.
+- Blocking steps strands 86 of the 16149 network nodes, scattered over 47 small pockets cut
+  off from the main step free piece. No building loses its route though. With steps blocked
+  all 6328 building pairs still connect, and 658 of them simply get longer. ETMSW used to be
+  the one exception, and the step free fallback above is what fixed it.
 - `wheelchair` is essentially unmapped on campus paths. It appears on building entrances
   instead.
 - Building codes like SEO and BSB live in the `ref` tag, not `short_name`. Some buildings

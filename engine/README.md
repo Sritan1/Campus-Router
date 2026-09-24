@@ -29,7 +29,7 @@ python gateway starts it, waits for `/healthz`, and restarts it if it dies.
   "target": -151672202,
   "algorithms": ["dijkstra", "astar", "bfs", "bidirectional"],
   "trace": true,
-  "maxTraceSamples": 1500,
+  "maxTraceSamples": 20000,
   "cost": {
     "default": 1.0,
     "multipliers": { "footway|concrete|none": 1.07 },
@@ -56,23 +56,27 @@ Two things worth knowing about the reply:
 
 ### Traces
 
-A trace is the search itself, not just a list of places it went. Each settled node comes
-with `parents`, the position in the same list of the node it was reached from, so the
-client can draw the edge that got there instead of a loose dot. A `-1` means a starting
-node, which has no edge behind it. Bidirectional has two of those, one per direction.
+A trace is the search itself, not just a list of places it went. It carries `points`, the
+settled nodes as coordinates in the order they were settled, and `edges`, pairs of
+positions into that list.
 
-Parents always point backwards, so a client drawing in order never needs a point it has
-not seen yet.
+Every edge from a newly settled node back to a node already settled is recorded, so what a
+client draws is the explored network rather than the tree of best routes. Drawing only the
+tree left gaps wherever two branches ran down neighbouring paths. Each edge is written once,
+when its second end settles, which means both of its ends are already in `points` and a
+client drawing in order never needs a point it has not seen yet.
 
 Traces can be thinned if they get huge, evenly across the whole run so the shape survives.
-The cap defaults to 20000, above the node count of the whole graph, so in practice nothing
-is dropped. If it ever does thin, a segment whose parent was dropped comes back with `-1`
-rather than a wrong line.
+`sampled` says whether that happened and `total` gives the real count before thinning.
+Thinning costs edges faster than points, because an edge needs both of its ends to survive,
+so an edge that loses one is left out and counted in `droppedEdges` rather than drawn
+somewhere wrong.
 
-It was 8000 until round 18. That cleared the old east-campus graph easily, but adding west
-campus doubled the node count and a cross-campus search settles about 13000, so BFS was
-silently losing three quarters of its edges while A\* stayed complete. A cap only has to be
-wrong once for the race to look like an algorithm bug.
+The cap defaults to 20000, above the node count of the whole graph, so in practice nothing
+is dropped. It was 8000 until round 18. That cleared the old east-campus graph easily, but
+adding west campus doubled the node count and a cross-campus search settles about 13000, so
+BFS was silently losing three quarters of its edges while A\* stayed complete. A cap only has
+to be wrong once for the race to look like an algorithm bug.
 
 ### JSON
 
@@ -129,14 +133,19 @@ around a thousand start and target pairs, and requires the costs to match.
 
 ## Numbers on the real graph
 
-8162 nodes, 9830 edges. SEO to Lecture Center C:
+16262 nodes, 19713 edges, 33 cost classes. That is the 16149 network nodes plus the 113
+buildings, and the network edges plus the links that join each building to it. SEO to
+Lecture Center C:
 
 | algorithm | cost | nodes visited | microseconds |
 |---|---|---|---|
-| dijkstra | 367.6 m | 852 | 219 |
-| astar | 367.6 m | 185 | 187 |
-| bfs | 373.8 m | 421 | 52 |
-| bidirectional | 367.6 m | 316 | 214 |
+| dijkstra | 367.6 m | 852 | 179 |
+| astar | 367.6 m | 185 | 149 |
+| bfs | 373.8 m | 421 | 55 |
+| bidirectional | 367.6 m | 316 | 226 |
+
+Node counts are exact and repeat run to run. The microseconds are medians over nine runs,
+since a single run scatters by a factor of two either way.
 
 A star explores about a fifth of what Dijkstra does, and BFS finds a 15 hop path that is
 6 metres longer than the 28 hop shortest one.
