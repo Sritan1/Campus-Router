@@ -1366,23 +1366,152 @@ button {
   color: var(--muted);
 }
 
-/* narrow screens, where the sidebar drops under the map */
+.sheet-handle {
+  display: none;
+  flex: none;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+}
 
-@media (max-width: 900px) {
+.sheet-handle > span {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: #d1d5db;
+}
+
+/* phones and short windows, where the sidebar becomes a sheet over the map.
+   a landscape phone is wide but short, so it keeps the desktop layout */
+
+@media (max-width: 599px), (max-width: 899px) and (min-height: 520px) {
+  /* 100vh counts the browser chrome that slides away, and hides the sheet */
+  .shell {
+    height: 100dvh;
+  }
+
   .body {
     flex-direction: column;
   }
 
+  /* the z-index makes a stacking context, so leaflet stays under the sheet */
   .map-wrap {
-    min-height: 45vh;
+    min-height: 150px;
+    z-index: 0;
   }
 
   .sidebar {
+    position: relative;
+    z-index: 30;
     width: 100%;
+    flex: none;
+    height: var(--sb-h, 46vh);
+    max-height: none;
+    margin-top: -14px;
+    overflow: hidden;
     border-left: 0;
     border-top: 1px solid var(--line);
-    max-height: 55vh;
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -8px 28px rgba(20, 22, 26, 0.14);
+    transition: var(--sb-tr, height 0.28s cubic-bezier(0.2, 0.8, 0.2, 1));
+  }
+
+  .sheet-handle {
+    display: flex;
+  }
+
+  /* the scroller cannot shrink past its padding, which leaks clipped text */
+  .sidebar.is-peek .panel-scroll,
+  .sidebar.is-peek .results-body {
+    display: none;
+  }
+
+  /* the row floor matters more than fitting all four, since without it a short
+     window leaves each map a sliver and the shared frame zooms out to the city */
+  .race-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(2, minmax(136px, 1fr));
+    gap: 10px;
+    padding: 10px;
     overflow-y: auto;
+  }
+
+  .panel-frame {
+    min-height: 84px;
+  }
+
+  /* flex would squeeze this away, and the lip of the sheet covers its last line */
+  .grid-credit {
+    flex: none;
+    padding: 0 12px 22px;
+  }
+
+  .panel-scroll {
+    padding: 14px;
+  }
+
+  .panel-foot,
+  .results-foot {
+    flex: none;
+    padding: 12px 14px;
+  }
+
+  .panel-foot > button,
+  .results-foot button,
+  .view-switch button {
+    min-height: 44px;
+  }
+
+  /* a line each, since side by side they wrap and crowd out the map */
+  .panel-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 1px 3px 6px;
+  }
+
+  .panel-name {
+    font-size: 12px;
+  }
+
+  .panel-stat {
+    font-size: 9.5px;
+    white-space: nowrap;
+  }
+
+  .leaflet-control-zoom a {
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
+  }
+
+  .table-wrap {
+    padding: 14px;
+  }
+
+  .compare {
+    min-width: 0;
+    font-size: 12.5px;
+  }
+
+  .compare th,
+  .compare td {
+    padding: 10px 8px;
+  }
+
+  .compare td:first-child {
+    white-space: normal;
+  }
+
+  /* the chip and the map attribution both have to clear the lip of the sheet */
+  .chip-stats {
+    bottom: 40px;
+  }
+
+  .map-wrap .leaflet-bottom {
+    bottom: 18px;
   }
 
   .topbar {
@@ -1402,6 +1531,91 @@ button {
     margin: 0;
     padding: 0;
     border-left: 0;
+  }
+}
+
+/* narrower still, where the two fields stack and the labels move inside */
+
+@media (max-width: 599px), (max-width: 719px) and (min-height: 520px) {
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    /* a wrapping column spills into a second column instead of stacking */
+    flex-wrap: nowrap;
+    gap: 0;
+    padding: 8px 12px 10px;
+    min-height: 0;
+  }
+
+  .brand {
+    align-self: stretch;
+    height: 42px;
+  }
+
+  .brand-stack {
+    flex: 1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .brand-links {
+    margin-top: 0;
+  }
+
+  .ends {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    grid-template-areas:
+      "s w"
+      "d w";
+    gap: 6px;
+    padding-top: 6px;
+  }
+
+  .ends > .search:first-child {
+    grid-area: s;
+  }
+
+  .ends > .search:last-child {
+    grid-area: d;
+  }
+
+  .swap {
+    grid-area: w;
+    width: 44px;
+    height: auto;
+    margin: 0;
+    transform: rotate(90deg);
+  }
+
+  .search {
+    position: relative;
+  }
+
+  .search-label {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    z-index: 1;
+    transform: translateY(-50%);
+    margin: 0;
+    pointer-events: none;
+  }
+
+  /* under 16px ios zooms the page on focus */
+  .search-value,
+  .search-input {
+    height: 42px;
+    padding-left: 96px;
+    font-size: 16px;
+  }
+
+  /* the action lives in the sheet footer down here */
+  .topbar > button.primary {
+    display: none;
   }
 }
 

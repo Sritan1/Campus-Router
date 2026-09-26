@@ -25,6 +25,7 @@ import {
 } from "@/lib/state";
 import { writeUrl } from "@/lib/url";
 import { useCampus, useRestoreFromUrl, useWriteUrl } from "@/lib/use-campus";
+import { useSheet } from "@/lib/use-sheet";
 
 // leaflet reaches for window as soon as it loads, so no server rendering
 const MapPane = dynamic(() => import("@/components/MapPane"), {
@@ -39,6 +40,7 @@ const RaceGrid = dynamic(() => import("@/components/RaceGrid"), {
 
 export default function Lab() {
   const [state, dispatch] = useReducer(reduce, INITIAL);
+  const { sheetClass, handleProps } = useSheet();
 
   // the canvas runs its own frames off startedAt, react only renders the bars
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -350,7 +352,11 @@ export default function Lab() {
         </div>
         )}
 
-        <aside className="sidebar">
+        <aside className={sheetClass}>
+          <div className="sheet-handle" title="Drag to resize" {...handleProps}>
+            <span />
+          </div>
+
           <Sidebar
             state={state}
             progress={progress}

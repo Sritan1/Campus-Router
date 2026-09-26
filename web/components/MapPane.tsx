@@ -14,6 +14,7 @@ import "leaflet/dist/leaflet.css";
 
 import IsochroneCanvas from "@/components/IsochroneCanvas";
 import TraceCanvas from "@/components/TraceCanvas";
+import WatchMapSize from "@/components/WatchMapSize";
 import type { AlgorithmResult, Building, GraphMeta, Isochrone, RouteReply } from "@/lib/api";
 import { boundsAround, raceBounds } from "@/lib/bounds";
 import { REGION_COLOUR } from "@/lib/isochrone";
@@ -175,6 +176,8 @@ export default function MapPane({
           url={TILE_URL}
           maxZoom={TILE_MAX_ZOOM}
         />
+
+        <WatchMapSize />
 
         <TraceCanvas
           results={traces}

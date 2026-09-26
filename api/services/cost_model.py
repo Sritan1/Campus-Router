@@ -37,7 +37,8 @@ def walking_speed(temp_c: Optional[float]) -> float:
     if temp_c < TEMP_RANGE_C[0] or temp_c > TEMP_RANGE_C[1]:
         return BARE_SPEED
 
-    # the baseline speed sits at the middle of the studied range
+    # assumed, not measured. the paper gives 1.607 as an average rather than the
+    # speed at any one temperature, so anchoring it to the midpoint is a guess
     reference = sum(TEMP_RANGE_C) / 2
     return BARE_SPEED + SPEED_PER_DEGREE * (temp_c - reference)
 

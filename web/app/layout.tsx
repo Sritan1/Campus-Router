@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
@@ -24,6 +24,13 @@ export const metadata: Metadata = {
   title: "Campus Router",
   description:
     "Walking routes across the UIC campus, with four pathfinding algorithms raced against each other",
+};
+
+// next adds no viewport tag of its own, and without one a phone lays the page
+// out at about 660px and then shrinks the whole thing to fit
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

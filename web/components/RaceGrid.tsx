@@ -5,6 +5,7 @@ import { CircleMarker, MapContainer, Polyline, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 import TraceCanvas from "@/components/TraceCanvas";
+import WatchMapSize from "@/components/WatchMapSize";
 import type { AlgorithmResult, RouteReply } from "@/lib/api";
 import type { Bounds } from "@/lib/bounds";
 import {
@@ -90,6 +91,8 @@ function Panel({
         attributionControl={false}
       >
         <TileLayer url={TILE_URL} maxZoom={TILE_MAX_ZOOM} />
+
+        <WatchMapSize refit={bounds} />
 
         {/* dimmed while playing, since the beige tiles break up the warmer traces */}
         <div

@@ -18,6 +18,7 @@ import {
   type RouteReply,
 } from "@/lib/api";
 import { useCampus, useRestoreFromUrl, useWriteUrl } from "@/lib/use-campus";
+import { useSheet } from "@/lib/use-sheet";
 import { writeUrl } from "@/lib/url";
 
 const MapPane = dynamic(() => import("@/components/MapPane"), {
@@ -28,6 +29,7 @@ const MapPane = dynamic(() => import("@/components/MapPane"), {
 
 export default function Navigate() {
   const { buildings, list, weatherReady, weatherChip } = useCampus();
+  const { sheetClass, handleProps } = useSheet();
 
   const [start, setStart] = useState<Building | null>(null);
   const [target, setTarget] = useState<Building | null>(null);
@@ -212,7 +214,11 @@ export default function Navigate() {
           </div>
         </div>
 
-        <aside className="sidebar">
+        <aside className={sheetClass}>
+          <div className="sheet-handle" title="Drag to resize" {...handleProps}>
+            <span />
+          </div>
+
           <div className="view-switch" role="group" aria-label="what to show">
             <button
               type="button"
