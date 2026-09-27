@@ -21,7 +21,7 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Campus Router",
+  title: { default: "Campus Router", template: "%s · Campus Router" },
   description:
     "Walking routes across the UIC campus, with four pathfinding algorithms raced against each other",
 };

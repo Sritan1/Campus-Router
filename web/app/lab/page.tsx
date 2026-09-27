@@ -16,6 +16,7 @@ import {
 } from "@/lib/api";
 import { ALGORITHM_LABELS } from "@/lib/format";
 import { PLAYBACK_MS, clamp, prefersReducedMotion } from "@/lib/playback";
+import { MAPTILER_LOGO } from "@/lib/tiles";
 import {
   INITIAL,
   algorithmsFor,
@@ -326,6 +327,11 @@ export default function Lab() {
             />
             {/* the panels turn leaflet attribution off, so the credits live here */}
             <p className="grid-credit">
+              <a href="https://www.maptiler.com/" target="_blank" rel="noopener">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={MAPTILER_LOGO} alt="MapTiler" className="tile-logo" />
+              </a>{" "}
+              <a href="https://www.maptiler.com/copyright/">© MapTiler</a> ·{" "}
               <a href="https://leafletjs.com">Leaflet</a> · Map data ©{" "}
               <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>{" "}
               contributors · All four share one frame

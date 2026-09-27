@@ -275,6 +275,10 @@ button {
   font-weight: 550;
 }
 
+a.primary {
+  text-decoration: none;
+}
+
 .primary:hover:not(:disabled) {
   opacity: 0.88;
 }
@@ -781,6 +785,12 @@ button {
   color: var(--muted);
 }
 
+.tile-logo {
+  height: 14px;
+  width: auto;
+  vertical-align: -3px;
+}
+
 .grid-credit {
   margin: 0;
   padding: 0 18px 14px;
@@ -1169,11 +1179,13 @@ button {
   line-height: 1.55;
 }
 
+/* a url or a stack frame has nowhere to break, and widens the page on a phone */
 .fatal code {
   font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
   background: var(--ground);
   padding: 2px 5px;
   border-radius: 4px;
+  overflow-wrap: anywhere;
 }
 
 .segmented button.is-degraded {

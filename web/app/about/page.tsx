@@ -169,11 +169,9 @@ export default function About() {
               <div className="about-row">
                 <span className="about-row-key about-mono">MAP TILES</span>
                 <span className="about-row-value">
-                  Hosted by the OpenStreetMap Foundation, under its{" "}
-                  <a href="https://operations.osmfoundation.org/policies/tiles/">
-                    tile usage policy
-                  </a>
-                  .
+                  Rendered by{" "}
+                  <a href="https://www.maptiler.com/">MapTiler</a> from the same
+                  OpenStreetMap data.
                 </span>
               </div>
               <div className="about-row">
@@ -202,8 +200,8 @@ export default function About() {
               <div className="about-label-head about-mono">PRIVACY</div>
               <div className="about-privacy-body">
                 <p>
-                  No accounts, analytics or cookies. Map tiles are the only thing
-                  loaded from another site.
+                  No accounts, analytics or cookies. Map tiles come from
+                  MapTiler.
                 </p>
               </div>
             </div>

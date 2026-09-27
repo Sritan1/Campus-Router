@@ -215,7 +215,7 @@ The first four each have their own README with more detail: [engine](engine/READ
 ## Credits and license
 
 - The map is built from [OpenStreetMap](https://www.openstreetmap.org/). Map data © OpenStreetMap contributors, under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/). The files in `api/data/` are built from it and carry the same license. See [LICENSE-DATA](LICENSE-DATA).
-- Map tiles come from the OpenStreetMap Foundation, under their [tile usage policy](https://operations.osmfoundation.org/policies/tiles/). Weather comes from [OpenWeather](https://openweathermap.org/).
+- Map tiles are rendered by [MapTiler](https://www.maptiler.com/) from that same OpenStreetMap data. Weather comes from [OpenWeather](https://openweathermap.org/).
 - Winter walking speeds are from Fossum and Ryeng (2021), [The walking speed of pedestrians on various pavement surface conditions during winter](https://doi.org/10.1016/j.trd.2021.102934), *Transportation Research Part D*.
 - Built with Leaflet (BSD 2-Clause), react-leaflet (Hippocratic 2.1), and IBM Plex (SIL Open Font License 1.1). The other runtime dependencies are MIT, and the build and test tools add Apache 2.0, including TypeScript and Playwright.
 - The code is under the [MIT License](LICENSE).
