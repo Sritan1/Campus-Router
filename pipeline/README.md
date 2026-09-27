@@ -76,6 +76,11 @@ Each building attaches to the walking network through up to four nearby nodes. R
 to the closest network nodes within 60 metres. Both cases are flagged on the building so
 the difference is visible rather than hidden.
 
+Doors tagged `entrance=emergency` or `entrance=exit` are never used as a link, since there
+is no way in through them. They stay in the walking network. Before this rule, the Daley
+Library and Lecture Center F both linked to the same alarmed exit, though no route was ever
+short enough to end there.
+
 Preferring entrances is not free. If the only nearby entrance sits somewhere the network
 can barely reach, the building is attached there and a closer, better connected node is
 never considered. That is exactly what stranded Student Center East, see `patches.json`.
@@ -96,7 +101,7 @@ sunken courtyard. The building did not become inaccessible, our idea of its fron
   OpenStreetMap and would only ever produce routes that fail.
 - Blocking steps strands 86 of the 16149 network nodes, scattered over 47 small pockets cut
   off from the main step free piece. No building loses its route though. With steps blocked
-  all 6328 building pairs still connect, and 658 of them simply get longer. ETMSW used to be
+  all 6328 building pairs still connect, and 1076 of them simply get longer. ETMSW used to be
   the one exception, and the step free fallback above is what fixed it.
 - `wheelchair` is essentially unmapped on campus paths. It appears on building entrances
   instead.
@@ -117,7 +122,10 @@ merely a rendering of it, because they restructure and re-tag OSM's own data. Th
 under the Open Database License with attribution to © OpenStreetMap contributors, while the
 code in this repository is MIT. See `LICENSE-DATA` in the repository root.
 
-`meta.extracted` in `graph.json` records the day the Overpass download was taken. It is
-stamped by `pipeline.extract` at pull time and surfaced on the app's About page, so the
-date a visitor reads is generated rather than typed and cannot drift. A dump pulled before
-that field existed falls back to the file's own timestamp.
+`meta.extracted` in `graph.json` records how fresh the OpenStreetMap data is. It is read
+from the `timestamp_osm_base` Overpass sends with every reply, taking the oldest of the
+three downloads, and it is surfaced on the app's About page, so the date a visitor reads
+is generated rather than typed and cannot drift. Reading it off the data rather than the
+clock matters because `pipeline.extract` reuses its cache, so a rerun can build from data
+weeks older than the day it ran. A dump pulled before that field existed falls back to the
+file's own timestamp.

@@ -90,9 +90,10 @@ def test_state_multipliers_get_worse_in_the_published_order():
 def test_walking_speed_only_bends_inside_the_observed_range():
     baseline = cost_model.BARE_SPEED
 
-    # outside the range we refuse to extrapolate
-    assert cost_model.walking_speed(30.0) == baseline
-    assert cost_model.walking_speed(-40.0) == baseline
+    # no jump at the edge
+    assert cost_model.walking_speed(30.0) == cost_model.walking_speed(8.0)
+    assert cost_model.walking_speed(8.1) == cost_model.walking_speed(8.0)
+    assert cost_model.walking_speed(-40.0) == cost_model.walking_speed(-12.0)
     assert cost_model.walking_speed(None) == baseline
 
     # inside it, colder is faster, which is what the study found

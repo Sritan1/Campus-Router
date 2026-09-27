@@ -98,6 +98,35 @@ class BodySizeLimit:
 
         return await self.app(scope, replay, send)
 
+# starlette answers a crash outside cors, so catch it in here
+class CatchErrors:
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        started = False
+
+        async def watch(message):
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, watch)
+        except Exception:
+            log.exception("request failed")
+            if started:
+                raise
+            response = JSONResponse(
+                {"detail": "Something went wrong on our side."}, status_code=500
+            )
+            await response(scope, receive, send)
+
+
 DEFAULT_RATE = (60, 60.0)
 
 
@@ -185,7 +214,7 @@ class RateLimit:
 _limit, _window = parse_rate(settings.rate_limit)
 
 # add_middleware puts each new one in front, so this reads back to front.
-# the real order is cors, the limit, the body cap, then gzip and routes
+# the real order is cors, errors, the limit, the body cap, then gzip and routes
 
 # race traces are mostly repeated digits and compress well
 app.add_middleware(GZipMiddleware, minimum_size=2000)
@@ -194,6 +223,8 @@ app.add_middleware(BodySizeLimit, max_bytes=MAX_BODY_BYTES)
 
 # outside the body cap so a throttled caller is turned away before any reading
 app.add_middleware(RateLimit, limit=_limit, window_s=_window)
+
+app.add_middleware(CatchErrors)
 
 # outermost, since a 429 or 413 without cors headers reads as a network error
 app.add_middleware(

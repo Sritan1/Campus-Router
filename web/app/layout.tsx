@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Cormorant_Garamond, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+
+import { shareCard, siteUrl } from "@/lib/share";
 
 import Providers from "./providers";
 import "./globals.css";
@@ -13,6 +15,14 @@ const sans = IBM_Plex_Sans({
   display: "swap",
 });
 
+const display = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["600"],
+  style: ["italic"],
+  variable: "--brand-display",
+  display: "swap",
+});
+
 const mono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
@@ -20,14 +30,17 @@ const mono = IBM_Plex_Mono({
   display: "swap",
 });
 
+const DESCRIPTION =
+  "Walking routes across the UIC campus, with four pathfinding algorithms raced against each other";
+
 export const metadata: Metadata = {
+  // shared links need absolute urls
+  metadataBase: siteUrl(process.env.NEXT_PUBLIC_SITE_URL),
   title: { default: "Campus Router", template: "%s · Campus Router" },
-  description:
-    "Walking routes across the UIC campus, with four pathfinding algorithms raced against each other",
+  ...shareCard("Campus Router", DESCRIPTION, "/"),
 };
 
-// next adds no viewport tag of its own, and without one a phone lays the page
-// out at about 660px and then shrinks the whole thing to fit
+// next adds none of its own, and a phone would lay out at about 660px
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -35,7 +48,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={`${sans.variable} ${display.variable} ${mono.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>

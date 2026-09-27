@@ -70,7 +70,7 @@ export default function BuildingSearch({
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setHighlight((current) => Math.min(current + 1, matches.length - 1));
+      setHighlight((current) => Math.max(0, Math.min(current + 1, matches.length - 1)));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setHighlight((current) => Math.max(current - 1, 0));

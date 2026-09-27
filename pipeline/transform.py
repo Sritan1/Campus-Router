@@ -35,6 +35,9 @@ WALKABLE = {
 
 BUILDING_LINK_M = 60.0
 
+# no way in through these
+CLOSED_DOORS = {"emergency", "exit"}
+
 KEPT_TAGS = [
     "highway", "surface", "wheelchair", "incline", "lit", "covered",
     "tactile_paving", "footway", "name",
@@ -256,6 +259,17 @@ def pick_refs(tags: dict):
     return (parts[0] if parts else None), aliases
 
 
+def split_doors(raw: dict) -> tuple:
+    usable = set()
+    closed = set()
+    for element in raw["entrances"]["elements"]:
+        if element.get("tags", {}).get("entrance") in CLOSED_DOORS:
+            closed.add(element["id"])
+        else:
+            usable.add(element["id"])
+    return usable, closed
+
+
 def step_free_component(edges: list) -> set:
     return largest_component(
         [e for e in edges if e["class_key"].split("|")[0] != "steps"]
@@ -402,9 +416,9 @@ def main() -> int:
         print(f"largest component   : {len(component)} nodes, dropped {before - len(edges)} edges")
 
     used = {e["u"] for e in edges} | {e["v"] for e in edges}
-    entrance_ids = {e["id"] for e in raw["entrances"]["elements"]}
+    entrance_ids, closed = split_doors(raw)
     step_free = step_free_component(edges)
-    buildings = build_buildings(raw, nodes, used, entrance_ids, step_free)
+    buildings = build_buildings(raw, nodes, used - closed, entrance_ids, step_free)
     rescued = [b["name"] for b in buildings if b["step_free_fallback"]]
     print(f"buildings named     : {len(buildings)}")
     if rescued:

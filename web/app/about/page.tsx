@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
+import BrandMark from "@/components/BrandMark";
 import { fetchGraphMeta } from "@/lib/api";
 import { MODE_LABEL } from "@/lib/format";
 
@@ -11,7 +12,7 @@ const LANES = ["#e0762f", "#3b7fc4", "#4c9d63", "#8fb2d4"];
 
 export default function About() {
   // the date comes off the graph, and is left out if the request fails
-  const meta = useQuery({ queryKey: ["graph-meta"], queryFn: fetchGraphMeta });
+  const meta = useQuery({ queryKey: ["graphMeta"], queryFn: fetchGraphMeta, staleTime: Infinity });
   const pulled = meta.data?.extracted ?? null;
 
   return (
@@ -19,11 +20,7 @@ export default function About() {
       {/* the same header shell, so the brand sits in the same place on every page */}
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <i />
-            <b />
-            <s />
-          </span>
+          <BrandMark />
           <span className="brand-stack">
             <span className="brand-word">
               <span>Campus</span>
@@ -44,7 +41,13 @@ export default function About() {
           <div className="c5 about-card about-hero">
             <div>
               <div className="about-eyebrow about-mono">ABOUT</div>
-              <h1>Campus Router</h1>
+              <h1>
+                <BrandMark />
+                <span className="brand-word">
+                  <span>Campus</span>
+                  <span> Router</span>
+                </span>
+              </h1>
               <p className="about-hero-lede">
                 Walking routes and reachable areas across the UIC campus, and a
                 lab that races four pathfinding algorithms.
@@ -138,7 +141,7 @@ export default function About() {
               <p className="about-copy">
                 A visual comparison of four pathfinding algorithms and how each
                 one works. Dijkstra spreads outward evenly. A* aims for the
-                destination using straight-line distance. Bidirectional search
+                destination using straight line distance. Bidirectional search
                 starts from both buildings and meets in the middle. BFS counts
                 path segments rather than distance, so its route can be longer.
                 The animation shows how much of the campus each one explores,

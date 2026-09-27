@@ -4,7 +4,8 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 
 import type { Isochrone } from "@/lib/api";
-import { REGION_COLOUR, grow, outlines, simplify } from "@/lib/isochrone";
+import { REGION_COLOUR, grow, outlines, simplify, type Ring } from "@/lib/isochrone";
+import { paneCanvas, pinToCorner } from "@/lib/map-canvas";
 
 type Props = {
   data: Isochrone | null;
@@ -21,13 +22,7 @@ export default function IsochroneCanvas({ data }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    const container = map.getContainer();
-    const canvas = document.createElement("canvas");
-    canvas.style.position = "absolute";
-    canvas.style.inset = "0";
-    canvas.style.pointerEvents = "none";
-    canvas.style.zIndex = "440";
-    container.appendChild(canvas);
+    const canvas = paneCanvas(map);
     canvasRef.current = canvas;
     return () => {
       canvas.remove();
@@ -52,45 +47,57 @@ export default function IsochroneCanvas({ data }: Props) {
       context!.setTransform(r, 0, 0, r, 0, 0);
     }
 
-    function pixelsFor(metres: number) {
-      const centre = map.getCenter();
-      const here = map.latLngToContainerPoint(centre);
-      const north = map.latLngToContainerPoint([
-        centre.lat + metres / 111320,
-        centre.lng,
-      ]);
-      return Math.abs(north.y - here.y);
+    function cellPixels(area: Isochrone, zoom: number) {
+      const lat = area.points[0][0];
+      const here = map.project([lat, 0], zoom);
+      const north = map.project([lat + CELL_M / 111320, 0], zoom);
+      return Math.max(10, Math.min(Math.abs(north.y - here.y), 120));
+    }
+
+    // world pixels, so panning does not reshape it
+    let shape: { zoom: number; cell: number; rings: Ring[] } | null = null;
+
+    function shapeAt(area: Isochrone, zoom: number) {
+      if (shape && shape.zoom === zoom) {
+        return shape;
+      }
+      const cell = cellPixels(area, zoom);
+      const cells = new Set<string>();
+      for (const edge of area.edges) {
+        for (const end of edge) {
+          const at = map.project(area.points[end], zoom);
+          cells.add(`${Math.floor(at.x / cell)}:${Math.floor(at.y / cell)}`);
+        }
+      }
+
+      // a piece this small is a stray path, not an area worth outlining
+      const rings = outlines(grow(cells))
+        .filter((ring) => ring.length >= 8)
+        .map((ring) => simplify(ring));
+      shape = { zoom, cell, rings };
+      return shape;
     }
 
     function draw() {
+      pinToCorner(map, canvas!);
       const size = map.getSize();
       context!.clearRect(0, 0, size.x, size.y);
       if (!data || data.edges.length === 0) {
         return;
       }
 
-      const cell = Math.max(10, Math.min(pixelsFor(CELL_M), 120));
-
-      const cells = new Set<string>();
-      for (const edge of data.edges) {
-        for (const end of edge) {
-          const at = map.latLngToContainerPoint(data.points[end]);
-          cells.add(`${Math.floor(at.x / cell)}:${Math.floor(at.y / cell)}`);
-        }
-      }
-
-      // a piece this small is a stray path, not an area worth outlining
-      const rings = outlines(grow(cells)).filter((ring) => ring.length >= 8);
+      const zoom = map.getZoom();
+      const { cell, rings } = shapeAt(data, zoom);
       if (rings.length === 0) {
         return;
       }
+      const corner = map.project(map.containerPointToLatLng([0, 0]), zoom);
 
       context!.beginPath();
       for (const ring of rings) {
-        const shape = simplify(ring);
-        context!.moveTo(shape[0][0] * cell, shape[0][1] * cell);
-        for (let i = 1; i < shape.length; i++) {
-          context!.lineTo(shape[i][0] * cell, shape[i][1] * cell);
+        context!.moveTo(ring[0][0] * cell - corner.x, ring[0][1] * cell - corner.y);
+        for (let i = 1; i < ring.length; i++) {
+          context!.lineTo(ring[i][0] * cell - corner.x, ring[i][1] * cell - corner.y);
         }
         context!.closePath();
       }
@@ -99,7 +106,7 @@ export default function IsochroneCanvas({ data }: Props) {
       context!.globalAlpha = 0.1;
       context!.fill();
 
-      // mitre, not round. the corners are the whole point of the shape.
+      // mitre, not round. the corners are the whole point of the shape
       context!.strokeStyle = REGION_COLOUR;
       context!.globalAlpha = 0.85;
       context!.lineWidth = 1.8;

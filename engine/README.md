@@ -17,7 +17,8 @@ No cmake, no package manager, no vendored libraries. Plain g++ and a Makefile.
 ## The service
 
 Binds `127.0.0.1` by default and is never reachable from outside the container. The
-python gateway starts it, waits for `/healthz`, and restarts it if it dies.
+python gateway starts it, waits for `/healthz`, and restarts it if it dies or stops
+answering.
 
 `GET /healthz` and `GET /graph/meta` describe what is loaded.
 

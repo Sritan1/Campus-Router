@@ -5,6 +5,7 @@ import { useMap } from "react-leaflet";
 
 import type { AlgorithmResult } from "@/lib/api";
 import { ALGORITHM_COLORS, LINE } from "@/lib/format";
+import { paneCanvas, pinToCorner } from "@/lib/map-canvas";
 import { PLAYBACK_MS, clamp, edgesShown } from "@/lib/playback";
 
 type Props = {
@@ -34,13 +35,7 @@ export default function TraceCanvas({
   const viewRef = useRef<string>("");
 
   useEffect(() => {
-    const container = map.getContainer();
-    const canvas = document.createElement("canvas");
-    canvas.style.position = "absolute";
-    canvas.style.inset = "0";
-    canvas.style.pointerEvents = "none";
-    canvas.style.zIndex = "450";
-    container.appendChild(canvas);
+    const canvas = paneCanvas(map);
     canvasRef.current = canvas;
 
     return () => {
@@ -67,6 +62,7 @@ export default function TraceCanvas({
       canvas!.style.height = `${size.y}px`;
       context!.setTransform(ratio, 0, 0, ratio, 0, 0);
       context!.lineCap = "round";
+      pinToCorner(map, canvas!);
     }
 
     function wipe() {
@@ -126,6 +122,7 @@ export default function TraceCanvas({
       const now = viewKey();
       if (now !== viewRef.current) {
         viewRef.current = now;
+        pinToCorner(map, canvas!);
         const size = map.getSize();
         context!.clearRect(0, 0, size.x, size.y);
         drawnRef.current = results.map(() => 0);
@@ -147,6 +144,18 @@ export default function TraceCanvas({
       paintNew();
     }
 
+    // one change fires several events, so paint once a frame
+    let pending = 0;
+    function repaintSoon() {
+      if (pending) {
+        return;
+      }
+      pending = requestAnimationFrame(() => {
+        pending = 0;
+        repaintAll();
+      });
+    }
+
     function loop() {
       paintNew();
       frameRef.current = requestAnimationFrame(loop);
@@ -161,7 +170,7 @@ export default function TraceCanvas({
     wipe();
 
     // the end events too, since leaflet only reports the real zoom once it settles
-    map.on("move zoom moveend zoomend", repaintAll);
+    map.on("move zoom moveend zoomend", repaintSoon);
     map.on("resize", onResize);
 
     if (mode === "off") {
@@ -173,7 +182,8 @@ export default function TraceCanvas({
     }
 
     return () => {
-      map.off("move zoom moveend zoomend", repaintAll);
+      map.off("move zoom moveend zoomend", repaintSoon);
+      cancelAnimationFrame(pending);
       // name the handler, or this also removes the resize listener leaflet uses
       map.off("resize", onResize);
       if (frameRef.current !== null) {

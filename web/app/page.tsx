@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import Header from "@/components/Header";
 import NavigatePanel from "@/components/NavigatePanel";
@@ -36,12 +36,18 @@ export default function Navigate() {
   const [mode, setMode] = useState<RouteMode>("shortest");
   const [searchFor, setSearchFor] = useState<"start" | "target" | null>(null);
   const [reply, setReply] = useState<RouteReply | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [routeBusy, setRouteBusy] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
 
   const [view, setView] = useState<"route" | "reach">("route");
   const [minutes, setMinutes] = useState(5);
   const [reach, setReach] = useState<Isochrone | null>(null);
+  const [reachBusy, setReachBusy] = useState(false);
+  const [reachError, setReachError] = useState<string | null>(null);
+
+  // bumped when the question changes, so late answers are dropped
+  const routeTicket = useRef(0);
+  const reachTicket = useRef(0);
 
   const { notice, setNotice, restored } = useRestoreFromUrl(list, (found) => {
     setStart(found.start);
@@ -59,31 +65,48 @@ export default function Navigate() {
     algorithm: "astar",
   });
 
-  const clear = useCallback(() => {
-    setReply(null);
+  const dropReach = useCallback(() => {
+    reachTicket.current++;
     setReach(null);
-    setError(null);
+    setReachBusy(false);
+    setReachError(null);
   }, []);
+
+  const clear = useCallback(() => {
+    routeTicket.current++;
+    setReply(null);
+    setRouteBusy(false);
+    setRouteError(null);
+    dropReach();
+  }, [dropReach]);
 
   const showReach = useCallback(async () => {
     if (!start) {
       setSearchFor("start");
       return;
     }
-    setBusy(true);
-    setError(null);
+    const ticket = ++reachTicket.current;
+    setReachBusy(true);
+    setReachError(null);
     try {
       // always plain distance, the other modes barely changed the shape
-      setReach(await requestIsochrone({ start: start.id, mode: "shortest", minutes }));
+      const found = await requestIsochrone({ start: start.id, mode: "shortest", minutes });
+      if (ticket === reachTicket.current) {
+        setReach(found);
+      }
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "We could not reach the routing service. Try again in a moment.",
-      );
-      setReach(null);
+      if (ticket === reachTicket.current) {
+        setReachError(
+          caught instanceof ApiError
+            ? caught.message
+            : "We could not reach the routing service. Try again in a moment.",
+        );
+        setReach(null);
+      }
     } finally {
-      setBusy(false);
+      if (ticket === reachTicket.current) {
+        setReachBusy(false);
+      }
     }
   }, [start, minutes]);
 
@@ -94,8 +117,9 @@ export default function Navigate() {
         return;
       }
 
-      setBusy(true);
-      setError(null);
+      const ticket = ++routeTicket.current;
+      setRouteBusy(true);
+      setRouteError(null);
       try {
         // all four without traces, nearly free, so the lab invite can say something true
         const result = await requestRoute({
@@ -105,16 +129,22 @@ export default function Navigate() {
           algorithms: [...ALGORITHMS],
           trace: false,
         });
-        setReply(result);
+        if (ticket === routeTicket.current) {
+          setReply(result);
+        }
       } catch (caught) {
-        setError(
-          caught instanceof ApiError
-            ? caught.message
-            : "We could not reach the routing service. Try again in a moment.",
-        );
-        setReply(null);
+        if (ticket === routeTicket.current) {
+          setRouteError(
+            caught instanceof ApiError
+              ? caught.message
+              : "We could not reach the routing service. Try again in a moment.",
+          );
+          setReply(null);
+        }
       } finally {
-        setBusy(false);
+        if (ticket === routeTicket.current) {
+          setRouteBusy(false);
+        }
       }
     },
     [start, target, mode],
@@ -162,7 +192,7 @@ export default function Navigate() {
         target={target}
         searchFor={searchFor}
         actionLabel="Find route"
-        busy={busy}
+        busy={routeBusy}
         otherMode={{ href: labHref, label: "Algorithm lab" }}
         onOpenSearch={setSearchFor}
         onCloseSearch={() => setSearchFor(null)}
@@ -246,8 +276,8 @@ export default function Navigate() {
               target={target}
               mode={mode}
               weatherReady={weatherReady}
-              busy={busy}
-              error={error}
+              busy={routeBusy}
+              error={routeError}
               ready={Boolean(start && target && !sameBuilding)}
               labHref={labHref}
               onRun={() => void run()}
@@ -271,15 +301,15 @@ export default function Navigate() {
               data={reach}
               start={start}
               minutes={minutes}
-              busy={busy}
-              error={error}
+              busy={reachBusy}
+              error={reachError}
               ready={Boolean(start)}
               onMinutes={(next) => {
                 setMinutes(next);
-                setReach(null);
+                dropReach();
               }}
               onRun={() => void showReach()}
-              onClear={() => setReach(null)}
+              onClear={dropReach}
             />
           )}
         </aside>

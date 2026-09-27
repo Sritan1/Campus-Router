@@ -35,6 +35,15 @@ async function boxes(page) {
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
+
+// or the terms card covers everything
+await page.addInitScript(() => {
+  try {
+    localStorage.setItem("campus-router.terms.v1", "1");
+  } catch {
+    return;
+  }
+});
 page.on("pageerror", (e) => {
   failures++;
   console.log(`  FAIL uncaught page error  ${e.message}`);
@@ -57,7 +66,8 @@ try {
   await page.setViewportSize({ width: 700, height: 900 });
   await page.waitForTimeout(400);
   b = await boxes(page);
-  check("sidebar drops under the map", b.sidebar.y > b.map.y + b.map.h - 5,
+  // the sheet overlaps the map by 14px on purpose
+  check("sidebar drops under the map", b.sidebar.y > b.map.y + b.map.h - 20,
         `map ends ${b.map.y + b.map.h}, sidebar starts ${b.sidebar.y}`);
   check("sidebar goes full width", b.sidebar.w > 690, `${b.sidebar.w}px`);
   check("nothing scrolls sideways",

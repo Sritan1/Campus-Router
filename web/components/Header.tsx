@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import BrandMark from "@/components/BrandMark";
 import BuildingSearch from "@/components/BuildingSearch";
 import type { Building } from "@/lib/api";
 
@@ -25,11 +26,7 @@ export default function Header(props: Props) {
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="brand-mark" aria-hidden="true">
-          <i />
-          <b />
-          <s />
-        </span>
+        <BrandMark />
         <span className="brand-stack">
           <span className="brand-word">
             <span>Campus</span>

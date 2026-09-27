@@ -85,6 +85,10 @@ def isochrone(request: IsochroneRequest):
     current = weather_cache.get_or_none() if request.mode == "weather" else None
     cost = cost_model.build(request.mode, graph_data.classes, current)
 
+    # reach reads cost as time, so drop the preferences
+    if not cost["speedDerived"]:
+        cost["multipliers"] = {}
+
     # the engine works in metres, so turn the time budget into a distance
     speed = cost["walkingSpeedMps"]
     limit_m = request.minutes * 60.0 * speed

@@ -119,7 +119,7 @@ It has its own JSON parser and HTTP server, and uses nothing beyond the C++ stan
 
 ### The container
 
-The gateway starts the engine, restarts it if it crashes, and counts it in its own health check, so a dead engine cannot hide behind a working gateway. The engine listens only inside the container, so nothing outside can reach it.
+The gateway starts the engine, restarts it if it crashes or stops answering, and counts it in its own health check, so a dead engine cannot hide behind a working gateway. The engine listens only inside the container, so nothing outside can reach it.
 
 ## Validation
 

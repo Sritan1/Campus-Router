@@ -139,6 +139,26 @@ def test_building_links_prefer_a_real_entrance():
     assert hall["links"][0]["node_id"] == 2
 
 
+def test_emergency_and_exit_doors_are_never_a_way_in():
+    raw = raw_bundle()
+    raw["entrances"]["elements"] = [
+        {"type": "node", "id": 2, "tags": {"entrance": "emergency"}},
+        {"type": "node", "id": 3, "tags": {"entrance": "exit"}},
+        {"type": "node", "id": 1, "tags": {"entrance": "main"}},
+    ]
+    usable, closed = transform.split_doors(raw)
+    assert usable == {1}
+    assert closed == {2, 3}
+
+    nodes = transform.build_nodes(raw)
+    edges = transform.build_edges(raw, nodes)
+    network = {e["u"] for e in edges} | {e["v"] for e in edges}
+
+    # node 2 is closest but an emergency exit
+    hall = transform.build_buildings(raw, nodes, network - closed, usable)[0]
+    assert [link["node_id"] for link in hall["links"]] == [1]
+
+
 def test_unnamed_buildings_are_dropped():
     raw = raw_bundle()
     nodes = transform.build_nodes(raw)

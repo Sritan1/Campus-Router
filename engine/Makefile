@@ -7,6 +7,9 @@ BUILD    := build
 # everything the three binaries share
 CORE := src/graph.cpp src/algorithms.cpp src/loader.cpp src/json.cpp src/service.cpp
 
+# headers hold real code too
+HEADERS := $(wildcard include/campus/*.hpp)
+
 SERVER_SRC := src/main.cpp $(CORE)
 CLI_SRC    := cli/route_cli.cpp $(CORE)
 TEST_SRC   := $(wildcard tests/*.cpp) $(CORE)
@@ -28,13 +31,13 @@ all: $(SERVER)
 
 cli: $(CLI)
 
-$(SERVER): $(SERVER_SRC) | $(BUILD)
+$(SERVER): $(SERVER_SRC) $(HEADERS) | $(BUILD)
 	$(CXX) $(CXXFLAGS) $(SERVER_SRC) -o $@ $(LIBS)
 
-$(CLI): $(CLI_SRC) | $(BUILD)
+$(CLI): $(CLI_SRC) $(HEADERS) | $(BUILD)
 	$(CXX) $(CXXFLAGS) $(CLI_SRC) -o $@
 
-$(TESTS): $(TEST_SRC) | $(BUILD)
+$(TESTS): $(TEST_SRC) $(HEADERS) $(wildcard tests/*.hpp) | $(BUILD)
 	$(CXX) $(CXXFLAGS) -Itests $(TEST_SRC) -o $@
 
 test: $(TESTS)

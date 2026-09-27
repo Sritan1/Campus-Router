@@ -162,7 +162,9 @@ const NO_REASON = "Something went wrong at our end. Try again in a moment.";
 async function readError(reply: Response): Promise<string> {
   try {
     const body = await reply.json();
-    return body.detail ?? body.error ?? NO_REASON;
+    // validation errors send a list here
+    const reason = body.detail ?? body.error;
+    return typeof reason === "string" ? reason : NO_REASON;
   } catch {
     // a non json error body is still an error, just a less useful one
     return NO_REASON;

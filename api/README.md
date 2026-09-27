@@ -41,6 +41,10 @@ speed, and timing it would invent a slower walk out of a nudge. Until this was f
 mode timed the plain distance, so weather mode would route you around ice and then promise
 the same time as bare pavement.
 
+`/api/isochrone` follows the same rule. Its budget is time, so outside weather mode it drops
+the preference multipliers and keeps only the blocks: accessible reach still avoids steps,
+but a rough path counts at its real length.
+
 **A route that does not exist is not an error.** Blocking steps genuinely strands parts
 of campus, so those come back as `"status": "no_path"` inside a normal 200.
 
@@ -93,8 +97,11 @@ Two consequences worth knowing:
 
 The gateway starts the engine as a child process on loopback, waits for its health check
 before serving traffic, forwards its output into the gateway log, and restarts it with
-backoff if it dies. `/api/health` reports the engine too, so a container with a dead
-engine fails its health check instead of looking fine.
+backoff if it dies. It also pings the engine every five seconds and replaces one that misses
+three in a row, since a process that is alive but hung never exits. Railway restarts a
+container only when it exits and checks health only while deploying, so nothing else would
+notice. `/api/health` reports the engine too, so a container with a dead engine fails its
+health check instead of looking fine.
 
 ## Configuration
 

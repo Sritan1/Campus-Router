@@ -672,3 +672,68 @@ def test_weather_endpoint_says_so_when_it_cannot_help(client, monkeypatch):
     )
     body = client.get("/api/weather").json()
     assert body["available"] is False
+
+
+def test_reach_keeps_blocks_but_drops_preferences(client, monkeypatch):
+    seen = {}
+
+    def capture(start, limit_m, cost):
+        seen["cost"] = cost
+        return {"ok": True, "points": [], "ids": [], "costs": [], "edges": [], "edgeCosts": []}
+
+    monkeypatch.setattr(engine_client, "isochrone", capture)
+    reply = client.post("/api/isochrone", json={"start": "SES", "mode": "accessible"})
+
+    assert reply.status_code == 200
+    assert seen["cost"]["multipliers"] == {}
+    assert any("steps" in blocked for blocked in seen["cost"]["blocked"])
+
+
+def test_a_crash_still_carries_cors_headers(monkeypatch):
+    from api import main
+
+    def broken():
+        raise AttributeError("simulated bug")
+
+    monkeypatch.setattr("api.routes.routing.weather_cache.get_or_none", broken)
+    app_client = TestClient(main.app, raise_server_exceptions=False)
+    reply = app_client.get("/api/weather", headers={"Origin": "https://example.com"})
+
+    assert reply.status_code == 500
+    assert reply.headers.get("access-control-allow-origin") == "*"
+    assert "simulated" not in reply.text
+
+
+def test_an_engine_that_stops_answering_gets_replaced(monkeypatch):
+    from api.services import engine_process
+
+    class Hung:
+        def __init__(self):
+            self.alive = True
+
+        def poll(self):
+            return None if self.alive else 0
+
+    watcher = engine_process.EngineProcess()
+    watcher._proc = Hung()
+    events = []
+
+    def kill():
+        events.append("kill")
+        watcher._proc.alive = False
+
+    def spawn():
+        events.append("spawn")
+        watcher._stopping = True
+
+    monkeypatch.setattr(engine_process, "HEALTH_EVERY_S", 0.0)
+    monkeypatch.setattr(engine_process.time, "sleep", lambda s: None)
+    monkeypatch.setattr(watcher, "_ping", lambda: False)
+    monkeypatch.setattr(watcher, "_kill", kill)
+    monkeypatch.setattr(watcher, "_spawn", spawn)
+    monkeypatch.setattr(watcher, "_wait_until_healthy", lambda timeout_s: True)
+
+    watcher._watch()
+
+    assert events == ["kill", "spawn"]
+    assert watcher.restarts == 1

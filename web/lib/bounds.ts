@@ -47,7 +47,7 @@ export function raceBounds(
     return null;
   }
 
-  // these are never trimmed. the answer has to be visible.
+  // these are never trimmed. the answer has to be visible
   const required: [number, number][] = [
     [reply.start.lat, reply.start.lon],
     [reply.target.lat, reply.target.lon],

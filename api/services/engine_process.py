@@ -15,6 +15,10 @@ log = logging.getLogger("engine")
 # health is asked often, so hold one client like engine_client does
 _client = httpx.Client(timeout=settings.engine_timeout_s)
 
+# railway only restarts on exit
+HEALTH_EVERY_S = 5.0
+MISSES_BEFORE_RESTART = 3
+
 
 def close() -> None:
     # see engine_client.close
@@ -106,14 +110,42 @@ class EngineProcess:
         self._monitor = threading.Thread(target=self._watch, daemon=True)
         self._monitor.start()
 
+    def _kill(self) -> None:
+        with self._lock:
+            proc = self._proc
+            if proc is None or proc.poll() is not None:
+                return
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+
     def _watch(self) -> None:
         backoff = 0.5
+        misses = 0
+        pinged_at = time.monotonic()
         while not self._stopping:
             time.sleep(0.5)
-            if self._stopping or self.is_running():
-                backoff = 0.5
-                continue
+            if self._stopping:
+                return
 
+            if self.is_running():
+                now = time.monotonic()
+                if now - pinged_at < HEALTH_EVERY_S:
+                    continue
+                pinged_at = now
+                if self._ping():
+                    misses = 0
+                    backoff = 0.5
+                    continue
+                misses += 1
+                if misses < MISSES_BEFORE_RESTART:
+                    continue
+                log.warning("engine stopped answering, replacing it")
+                self._kill()
+
+            misses = 0
             self.restarts += 1
             log.warning("engine died, restarting in %.1fs", backoff)
             time.sleep(backoff)
@@ -136,16 +168,9 @@ class EngineProcess:
 
     def stop(self) -> None:
         self._stopping = True
-        with self._lock:
-            proc = self._proc
-            if proc is None or proc.poll() is not None:
-                return
+        if self.is_running():
             log.info("stopping engine")
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+        self._kill()
 
 
 engine = EngineProcess()

@@ -1,11 +1,12 @@
 "use client";
 
+// retry fetches again, reset only renders again
 export default function Error({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   return (
     <main className="shell">
@@ -21,7 +22,7 @@ export default function Error({
             <code>{error.message}</code>
           </p>
         ) : null}
-        <button type="button" className="primary" onClick={reset}>
+        <button type="button" className="primary" onClick={() => retry()}>
           Try again
         </button>
       </div>

@@ -13,9 +13,29 @@ const EASE = "height .28s cubic-bezier(.2,.8,.2,1)";
 
 type Snaps = Record<Snap, number>;
 
-// what a closed sheet shows and hides, for both the lab layout and the other
-const CHROME = ".sheet-handle, .view-switch, .results-head, .panel-foot, .results-foot";
-const SCROLLER = ".panel-scroll, .results-body";
+// a little over the snap animation
+const LAND_MS = 320;
+
+// the map keeps its size while the sheet moves over it
+function holdMap() {
+  const root = document.documentElement;
+  const wrap = document.querySelector<HTMLElement>(".map-wrap");
+  if (!wrap || root.classList.contains("sheet-moving")) {
+    return;
+  }
+  root.style.setProperty("--map-held", `${wrap.getBoundingClientRect().height}px`);
+  root.classList.add("sheet-moving");
+}
+
+function releaseMap() {
+  document.documentElement.classList.remove("sheet-moving");
+  document.documentElement.style.removeProperty("--map-held");
+}
+
+// what a closed sheet shows and hides, for all three layouts
+const CHROME =
+  ".sheet-handle, .view-switch, .results-head, .panel-foot, .results-foot, .panel-running > .panel-title";
+const SCROLLER = ".panel-scroll, .results-body, .running-body";
 
 function peekNow(): number {
   const sheet = document.querySelector<HTMLElement>(".sidebar");
@@ -53,13 +73,21 @@ export function useSheet() {
     snaps: Snaps;
   } | null>(null);
   const draggedAt = useRef(0);
+  const landing = useRef(0);
   const snapRef = useRef<Snap>("half");
   snapRef.current = snap;
 
   const apply = useCallback(() => {
-    if (!drag.current) {
-      document.documentElement.style.setProperty("--sb-h", `${snapsNow()[snapRef.current]}px`);
+    // nothing to measure behind the fatal screen
+    if (drag.current || !document.querySelector(".body")) {
+      return;
     }
+    document.documentElement.style.setProperty("--sb-h", `${snapsNow()[snapRef.current]}px`);
+  }, []);
+
+  const [sheet, setSheet] = useState<HTMLElement | null>(null);
+  const handleRef = useCallback((handle: HTMLDivElement | null) => {
+    setSheet(handle?.parentElement ?? null);
   }, []);
 
   useEffect(() => {
@@ -69,9 +97,12 @@ export function useSheet() {
       if (mq.matches) {
         apply();
       } else {
+        detach.current?.();
+        drag.current = null;
         // a stale height would fight the next resize back down
         document.documentElement.style.removeProperty("--sb-h");
         document.documentElement.style.removeProperty("--sb-tr");
+        releaseMap();
       }
     };
     sync();
@@ -93,16 +124,27 @@ export function useSheet() {
 
   // the lab swaps its panel mid race, and a closed sheet clips the new footer
   useEffect(() => {
-    const sheet = document.querySelector(".sidebar");
     if (!on || !sheet) {
       return;
     }
-    const watch = new MutationObserver(() => apply());
+    apply();
+    const watch = new MutationObserver(() => {
+      // closed during a run, it keeps its height
+      if (snapRef.current === "peek" && sheet.querySelector(".panel-running")) {
+        return;
+      }
+      apply();
+    });
     watch.observe(sheet, { childList: true, subtree: true });
     return () => watch.disconnect();
-  }, [on, apply]);
+  }, [on, sheet, apply]);
 
   const detach = useRef<(() => void) | null>(null);
+
+  const releaseSoon = useCallback(() => {
+    window.clearTimeout(landing.current);
+    landing.current = window.setTimeout(releaseMap, LAND_MS);
+  }, []);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -110,6 +152,8 @@ export function useSheet() {
       const sheet = e.currentTarget.parentElement;
       if (!sheet) return;
       detach.current?.();
+      window.clearTimeout(landing.current);
+      holdMap();
       // read once, or the floor chases the shrinking sheet down
       drag.current = {
         y: e.clientY,
@@ -126,6 +170,7 @@ export function useSheet() {
         drag.current = null;
         if (!d) return;
         document.documentElement.style.setProperty("--sb-tr", EASE);
+        releaseSoon();
         if (!d.moved) {
           apply();
           return;
@@ -167,18 +212,27 @@ export function useSheet() {
         detach.current = null;
       };
     },
-    [on, apply],
+    [on, apply, releaseSoon],
   );
 
-  useEffect(() => () => detach.current?.(), []);
+  useEffect(
+    () => () => {
+      detach.current?.();
+      window.clearTimeout(landing.current);
+      releaseMap();
+    },
+    [],
+  );
 
   const onClick = useCallback(() => {
     if (!on || Date.now() - draggedAt.current < 300) return;
+    holdMap();
+    releaseSoon();
     setSnap((s) => (s === "full" ? "half" : "full"));
-  }, [on]);
+  }, [on, releaseSoon]);
 
   return {
     sheetClass: on && snap === "peek" ? "sidebar is-peek" : "sidebar",
-    handleProps: { onPointerDown, onClick },
+    handleProps: { ref: handleRef, onPointerDown, onClick },
   };
 }

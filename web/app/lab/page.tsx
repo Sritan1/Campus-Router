@@ -130,17 +130,22 @@ export default function Lab() {
     dispatch({ type: "finished" });
   }, [stopClock]);
 
+  const tickets = useRef(0);
+  const waitingOn = useRef<number | null>(null);
+  waitingOn.current = state.request;
+
   // takes the state to run, so racing on and running work in one click
   const runWith = useCallback(
     async (wanted: AppState) => {
+      const request = ++tickets.current;
       if (!canRun(wanted)) {
-        dispatch({ type: "run" });
+        dispatch({ type: "run", request });
         return;
       }
       stopClock();
       setStartedAt(null);
       setProgress(0);
-      dispatch({ type: "run" });
+      dispatch({ type: "run", request });
 
       try {
         const reply = await requestRoute({
@@ -150,14 +155,20 @@ export default function Lab() {
           algorithms: algorithmsFor(wanted),
           trace: true,
         });
-        dispatch({ type: "arrived", reply });
+        if (waitingOn.current !== request) {
+          return;
+        }
+        dispatch({ type: "arrived", request, reply });
         startClock();
       } catch (error) {
+        if (waitingOn.current !== request) {
+          return;
+        }
         const message =
           error instanceof ApiError
             ? error.message
             : "We could not reach the routing service. Try again in a moment.";
-        dispatch({ type: "failed", message });
+        dispatch({ type: "failed", request, message });
       }
     },
     [startClock, stopClock],

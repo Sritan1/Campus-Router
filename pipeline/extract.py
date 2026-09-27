@@ -111,6 +111,16 @@ out body;"""
     return overpass.run("entrances", query, refresh)
 
 
+def data_date(*payloads: dict) -> str:
+    # the cache can be weeks old
+    stamps = []
+    for payload in payloads:
+        stamp = payload.get("osm3s", {}).get("timestamp_osm_base", "")
+        if stamp:
+            stamps.append(stamp[:10])
+    return min(stamps) if stamps else dt.date.today().isoformat()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="pull raw campus data from overpass")
     parser.add_argument("--refresh", action="store_true", help="ignore the cache")
@@ -131,7 +141,7 @@ def main() -> int:
         "campus_bounds": bounds,
         "query_box": list(box),
         # the about page shows this date, so record it rather than remember it
-        "fetched": dt.date.today().isoformat(),
+        "fetched": data_date(ways, buildings, entrances),
         "ways": ways,
         "buildings": buildings,
         "entrances": entrances,

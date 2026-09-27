@@ -150,47 +150,51 @@ function RunningPanel({ state, progress, onSkip }: Props) {
   // nothing to measure before the reply, so no fake moving bars
   if (!reply) {
     return (
-      <div className="panel">
+      <div className="panel panel-running">
         <h2 className="panel-title">Running…</h2>
-        <div className="skeletons">
-          {ALL.map((name) => (
-            <div className="skeleton-lane" key={name}>
-              <span className="skeleton-name">{ALGORITHM_LABELS[name]}</span>
-              <span className="skeleton-bar" />
-            </div>
-          ))}
+        <div className="running-body">
+          <div className="skeletons">
+            {ALL.map((name) => (
+              <div className="skeleton-lane" key={name}>
+                <span className="skeleton-name">{ALGORITHM_LABELS[name]}</span>
+                <span className="skeleton-bar" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="panel">
+    <div className="panel panel-running">
       <h2 className="panel-title">Exploring…</h2>
-      <div className="skeletons">
-        {reply.results.map((result) => (
-          <div className="race-lane" key={result.algorithm}>
-            <span className="race-name">{ALGORITHM_LABELS[result.algorithm]}</span>
-            <span className="race-track">
-              <span
-                className="race-fill"
-                style={{
-                  width: `${barFraction(result, reply.results, progress) * 100}%`,
-                  background: ALGORITHM_COLORS[result.algorithm],
-                }}
-              />
-            </span>
-            <span className="race-count">
-              {count(Math.round(result.nodesVisited * progress))}
-            </span>
-          </div>
-        ))}
-      </div>
-      <p className="panel-hint">Bars are engine time, numbers are nodes explored</p>
+      <div className="running-body">
+        <div className="skeletons">
+          {reply.results.map((result) => (
+            <div className="race-lane" key={result.algorithm}>
+              <span className="race-name">{ALGORITHM_LABELS[result.algorithm]}</span>
+              <span className="race-track">
+                <span
+                  className="race-fill"
+                  style={{
+                    width: `${barFraction(result, reply.results, progress) * 100}%`,
+                    background: ALGORITHM_COLORS[result.algorithm],
+                  }}
+                />
+              </span>
+              <span className="race-count">
+                {count(Math.round(result.nodesVisited * progress))}
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="panel-hint">Bars are engine time, numbers are nodes explored</p>
 
-      <button type="button" className="secondary run-button" onClick={onSkip}>
-        Skip to results ▸
-      </button>
+        <button type="button" className="secondary run-button" onClick={onSkip}>
+          Skip to results ▸
+        </button>
+      </div>
     </div>
   );
 }

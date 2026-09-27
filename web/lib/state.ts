@@ -18,6 +18,8 @@ export type AppState = {
   reply: RouteReply | null;
   error: string | null;
   showTable: boolean;
+  // a late reply to any other request is dropped
+  request: number | null;
 };
 
 export const INITIAL: AppState = {
@@ -33,6 +35,7 @@ export const INITIAL: AppState = {
   reply: null,
   error: null,
   showTable: false,
+  request: null,
 };
 
 export type Action =
@@ -45,17 +48,17 @@ export type Action =
   | { type: "setRace"; race: boolean }
   | { type: "selectLane"; algorithm: AlgorithmName }
   | { type: "toggleTable" }
-  | { type: "run" }
-  | { type: "arrived"; reply: RouteReply }
+  | { type: "run"; request: number }
+  | { type: "arrived"; request: number; reply: RouteReply }
   | { type: "finished" }
   | { type: "replay" }
-  | { type: "failed"; message: string }
+  | { type: "failed"; request: number; message: string }
   | { type: "restore"; patch: Partial<AppState> }
   | { type: "reset" };
 
 // anything that changes the question has to clear the answer on screen
 function staleAfterChange(): Partial<AppState> {
-  return { phase: "idle", reply: null, error: null, showTable: false };
+  return { phase: "idle", reply: null, error: null, showTable: false, request: null };
 }
 
 export function reduce(state: AppState, action: Action): AppState {
@@ -118,13 +121,16 @@ export function reduce(state: AppState, action: Action): AppState {
       return { ...state, showTable: !state.showTable };
 
     case "run":
-      if (!state.startId || !state.targetId) {
-        // nothing to run yet, so open the field that is still empty
+      if (!canRun(state)) {
+        // nothing to run yet, so open a field
         return { ...state, searchFor: state.startId ? "target" : "start" };
       }
-      return { ...state, phase: "running", error: null, reply: null };
+      return { ...state, phase: "running", error: null, reply: null, request: action.request };
 
     case "arrived": {
+      if (action.request !== state.request) {
+        return state;
+      }
       // the exploration still has to play, so stay in running
       const first = action.reply.results.find((r) => r.status === "ok");
       return {
@@ -151,6 +157,9 @@ export function reduce(state: AppState, action: Action): AppState {
       return { ...state, phase: "running", showTable: false };
 
     case "failed":
+      if (action.request !== state.request) {
+        return state;
+      }
       return { ...state, phase: "idle", error: action.message, reply: null };
 
     case "restore":

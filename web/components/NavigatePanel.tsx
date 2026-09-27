@@ -130,7 +130,8 @@ export default function NavigatePanel(props: Props) {
     );
   }
 
-  if (busy) {
+  // a route already on screen stays up while another mode loads
+  if (busy && !reply) {
     return (
       <div className="panel">
         <h2 className="panel-title">Finding a route…</h2>
@@ -170,7 +171,7 @@ export default function NavigatePanel(props: Props) {
         <h2 className="panel-title">No route found</h2>
         {/* a claim about our map, not the building, since somebody may need to get in */}
         <p className="empty-body">
-          {mode === "accessible"
+          {reply.mode === "accessible"
             ? "No step free route to the entrance we know about. There may still be one we have not mapped."
             : "These two buildings are not connected by the mapped path network."}
         </p>
@@ -199,7 +200,7 @@ export default function NavigatePanel(props: Props) {
         ))}
 
         {/* results only, since a note for one mode on the idle panel makes the card jump */}
-        {mode === "accessible" ? (
+        {reply.mode === "accessible" ? (
           <p className="caveat">
             Accessible routing reads OpenStreetMap, which maps stairs far more
             completely than ramps, so treat this as a good guess rather than a

@@ -53,16 +53,44 @@ describe("running", () => {
   });
 
   it("opens the empty field instead of erroring", () => {
-    const opened = reduce(INITIAL, { type: "run" });
+    const opened = reduce(INITIAL, { type: "run", request: 1 });
     expect(opened.searchFor).toBe("start");
     expect(opened.phase).toBe("idle");
 
-    const half = reduce({ ...INITIAL, startId: "1" }, { type: "run" });
+    const half = reduce({ ...INITIAL, startId: "1" }, { type: "run", request: 1 });
     expect(half.searchFor).toBe("target");
   });
 
+  it("never waits on a trip from a building to itself", () => {
+    const same = reduce(withEnds({ targetId: "1" }), { type: "run", request: 1 });
+    expect(same.phase).toBe("idle");
+    expect(same.request).toBeNull();
+  });
+
   it("goes to running when both ends are set", () => {
-    expect(reduce(withEnds(), { type: "run" }).phase).toBe("running");
+    expect(reduce(withEnds(), { type: "run", request: 1 }).phase).toBe("running");
+  });
+});
+
+describe("replies to an old question", () => {
+  it("a reply that lands after the pair changed is dropped", () => {
+    const asked = reduce(withEnds(), { type: "run", request: 1 });
+    const changed = reduce(asked, { type: "pickBuilding", which: "target", id: "9" });
+    const late = reduce(changed, { type: "arrived", request: 1, reply: fakeReply() });
+    expect(late).toBe(changed);
+  });
+
+  it("only the newest run is answered", () => {
+    const first = reduce(withEnds(), { type: "run", request: 1 });
+    const second = reduce(first, { type: "run", request: 2 });
+    expect(reduce(second, { type: "arrived", request: 1, reply: fakeReply() })).toBe(second);
+    expect(reduce(second, { type: "arrived", request: 2, reply: fakeReply() }).reply).not.toBeNull();
+  });
+
+  it("a late failure does not land on the new question", () => {
+    const asked = reduce(withEnds(), { type: "run", request: 1 });
+    const changed = reduce(asked, { type: "swapEnds" });
+    expect(reduce(changed, { type: "failed", request: 1, message: "down" }).error).toBeNull();
   });
 });
 
@@ -111,23 +139,23 @@ describe("selecting lanes", () => {
   });
 
   it("a finished race selects the first algorithm that found something", () => {
-    const running = withEnds({ phase: "running" });
-    const next = reduce(running, { type: "arrived", reply: fakeReply() });
+    const running = withEnds({ phase: "running", request: 1 });
+    const next = reduce(running, { type: "arrived", request: 1, reply: fakeReply() });
     // dijkstra came back no_path, so astar is the one to draw
     expect(next.selected).toBe("astar");
   });
 
   it("a single algorithm run selects that algorithm", () => {
-    const running = withEnds({ phase: "running", race: false, algorithm: "bfs" });
-    const next = reduce(running, { type: "arrived", reply: fakeReply() });
+    const running = withEnds({ phase: "running", race: false, algorithm: "bfs", request: 1 });
+    const next = reduce(running, { type: "arrived", request: 1, reply: fakeReply() });
     expect(next.selected).toBe("bfs");
   });
 });
 
 describe("playback", () => {
   it("the reply arriving does not end the running phase", () => {
-    const running = withEnds({ phase: "running" });
-    const next = reduce(running, { type: "arrived", reply: fakeReply() });
+    const running = withEnds({ phase: "running", request: 1 });
+    const next = reduce(running, { type: "arrived", request: 1, reply: fakeReply() });
     expect(next.phase).toBe("running");
     expect(next.reply).not.toBeNull();
   });
@@ -168,8 +196,9 @@ describe("comparison table", () => {
 
 describe("failures", () => {
   it("drops back to idle and keeps the message", () => {
-    const next = reduce(withEnds({ phase: "running" }), {
+    const next = reduce(withEnds({ phase: "running", request: 1 }), {
       type: "failed",
+      request: 1,
       message: "engine is down",
     });
     expect(next.phase).toBe("idle");
@@ -179,7 +208,7 @@ describe("failures", () => {
 
   it("running again clears the old error", () => {
     const failed = withEnds({ error: "engine is down" });
-    expect(reduce(failed, { type: "run" }).error).toBeNull();
+    expect(reduce(failed, { type: "run", request: 1 }).error).toBeNull();
   });
 });
 

@@ -17,11 +17,13 @@ BARE_SPEED = SURFACE_STATE_SPEED["bare"]
 SPEED_PER_DEGREE = -0.013
 TEMP_RANGE_C = (-12.0, 8.0)
 
-# assumed, not measured. the study saw the ground, this guesses it from a
-# weather feed, and that guess is the weakest part of the model
+# assumed, not measured
 ROUGH_SURFACES = {"sett", "paving_stones", "gravel", "unpaved", "ground", "dirt"}
 
-# at or below this, any moisture counts as freezing
+# assumed, not measured
+ROUGH_PENALTY = 1.5
+
+# assumed, not measured. any moisture at or below this freezes
 FREEZING_C = 1.0
 
 
@@ -33,9 +35,8 @@ def multiplier_for_state(state: str) -> float:
 def walking_speed(temp_c: Optional[float]) -> float:
     if temp_c is None:
         return BARE_SPEED
-    # outside the studied range, fall back rather than extrapolate
-    if temp_c < TEMP_RANGE_C[0] or temp_c > TEMP_RANGE_C[1]:
-        return BARE_SPEED
+    # hold the edge value outside the studied range
+    temp_c = min(max(temp_c, TEMP_RANGE_C[0]), TEMP_RANGE_C[1])
 
     # assumed, not measured. the paper gives 1.607 as an average rather than the
     # speed at any one temperature, so anchoring it to the midpoint is a guess
@@ -44,6 +45,7 @@ def walking_speed(temp_c: Optional[float]) -> float:
 
 
 def infer_states(weather: Optional[dict]) -> dict:
+    # assumed, not measured. the ground is guessed from the weather
     everything_bare = {"flat": "bare", "steps": "bare", "rough": "bare"}
     if not weather:
         return everything_bare
@@ -87,7 +89,7 @@ def build(mode: str, classes: list[str], weather: Optional[dict] = None) -> dict
                 blocked.append(class_key)
             elif surface in ROUGH_SURFACES:
                 # discouraged, not blocked
-                multipliers[class_key] = 1.5
+                multipliers[class_key] = ROUGH_PENALTY
         notes.append("Route avoids all steps and prefers smooth ground.")
 
     elif mode == "weather":
@@ -120,8 +122,7 @@ def build(mode: str, classes: list[str], weather: Optional[dict] = None) -> dict
         "blocked": blocked,
         "notes": notes,
         "walkingSpeedMps": round(walking_speed((weather or {}).get("tempC")), 4),
-        # weather multipliers are measured slowdowns, so times can use them.
-        # the 1.5 for rough ground is only a preference and would inflate times
+        # weather slowdowns are measured, the rough ground penalty is only a preference
         "speedDerived": mode == "weather",
         "source": "Fossum and Ryeng 2021",
     }
