@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { preconnect } from "react-dom";
 import { Cormorant_Garamond, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
+import { API_BASE } from "@/lib/api";
 import { shareCard, siteUrl } from "@/lib/share";
 
 import Providers from "./providers";
@@ -47,6 +49,8 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  preconnect("https://api.maptiler.com");
+  preconnect(API_BASE, { crossOrigin: "anonymous" });
   return (
     <html lang="en" className={`${sans.variable} ${display.variable} ${mono.variable}`}>
       <body>

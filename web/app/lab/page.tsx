@@ -276,6 +276,7 @@ export default function Lab() {
 
   return (
     <main className="shell">
+      <h1 className="sr-only">Algorithm lab</h1>
       <Header
         buildings={list}
         start={start}
@@ -338,13 +339,25 @@ export default function Lab() {
             />
             {/* the panels turn leaflet attribution off, so the credits live here */}
             <p className="grid-credit">
-              <a href="https://www.maptiler.com/" target="_blank" rel="noopener">
+              <a href="https://www.maptiler.com/" target="_blank" rel="noopener noreferrer">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={MAPTILER_LOGO} alt="MapTiler" className="tile-logo" />
+                <img src={MAPTILER_LOGO} alt="MapTiler" className="tile-logo" width={67} height={20} />
               </a>{" "}
-              <a href="https://www.maptiler.com/copyright/">© MapTiler</a> ·{" "}
-              <a href="https://leafletjs.com">Leaflet</a> · Map data ©{" "}
-              <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>{" "}
+              <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener noreferrer">
+                © MapTiler
+              </a>{" "}
+              ·{" "}
+              <a href="https://leafletjs.com" target="_blank" rel="noopener noreferrer">
+                Leaflet
+              </a>{" "}
+              · Map data ©{" "}
+              <a
+                href="https://www.openstreetmap.org/copyright"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                OpenStreetMap
+              </a>{" "}
               contributors · All four share one frame
             </p>
           </div>

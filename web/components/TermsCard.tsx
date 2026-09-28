@@ -83,7 +83,10 @@ export default function TermsCard() {
           </div>
           <div className="terms-row">
             <dt className="section-label">Privacy</dt>
-            <dd>No accounts, analytics or cookies. Map tiles come from MapTiler.</dd>
+            <dd>
+              No accounts or cookies. Anonymous visit counts through Vercel Web
+              Analytics. Map tiles come from MapTiler.
+            </dd>
           </div>
         </dl>
 

@@ -18,7 +18,7 @@ import WatchMapSize from "@/components/WatchMapSize";
 import type { AlgorithmResult, Building, GraphMeta, Isochrone, RouteReply } from "@/lib/api";
 import { boundsAround, raceBounds } from "@/lib/bounds";
 import { REGION_COLOUR } from "@/lib/isochrone";
-import { TILE_ATTRIBUTION, TILE_MAX_ZOOM, TILE_URL } from "@/lib/tiles";
+import { NEW_TAB, TILE_ATTRIBUTION, TILE_MAX_ZOOM, TILE_URL } from "@/lib/tiles";
 import { ALGORITHM_COLORS, LINE, walkMinutes } from "@/lib/format";
 
 const CAMPUS_CENTER: [number, number] = [41.8708, -87.6505];
@@ -90,6 +90,21 @@ function CenterOnStart({
       animate: false,
     });
   }, [map, lat, lon]);
+
+  return null;
+}
+
+// leaflet writes its own credit link, so give it a new tab like the others
+function LeafletLinkInNewTab() {
+  const map = useMap();
+
+  useEffect(() => {
+    const control = map.attributionControl;
+    const prefix = control?.options.prefix;
+    if (typeof prefix === "string" && !prefix.includes("_blank")) {
+      control.setPrefix(prefix.replace("<a ", `<a ${NEW_TAB} `));
+    }
+  }, [map]);
 
   return null;
 }
@@ -178,6 +193,7 @@ export default function MapPane({
         />
 
         <WatchMapSize />
+        <LeafletLinkInNewTab />
 
         <TraceCanvas
           results={traces}

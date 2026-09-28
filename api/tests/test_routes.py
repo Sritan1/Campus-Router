@@ -689,6 +689,14 @@ def test_reach_keeps_blocks_but_drops_preferences(client, monkeypatch):
     assert any("steps" in blocked for blocked in seen["cost"]["blocked"])
 
 
+def test_no_generated_docs_pages():
+    from api import main
+
+    app_client = TestClient(main.app)
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert app_client.get(path).status_code == 404
+
+
 def test_a_crash_still_carries_cors_headers(monkeypatch):
     from api import main
 

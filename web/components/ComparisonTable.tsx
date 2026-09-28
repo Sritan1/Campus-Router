@@ -19,7 +19,7 @@ export default function ComparisonTable({ reply, selected, onClose }: Props) {
   return (
     <section className="table-wrap">
       <div className="table-head">
-        <h3 className="table-title">Route comparison</h3>
+        <h2 className="table-title">Route comparison</h2>
         <button type="button" className="link-button" onClick={onClose}>
           Back to Maps
         </button>

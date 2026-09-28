@@ -7,6 +7,8 @@ import BrandMark from "@/components/BrandMark";
 import { fetchGraphMeta } from "@/lib/api";
 import { MODE_LABEL } from "@/lib/format";
 
+import openWeatherLogo from "./openweather-logo.png";
+
 // the four lane colours for the lab key
 const LANES = ["#e0762f", "#3b7fc4", "#4c9d63", "#8fb2d4"];
 
@@ -35,7 +37,7 @@ export default function About() {
         </div>
       </header>
 
-      <div className="about-body">
+      <main className="about-body">
         <div className="bento">
           {/* five of six columns, since full width runs far past the text */}
           <div className="c5 about-card about-hero">
@@ -163,7 +165,11 @@ export default function About() {
                 <span className="about-row-key about-mono">MAP DATA</span>
                 <span className="about-row-value">
                   Paths, buildings and entrances from{" "}
-                  <a href="https://www.openstreetmap.org/copyright">
+                  <a
+                    href="https://www.openstreetmap.org/copyright"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     OpenStreetMap
                   </a>
                   {pulled ? <>, as of {pulled}</> : null}.
@@ -173,26 +179,55 @@ export default function About() {
                 <span className="about-row-key about-mono">MAP TILES</span>
                 <span className="about-row-value">
                   Rendered by{" "}
-                  <a href="https://www.maptiler.com/">MapTiler</a> from the same
+                  <a href="https://www.maptiler.com/" target="_blank" rel="noopener noreferrer">
+                    MapTiler
+                  </a>{" "}
+                  from the same
                   OpenStreetMap data.
                 </span>
               </div>
               <div className="about-row">
                 <span className="about-row-key about-mono">WEATHER</span>
                 <span className="about-row-value">
-                  Current conditions from{" "}
-                  <a href="https://openweathermap.org/">OpenWeather</a>.
+                  {/* wording and logo are what the openweather free plan asks for */}
+                  Weather data provided by{" "}
+                  <a href="https://openweathermap.org/" target="_blank" rel="noopener noreferrer">
+                    OpenWeather
+                  </a>
+                  .
+                  <a
+                    className="about-credit-logo"
+                    href="https://openweathermap.org/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <img src={openWeatherLogo.src} alt="OpenWeather" width={56} height={24} />
+                  </a>
                 </span>
               </div>
               <div className="about-row">
                 <span className="about-row-key about-mono">RESEARCH</span>
                 <span className="about-row-value">
                   Winter walking speeds from Fossum &amp; Ryeng (2021),{" "}
-                  <a href="https://doi.org/10.1016/j.trd.2021.102934">
+                  <a
+                    href="https://doi.org/10.1016/j.trd.2021.102934"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     &ldquo;The walking speed of pedestrians on various pavement
                     surface conditions during winter,&rdquo;
                   </a>{" "}
                   in <em>Transportation Research Part D</em>.
+                </span>
+              </div>
+              <div className="about-row">
+                <span className="about-row-key about-mono">SOFTWARE</span>
+                <span className="about-row-value">
+                  Built with open source packages, listed with their{" "}
+                  <a href="/third-party-licenses.txt" target="_blank" rel="noopener noreferrer">
+                    licences
+                  </a>
+                  .
                 </span>
               </div>
             </div>
@@ -203,8 +238,8 @@ export default function About() {
               <div className="about-label-head about-mono">PRIVACY</div>
               <div className="about-privacy-body">
                 <p>
-                  No accounts, analytics or cookies. Map tiles come from
-                  MapTiler.
+                  No accounts or cookies. Anonymous visit counts through Vercel
+                  Web Analytics. Map tiles come from MapTiler.
                 </p>
               </div>
             </div>
@@ -219,7 +254,7 @@ export default function About() {
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

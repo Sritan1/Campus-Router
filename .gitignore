@@ -43,6 +43,9 @@ pipeline/raw/
 # the readme ones are picked by hand.
 web/scripts/shots/
 
+# written by scripts/licenses.mjs on every build
+web/public/third-party-licenses.txt
+
 # os junk
 .DS_Store
 Thumbs.db

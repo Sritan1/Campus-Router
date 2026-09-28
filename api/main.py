@@ -37,7 +37,15 @@ async def lifespan(app: FastAPI):
         weather.close()
 
 
-app = FastAPI(title="Campus Router API", version="0.1.0", lifespan=lifespan)
+# no generated docs pages, so the public surface is only the app's own endpoints
+app = FastAPI(
+    title="Campus Router API",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 # real bodies are a few hundred bytes, and starlette reads until memory runs out
 MAX_BODY_BYTES = 64 * 1024

@@ -557,6 +557,11 @@ a.primary {
   background: var(--accent-soft);
 }
 
+.lane.is-active .lane-runtime,
+.lane.is-active .lane-stats {
+  color: #646a78;
+}
+
 .lane:disabled {
   opacity: 0.55;
   cursor: default;
@@ -1092,7 +1097,7 @@ a.primary {
 .invite-action {
   font-size: 13px;
   font-weight: 600;
-  color: var(--accent);
+  color: #2168c4;
 }
 
 .sr-only {
@@ -1138,7 +1143,7 @@ a.primary {
 .fatal-body {
   margin: 0;
   font-size: 14px;
-  color: var(--muted);
+  color: #646a78;
   line-height: 1.55;
 }
 
@@ -2221,6 +2226,17 @@ a.primary {
   line-height: 1.58;
   color: var(--a-body);
   text-wrap: pretty;
+}
+
+.about-page .about-credit-logo {
+  display: block;
+  width: fit-content;
+  margin-top: 8px;
+  border-bottom: 0;
+}
+
+.about-credit-logo img {
+  display: block;
 }
 
 .about-privacy-body {

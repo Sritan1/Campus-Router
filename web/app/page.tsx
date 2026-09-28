@@ -186,6 +186,7 @@ export default function Navigate() {
 
   return (
     <main className="shell">
+      <h1 className="sr-only">Campus Router</h1>
       <Header
         buildings={list}
         start={start}

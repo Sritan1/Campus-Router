@@ -39,7 +39,7 @@ const page = await browser.newPage();
 // or the terms card covers everything
 await page.addInitScript(() => {
   try {
-    localStorage.setItem("campus-router.terms.v1", "1");
+    localStorage.setItem("campus-router.terms.v2", "1");
   } catch {
     return;
   }

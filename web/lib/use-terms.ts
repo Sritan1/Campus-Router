@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-const KEY = "campus-router.terms.v1";
+const KEY = "campus-router.terms.v2";
 
 // storage throws in a private window
 function seen(): boolean {
