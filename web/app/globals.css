@@ -2254,11 +2254,13 @@ a.primary {
   display: block;
 }
 
-.about-privacy-body {
+.about-privacy-body,
+.about-docs-body {
   padding: 16px 18px 18px;
 }
 
-.about-privacy-body p {
+.about-privacy-body p,
+.about-docs-body p {
   margin: 0;
   font-size: 14px;
   line-height: 1.6;
@@ -2276,10 +2278,20 @@ a.primary {
   flex: 1;
 }
 
-/* stretches to fill the column, with the spare room under the text */
-.about-warranty {
-  display: flex;
-  flex-direction: column;
+.about-page .about-github {
+  display: block;
+  width: fit-content;
+  margin-top: 12px;
+  border-bottom: 0;
+  color: #1f2328;
+}
+
+.about-page .about-github:hover {
+  color: var(--a-blue);
+}
+
+.about-github svg {
+  display: block;
 }
 
 .about-warranty-body {

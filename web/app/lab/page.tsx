@@ -201,7 +201,7 @@ export default function Lab() {
         ? ` · ${group.algorithms.length} algorithms agree`
         : "";
     const others = state.reply.pathGroups.length > 1 ? " · dashed = other paths" : "";
-    return `drawn: ${drawn}${shared}${others}`;
+    return `Drawn: ${drawn}${shared}${others}`;
   })();
 
   // says the same thing as a sighted user gets from the panel changing

@@ -33,7 +33,7 @@ const mono = IBM_Plex_Mono({
 });
 
 const DESCRIPTION =
-  "Walking routes across the UIC campus, with four pathfinding algorithms raced against each other";
+  "Walking routes and reachable areas across the UIC campus, with step free and weather modes";
 
 export const metadata: Metadata = {
   // shared links need absolute urls
