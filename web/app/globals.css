@@ -698,7 +698,7 @@ a.primary {
   display: grid;
   /* a plain 1fr will not shrink below a long label */
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  /* a title row and a map row per pair, so a wrapped title never shortens one map */
+  /* title and map rows, so a wrapped title never shortens a map */
   grid-template-rows: repeat(2, auto minmax(auto, 1fr));
   gap: 14px;
   padding: 14px;
@@ -736,7 +736,7 @@ a.primary {
 }
 
 .panel-frame {
-  flex: 1;
+  position: relative;
   min-height: 84px;
   border-radius: 6px;
   overflow: hidden;
@@ -744,8 +744,8 @@ a.primary {
 }
 
 .panel-canvas {
-  height: 100%;
-  width: 100%;
+  position: absolute;
+  inset: 0;
   /* the panels are locked, so nothing here should invite a drag */
   cursor: pointer;
 }
