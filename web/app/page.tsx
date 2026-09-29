@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
 
 import Header from "@/components/Header";
+import MapFailed from "@/components/MapFailed";
 import NavigatePanel from "@/components/NavigatePanel";
 import ReachPanel from "@/components/ReachPanel";
 import {
@@ -21,7 +22,7 @@ import { useCampus, useRestoreFromUrl, useWriteUrl } from "@/lib/use-campus";
 import { useSheet } from "@/lib/use-sheet";
 import { writeUrl } from "@/lib/url";
 
-const MapPane = dynamic(() => import("@/components/MapPane"), {
+const MapPane = dynamic(() => import("@/components/MapPane").catch(() => MapFailed), {
   ssr: false,
   loading: () => <div className="map-pane map-loading">Loading the map…</div>,
 });
@@ -48,6 +49,9 @@ export default function Navigate() {
   // bumped when the question changes, so late answers are dropped
   const routeTicket = useRef(0);
   const reachTicket = useRef(0);
+
+  // weather answers go stale, the other two never change
+  const answers = useRef(new Map<string, RouteReply>());
 
   const { notice, setNotice, restored } = useRestoreFromUrl(list, (found) => {
     setStart(found.start);
@@ -118,6 +122,14 @@ export default function Navigate() {
       }
 
       const ticket = ++routeTicket.current;
+      const key = `${start.id}>${target.id}>${withMode}`;
+      const saved = answers.current.get(key);
+      if (saved) {
+        setRouteBusy(false);
+        setRouteError(null);
+        setReply(saved);
+        return;
+      }
       setRouteBusy(true);
       setRouteError(null);
       try {
@@ -129,6 +141,9 @@ export default function Navigate() {
           algorithms: [...ALGORITHMS],
           trace: false,
         });
+        if (withMode !== "weather") {
+          answers.current.set(key, result);
+        }
         if (ticket === routeTicket.current) {
           setReply(result);
         }

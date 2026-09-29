@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 
 import ComparisonTable from "@/components/ComparisonTable";
 import Header from "@/components/Header";
+import MapFailed from "@/components/MapFailed";
 import Sidebar from "@/components/Sidebar";
 import { raceBounds, type Bounds } from "@/lib/bounds";
 import {
@@ -29,12 +30,12 @@ import { useCampus, useRestoreFromUrl, useWriteUrl } from "@/lib/use-campus";
 import { useSheet } from "@/lib/use-sheet";
 
 // leaflet reaches for window as soon as it loads, so no server rendering
-const MapPane = dynamic(() => import("@/components/MapPane"), {
+const MapPane = dynamic(() => import("@/components/MapPane").catch(() => MapFailed), {
   ssr: false,
   loading: () => <div className="map-pane map-loading">Loading the map…</div>,
 });
 
-const RaceGrid = dynamic(() => import("@/components/RaceGrid"), {
+const RaceGrid = dynamic(() => import("@/components/RaceGrid").catch(() => MapFailed), {
   ssr: false,
   loading: () => <div className="map-pane map-loading">Loading the maps…</div>,
 });

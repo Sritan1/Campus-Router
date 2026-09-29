@@ -36,7 +36,7 @@ connection. See the README for why it is there.
 
 Source code is MIT licensed, see LICENSE.
 
-Map tiles are served by the OpenStreetMap Foundation and are not redistributed
-here. Bundled dependencies keep their own licenses: most are MIT or BSD,
-react-leaflet is Hippocratic 2.1, and the IBM Plex fonts are SIL OFL 1.1. See the
-README for the list.
+Map tiles are served by MapTiler and are not redistributed here. Bundled
+dependencies keep their own licenses: most are MIT or BSD, react-leaflet is
+Hippocratic 2.1, and the IBM Plex fonts are SIL OFL 1.1. The full list is at
+https://campusrouter.com/third-party-licenses.txt.

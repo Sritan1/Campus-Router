@@ -288,6 +288,15 @@ a.primary {
   background: var(--ground);
 }
 
+.map-failed {
+  place-content: center;
+  gap: 12px;
+}
+
+.map-failed p {
+  margin: 0;
+}
+
 .chip {
   position: absolute;
   z-index: 500;
@@ -689,7 +698,8 @@ a.primary {
   display: grid;
   /* a plain 1fr will not shrink below a long label */
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(auto, 1fr));
+  /* a title row and a map row per pair, so a wrapped title never shortens one map */
+  grid-template-rows: repeat(2, auto minmax(auto, 1fr));
   gap: 14px;
   padding: 14px;
   background: var(--ground);
@@ -699,8 +709,11 @@ a.primary {
 
 .panel-map {
   position: relative;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 0;
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 8px;
@@ -742,6 +755,7 @@ a.primary {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
+  align-content: flex-start;
   justify-content: space-between;
   gap: 1px 8px;
   padding: 1px 3px 7px;
@@ -1489,6 +1503,7 @@ a.primary {
   /* a line each, since side by side they wrap and crowd out the map */
   .panel-label {
     flex-direction: column;
+    justify-content: flex-start;
     align-items: flex-start;
     gap: 1px;
     padding: 1px 3px 6px;

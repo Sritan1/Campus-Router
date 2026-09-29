@@ -20,6 +20,9 @@ engine/bin/
 **/.pytest_cache/
 **/.ruff_cache/
 
+# tests run in ci, never in the image
+api/tests/
+
 # secrets never belong in an image layer, and a bare rule for the env file would
 # miss the real one inside the api folder
 **/.env
